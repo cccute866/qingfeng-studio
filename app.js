@@ -1,0 +1,212 @@
+"use strict";
+(function(){
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const noemo=s=>String(s||"").replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F000}-\u{1F2FF}\uFE0F]/gu,"").trim();
+const FLOORS=[
+ {id:"director",no:"RF",name:"總監室",who:"偉翔 創辦人／總監",icon:"ic_director",room:"room_director",member:"weixiang"},
+ {id:"council",no:"6F",name:"會議室",who:"每日 09:47 AI 會議",icon:"ic_council",room:"room_council"},
+ {id:"dev",no:"5F",name:"開發部",who:"智雅 主程式／整合",icon:"ic_dev",room:"room_dev",member:"zhiya"},
+ {id:"art",no:"4F",name:"美術部",who:"青鋒美術",icon:"ic_art",room:"room_art",member:"art"},
+ {id:"num",no:"3F",name:"數值部",who:"青鋒數值",icon:"ic_num",room:"room_num",member:"num"},
+ {id:"qa",no:"2F",name:"品管部",who:"青鋒監管",icon:"ic_qa",room:"room_qa",member:"qa"},
+ {id:"lobby",no:"1F",name:"一樓大廳",who:"遊戲入口 · 進度 · 路線圖",icon:"ic_lobby",room:"room_lobby"}];
+// 座位（以樓層圖寬高比例）：view back=背對（面向電腦）
+const SPOT={weixiang:{f:"director",x:.27,y:.80,floor:.88},zhiya:{f:"dev",x:.52,y:.76,floor:.80},art:{f:"art",x:.33,y:.73,floor:.82},num:{f:"num",x:.43,y:.79,floor:.84},qa:{f:"qa",x:.58,y:.81,floor:.86}};
+const SEAT={zhiya:.41,art:.49,num:.57,qa:.65}; const TABLE_TOP=.535;
+const NAMES={weixiang:"偉翔",zhiya:"智雅",art:"青鋒美術",num:"青鋒數值",qa:"青鋒監管",council:"AI 會議"};
+const SHORT={weixiang:"偉翔",zhiya:"智雅",art:"美術",num:"數值",qa:"監管"};
+const DEFLOOK={hair:"#222",skin:"#f2c9a0",outfit:"#456",trim:"#d6a63a",pants:"#333",style:"knot"};
+const CAT={work:"工作中",meet:"開會中",done:"完成",wait:"待命",you:"等你"};
+const LIVEMAP={"工作中":"work","開會中":"meet","完成":"done","待命":"wait","等你":"you"};
+let D=null, floorsEl={}, chars={}, thinking=null;
+
+function tpNow(){return new Date(Date.now()+8*3600e3);}
+function hm(d){return String(d.getUTCHours()).padStart(2,"0")+":"+String(d.getUTCMinutes()).padStart(2,"0");}
+function nowMin(){const d=tpNow();return d.getUTCHours()*60+d.getUTCMinutes()+d.getUTCSeconds()/60;}
+function todayStr(){return tpNow().toISOString().slice(0,10);}
+function parseTP(s){const m=/^(\d+)-(\d+)-(\d+)[ T](\d+):(\d+)/.exec(s||"");return m?Date.UTC(+m[1],m[2]-1,+m[3],+m[4]-8,+m[5]):NaN;}
+function agoText(s){const t=parseTP(s);if(isNaN(t))return"";const m=Math.max(0,Math.round((Date.now()-t)/60000));return m<1?"剛剛更新":m<60?m+" 分鐘前更新":m<1440?Math.floor(m/60)+" 小時前更新":Math.floor(m/1440)+" 天前更新";}
+function mm(s){const p=s.split(":");return +p[0]*60+ +p[1];}
+function fmtAt(s){if(!s)return"";return s.slice(0,10)===todayStr()?s.slice(11,16):s.slice(5,16).replace("-","/");}
+
+// ---- 狀態 ----
+function memberState(id){
+  const lv=D&&D.live&&D.live[id];
+  if(lv&&lv.status&&LIVEMAP[lv.status]){const age=(Date.now()-parseTP(lv.updatedAt))/60000;
+    if(age>=0&&age<180)return{cat:LIVEMAP[lv.status],text:lv.task||lv.status,full:lv.task,live:true,updatedAt:lv.updatedAt,where:LIVEMAP[lv.status]==="meet"?"meeting":"desk",since:parseTP(lv.updatedAt)};}
+  const o=D&&D.office, m=o&&o.members[id];
+  if(!m||typeof oStateAt!=="function")return{cat:"wait",text:"待命",where:"desk"};
+  const min=nowMin(); const r=oStateAt(o,m,min); const st=r.st||{};
+  let cat=st.tone||"wait";
+  let text=st.short||CAT[cat],full=st.full;
+  if(id==="weixiang"){const n=(D.director&&D.director.needYou||[]).length;if(n&&cat!=="work")cat="you";text="試玩 "+D.game.version+"，"+n+" 件等你決定";full="新版 "+D.game.version+" 已上線，等你試玩回饋手感；上架路線圖有 "+n+" 件需要你本人決定或開通（細節在總監室）。";}
+  let since=NaN; if(r.where==="meeting"){const d=tpNow();since=Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate(),0,0)-8*3600e3+mm(o.meeting.from)*60000;}
+  return{cat,text,full,where:r.where,live:false,since};
+}
+function floorState(f){
+  if(f.member){const s=memberState(f.member);return{cat:s.cat,label:CAT[s.cat],text:s.text};}
+  if(f.id==="council"){const ids=["zhiya","art","num","qa"].filter(i=>memberState(i).where==="meeting");
+    const o=D.office;const min=nowMin();
+    if(ids.length)return{cat:"meet",label:"開會中",text:ids.length+" 人在會議室"};
+    if(o&&min>=mm(o.meeting.to))return{cat:"done",label:"完成",text:D.council?("裁決 "+D.council.verdicts.length+" 項"):"今日會議結束"};
+    return{cat:"wait",label:"待命",text:"09:47 開會"};}
+  return{cat:"done",label:"營業中",text:D.game.version+" 可玩"};
+}
+function nextStep(id){
+  const o=D.office,m=o&&o.members[id],min=nowMin();
+  if(m){if(m.joinsMeeting&&min<mm(o.meeting.from))return o.meeting.from+" 開會："+(o.meeting.status.short||"");
+    for(const s of m.slots)if(min<mm(s.from))return s.from+" "+(s.during.short||"");}
+  return (D.cards[id]||{}).next||"";
+}
+
+// ---- 建樓 ----
+function buildTower(){
+  const t=$("#tower");t.innerHTML="";
+  for(const f of FLOORS){
+    const el=document.createElement("div");el.className="floor";el.tabIndex=0;el.setAttribute("role","button");el.setAttribute("aria-label",f.no+" "+f.name+"，打開細節");
+    el.innerHTML=`<div class="room" style="background-image:url(assets/${f.room}.webp)"><canvas></canvas><div class="hits"></div>
+      <div class="plate"><span class="no">${f.no}</span><img src="assets/${f.icon}.webp" alt="" width="30" height="30"><span><span class="nm">${f.name}</span><span class="who">${esc(f.who)}</span></span></div>
+      <div class="bubble"><span class="dot"></span><b></b><span class="t"></span></div>
+      ${f.id==="lobby"?'<div class="lobby-sign"><a class="btn play-link" target="_blank" rel="noopener" href="#">進入遊戲</a></div>':""}</div>`;
+    el.addEventListener("click",e=>{if(e.target.closest(".hit,.btn"))return;openFloor(f.id);});
+    el.addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target===el)openFloor(f.id);});
+    t.appendChild(el);
+    floorsEl[f.id]={el,cv:el.querySelector("canvas"),hits:el.querySelector(".hits"),room:el.querySelector(".room"),f,visible:true};
+  }
+  const io=new IntersectionObserver(es=>{for(const e of es){for(const k in floorsEl)if(floorsEl[k].room===e.target)floorsEl[k].visible=e.isIntersecting;}},{rootMargin:"80px"});
+  for(const k in floorsEl)io.observe(floorsEl[k].room);
+  for(const id of Object.keys(SPOT)){
+    const b=document.createElement("button");b.className="hit";b.setAttribute("aria-label",NAMES[id]+"：看他在做什麼");b.innerHTML=`<span class="tag">${SHORT[id]}</span>`;
+    b.addEventListener("click",e=>{e.stopPropagation();react(id);openMember(id);});
+    chars[id]={id,btn:b,x:SPOT[id].x,y:SPOT[id].y,floor:SPOT[id].f,pose:"type",view:"back",bounce:0,wave:0,stroll:null,lastStroll:performance.now()+Math.random()*8000};
+  }
+  resize();
+}
+function resize(){const dpr=Math.min(window.devicePixelRatio||1,2.5);for(const k in floorsEl){const c=floorsEl[k].cv,r=floorsEl[k].room;c.width=Math.round(r.clientWidth*dpr);c.height=Math.round(r.clientHeight*dpr);}}
+window.addEventListener("resize",resize);
+
+// ---- 角色位置 ----
+function placeChar(c,now){
+  const s=memberState(c.id),sp=SPOT[c.id];c.state=s;
+  c.clip=null;
+  if(s.where==="meeting"){
+    const el=(isNaN(s.since)?1e9:(Date.now()-s.since)/1000)-["zhiya","art","num","qa"].indexOf(c.id)*8; // 秒，錯開出發
+    if(el<0){c.floor=sp.f;c.x=sp.x;c.y=sp.floor;c.pose="stand";c.view="front";c.stroll=null;return;}
+    if(el<70){c.floor=sp.f;const k=el/70;c.x=sp.x+(1.08-sp.x)*k;c.y=sp.floor;c.pose="walk";c.view="front";c.flip=1;}
+    else if(el<120){c.floor="council";const k=(el-70)/50;c.x=1.06+(SEAT[c.id]-1.06)*k;c.y=.9;c.pose="walk";c.view="front";}
+    else{c.floor="council";c.x=SEAT[c.id];c.y=TABLE_TOP+.08;c.pose="sit";c.view="front";c.clip=TABLE_TOP;}
+    c.stroll=null;return;}
+  c.floor=sp.f;
+  if(s.cat==="work"){c.x=sp.x;c.y=sp.y;c.pose="type";c.view="back";c.stroll=null;return;}
+  // 閒置：偶爾散步
+  if(!c.stroll&&now-c.lastStroll>9000+Math.random()*9000){const tx=.15+Math.random()*.7;c.stroll={t0:now,from:sp.x,to:tx,dur:Math.abs(tx-sp.x)*9000+600};}
+  if(c.stroll){const e=(now-c.stroll.t0);const tot=c.stroll.dur*2+2500;
+    if(e>tot){c.stroll=null;c.lastStroll=now;}
+    else{let x;if(e<c.stroll.dur)x=c.stroll.from+(c.stroll.to-c.stroll.from)*e/c.stroll.dur;else if(e<c.stroll.dur+2500)x=c.stroll.to;else x=c.stroll.to+(c.stroll.from-c.stroll.to)*(e-c.stroll.dur-2500)/c.stroll.dur;
+      c.x=x;c.y=sp.floor;c.pose=(e<c.stroll.dur||e>c.stroll.dur+2500)?"walk":"stand";c.view="front";return;}}
+  c.x=sp.x;c.y=s.cat==="you"?sp.floor:sp.y;c.pose=s.cat==="you"?"stand":"sit";c.view=s.cat==="you"?"front":"back";
+}
+function lookOf(id){return(D&&D.office&&D.office.members[id]&&D.office.members[id].look)||DEFLOOK;}
+function drawWave(ctx,look,x,y,u,frame){ // 舉手揮動
+  const up=frame%2;ctx.fillStyle="#140d0a";ctx.fillRect(x+4*u-2,y-15*u-up*u-2,1.75*u+4,4*u+4);ctx.fillStyle=look.outfit;ctx.fillRect(x+4*u,y-14*u-up*u,1.75*u,3*u);ctx.fillStyle=look.skin;ctx.fillRect(x+4*u,y-15*u-up*u,1.75*u,1*u);}
+let last=0;
+function loop(now){
+  requestAnimationFrame(loop);
+  if(!D||now-last<66)return;last=now;
+  const frame=Math.floor(now/250);
+  const by={};for(const id in chars){placeChar(chars[id],now);(by[chars[id].floor]=by[chars[id].floor]||[]).push(chars[id]);}
+  for(const k in floorsEl){const F=floorsEl[k];const list=by[k]||[];
+    for(const c of list)if(c.btn.parentNode!==F.hits)F.hits.appendChild(c.btn);
+    if(!F.visible)continue;const cv=F.cv,ctx=cv.getContext("2d");ctx.clearRect(0,0,cv.width,cv.height);
+    const u=Math.max(2,cv.width*.0068);
+    list.sort((a,b)=>a.y-b.y);
+    for(const c of list){const x=c.x*cv.width,y=c.y*cv.height;let b=0;
+      if(c.bounce>now){const p=1-(c.bounce-now)/700;b=-Math.abs(Math.sin(p*Math.PI*2))*5*u;}
+      ctx.save();if(c.clip){ctx.beginPath();ctx.rect(0,0,cv.width,c.clip*cv.height);ctx.clip();}
+      if(c.x<1.02&&c.x>-.02){ctx.fillStyle="rgba(0,0,0,.35)";if(!c.clip){ctx.beginPath();ctx.ellipse(x,y+u*.3,5*u,1.4*u,0,0,7);ctx.fill();}
+        oChibi(ctx,lookOf(c.id),x,y+b,u,c.view,c.pose,c.pose==="walk"?Math.floor(now/180):frame);
+        if(c.wave>now&&c.view==="front")drawWave(ctx,lookOf(c.id),x-6*u,y+b,u,Math.floor(now/160));}
+      ctx.restore();
+      const px=c.x*100,py=(c.clip?c.clip:c.y)*100;c.btn.style.left=Math.min(96,Math.max(4,px))+"%";c.btn.style.top=py+"%";c.btn.style.display=(c.x>1.02||c.x<-.02)?"none":"";
+    }
+  }
+  if(thinking){const c=chars[thinking.id];const F=floorsEl[c.floor];if(thinking.el.parentNode!==F.room)F.room.appendChild(thinking.el);
+    thinking.el.style.left=Math.min(80,Math.max(20,c.x*100))+"%";thinking.el.style.top=((c.clip?c.clip:c.y)*100-30)+"%";
+    if(now>thinking.until){thinking.el.remove();thinking=null;}}
+}
+function thoughtOf(id){const lv=D.live&&D.live[id];const s=memberState(id);if(s.live&&lv.thought)return lv.thought;return noemo((D.cards[id]||{}).thought)||"先把手上的事做好。";}
+function showThought(id,ms){if(thinking)thinking.el.remove();const el=document.createElement("div");el.className="think";el.textContent=thoughtOf(id);thinking={id,el,until:performance.now()+(ms||4500)};}
+function react(id){const c=chars[id];const now=performance.now();if(c.view==="front"&&Math.random()<.6)c.wave=now+1400;else c.bounce=now+700;showThought(id,4000);}
+setInterval(()=>{if(!D||document.hidden||!$("#sheet").hidden)return;const ids=Object.keys(chars).filter(i=>{const c=chars[i];return c.x<1&&c.x>0&&floorsEl[c.floor].visible;});if(ids.length)showThought(ids[Math.floor(Math.random()*ids.length)]);},9000);
+
+// ---- 畫面資料 ----
+function renderFloors(){for(const f of FLOORS){const F=floorsEl[f.id],s=floorState(f);const b=F.el.querySelector(".bubble");
+  b.querySelector(".dot").className="dot "+s.cat;b.querySelector("b").textContent=s.label;b.querySelector(".t").textContent=noemo(s.text);}
+  document.querySelectorAll(".play-link").forEach(a=>{a.href=D.game.url;a.textContent="進入遊戲 "+D.game.version;});}
+function timelineHTML(){
+  const S=6*60,E=17*60,pct=m=>((m-S)/(E-S)*100).toFixed(2)+"%";const min=nowMin();let h='<div class="tl"><div class="axis"></div>';
+  D.schedule.forEach((s,i)=>{const a=mm(s.from),b=mm(s.to);const cls=min>=b?"past":(min>=a?"cur":"");
+    h+=`<div class="seg ${s.who} ${cls}" style="left:${pct(a)};width:calc(${pct(b)} - ${pct(a)})" title="${esc(s.from+"–"+s.to+" "+s.what)}">${b-a>=50?esc(SHORT[s.who]||"會"):""}</div><div class="lbl r${[3,2,4,1,3,2][i]||3}" style="left:${pct(a)}">${s.from} ${esc(SHORT[s.who]||"會議")}</div>`;});
+  if(min>=S&&min<=E)h+=`<div class="now${min>E-120?" r":""}" style="left:${pct(min)}"><span>現在 ${hm(tpNow())}</span></div>`;
+  h+="</div>";const cur=D.schedule.filter(s=>min>=mm(s.from)&&min<mm(s.to));
+  const liveWork=Object.keys(SHORT).filter(i=>{const s=memberState(i);return s.live&&(s.cat==="work"||s.cat==="meet");});
+  const names=[...new Set([...cur.map(s=>s.who==="council"?"AI 會議":NAMES[s.who]),...liveWork.map(i=>NAMES[i])])];
+  h+=`<div class="working">現在工作中：${names.length?esc(names.join("、")):"沒有排程（大家待命）"}</div>`;return h;}
+function roadmapHTML(){return '<div class="rm">'+D.roadmap.map(r=>`<div class="tr"><div class="hd"><span class="n">${r.n}</span>${esc(r.name)}<span class="st ${r.state}">${{doing:"進行中",todo:"未開始",blocked:"卡住"}[r.state]}</span></div><dl><dt>已完成</dt><dd>${esc(r.done)}</dd><dt>下一步</dt><dd>${esc(r.next)}</dd>${r.needYou?`<dt>${r.state==="blocked"?"卡在":"等你"}</dt><dd class="need">${esc(r.needYou.replace(/^無（(.*)）$/,"$1"))}</dd>`:""}</dl></div>`).join("")+"</div>";}
+function progressHTML(){const b=D.backlog;const p=Math.round(b.done/b.total*100);return `<div class="bar"><i style="width:${p}%"></i></div><div class="barlbl"><span>已完成 ${b.done} 項（${p}%）</span><span>還剩 ${b.open} 項</span></div>`;}
+function renderBoard(){
+  $("#board").innerHTML=`<div class="card"><h2><img src="assets/ic_lobby.webp" alt="">一樓大廳 · 遊戲入口</h2><div class="play"><div class="ver">目前版本 <b>${esc(D.game.version)}</b><br>${esc(D.game.subtitle)}</div><a class="btn" target="_blank" rel="noopener" href="${esc(D.game.url)}">進入遊戲</a></div></div>
+  <div class="card"><h2>待辦進度</h2>${progressHTML()}</div>
+  <div class="card"><h2><img src="assets/ic_schedule.webp" alt="">今日排程</h2>${timelineHTML()}</div>
+  <div class="card"><h2><img src="assets/ic_roadmap.webp" alt="">上架路線圖 · 7 條</h2>${roadmapHTML()}</div>`;}
+function renderFeed(){$("#feed").innerHTML=D.feed.map(e=>`<li><time>${esc(fmtAt(e.at))}<small>${esc(e.at.slice(0,10)===todayStr()?"今天":"")}</small></time><div><span class="k ${esc(e.kind)}">${esc(e.kind)}</span>${esc(noemo(e.text))}</div></li>`).join("");
+  const ws=Object.keys(SHORT).map(i=>[i,memberState(i)]).filter(x=>x[1].cat==="work"||x[1].cat==="meet");
+  $("#nowline").textContent="台北 "+hm(tpNow())+" · "+(ws.length?ws.map(x=>SHORT[x[0]]+CAT[x[1].cat]).join("、"):"目前沒人在趕工");}
+function renderAll(){if(!D)return;$("#updated").textContent="更新時間 "+D.builtAt.slice(5).replace("-","/");$("#foot-upd").textContent="資料更新時間 "+D.builtAt+"（台北時間）";renderFloors();renderBoard();renderFeed();}
+function tick(){$("#clock").textContent=hm(tpNow());if(D){renderFloors();renderFeed();const tl=document.querySelector("#board .tl");if(tl)tl.parentNode.innerHTML='<h2><img src="assets/ic_schedule.webp" alt="">今日排程</h2>'+timelineHTML();}}
+
+// ---- 細節面板 ----
+function openSheet(html){$("#sheetbody").innerHTML=html;$("#sheet").hidden=false;$("#sheetbg").hidden=false;$("#sheet").scrollTop=0;$("#close").focus();}
+function closeSheet(){$("#sheet").hidden=true;$("#sheetbg").hidden=true;}
+$("#close").onclick=closeSheet;$("#sheetbg").onclick=closeSheet;document.addEventListener("keydown",e=>{if(e.key==="Escape")closeSheet();});
+function sevHTML(c){const L=[["🔴","s1","致命"],["🟠","s2","重要"],["🟡","s3","次要"]];return L.map(([k,cl,n])=>`<span class="sev ${cl}"><i></i>${n} ${typeof c[k]==="object"?c[k].new+" 新 / "+c[k].old+" 舊":c[k]}</span>`).join("");}
+function memberBtn(id){return `<div class="mbtn"><button data-m="${id}">看 ${esc(NAMES[id])} 在想什麼</button></div>`;}
+function head(f,extra){const s=floorState(f);return `<h3><img src="assets/${f.icon}.webp" alt="">${f.no} ${f.name}</h3><div class="muted"><span class="dot ${s.cat}"></span> ${esc(s.label)} · ${esc(noemo(s.text))}${extra||""}</div>`;}
+function openFloor(id){const f=FLOORS.find(x=>x.id===id);let h=head(f);
+  if(id==="director"){const d=D.director;h+=`<h4>等你決定／開通（${d.needYou.length}）</h4><ul>${d.needYou.map(x=>`<li><b>${esc(x.track)}</b>：${esc(x.what)}</li>`).join("")}</ul>
+    <h4>你的回饋處理狀況</h4><ul>${d.feedback.map(x=>`<li>${x.done?'<span class="chip ok">已處理</span>':'<span class="chip mid">處理中</span>'} ${esc(x.text)} <span class="muted">（${esc(x.from)}）</span></li>`).join("")}</ul>`+memberBtn("weixiang");}
+  if(id==="council"){const c=D.council;if(c){h+=`<h4>${esc(c.title)}</h4><div class="muted">${esc(fmtAt(c.at))} · ${esc(c.attend)}</div><div class="chips" style="margin-top:8px">${Object.entries(c.counts).map(([k,v])=>`<span class="chip ${k==="採納"||k==="縮小後採納"?"ok":k==="不採納"?"no":"mid"}">${esc(k)} ${v}</span>`).join("")}</div>
+    <h4>最新裁決</h4><table><tr><th>提案</th><th>結論</th><th>理由</th></tr>${c.verdicts.map(v=>`<tr><td>${esc(v.item)}</td><td>${esc(v.verdict)}</td><td>${esc(v.why)}</td></tr>`).join("")}</table>
+    <h4>三方共同意見</h4><ul>${c.common.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>
+    ${c.grill.length?`<h4>提案檢視（grill）摘要</h4><table><tr><th>提案</th><th>有依據</th><th>付費牆風險</th><th>結論</th></tr>${c.grill.map(g=>`<tr><td>${esc(g.item)}</td><td>${esc(g.evidence)}</td><td>${esc(g.risk)}</td><td>${esc(g.verdict)}</td></tr>`).join("")}</table>`:""}`;}}
+  if(id==="dev"){const v=D.dev,t=v.tests;h+=`<div class="big" style="margin-top:10px"><div><b>${esc(v.version)}</b><span>目前版本</span></div><div><b>${t?t.suitesPass+"/"+t.suites:"-"}</b><span>測試組通過</span></div><div><b>${t?t.itemsPass+"/"+t.items:"-"}</b><span>測試項目通過</span></div><div><b>${D.backlog.open}</b><span>待辦剩餘</span></div></div>
+    <h4>今天修了什麼（${esc(v.version)}）</h4><ul>${v.changes.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>
+    <h4>版本紀錄</h4><table>${v.releases.map(r=>`<tr><td><b>${esc(r.ver)}</b></td><td class="muted">${esc(fmtAt(r.at))}</td><td>${esc(r.msg)}</td></tr>`).join("")}</table>
+    <h4>待辦進度</h4>${progressHTML()}`+memberBtn("zhiya");}
+  if(id==="art"){const a=D.art;if(a){h+=`<h4>最新交件：${esc(a.batch)} 批次</h4><div class="chips"><span class="chip ${a.integrated?"ok":"mid"}">${a.integrated?"已整合":"待整合"}</span><span class="chip">${a.files} 張圖</span><span class="chip">交件 ${esc(fmtAt(a.at))}</span><span class="chip">已整合批次 ${esc(a.integratedBatches.join("、"))}</span></div>
+    <h4>內容</h4><ul>${a.groups.map(g=>`<li><b>${esc(g.name)}</b>：${esc(g.desc)}</li>`).join("")}</ul>
+    <h4>縮圖</h4><div class="thumbs">${a.thumbs.map(t=>`<figure><img loading="lazy" src="${esc(t.src)}" alt="${esc(t.label)}"><figcaption>${esc(t.label)}</figcaption></figure>`).join("")}</div>`+memberBtn("art");}}
+  if(id==="num"){const n=D.numbers;if(n){h+=`<div class="big" style="margin-top:10px"><div><b>${n.suggestions.length}</b><span>建議</span></div><div><b>${n.adopted}</b><span>已採納</span></div><div><b>${n.declined}</b><span>未採納</span></div></div>
+    <h4>報告 ${esc(n.date)} 重點</h4><ul>${n.highlights.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>
+    <h4>建議與採納</h4><table>${n.suggestions.map(s=>`<tr><td><b>${esc(s.id)}</b></td><td>${esc(s.title)}</td><td><span class="chip ${s.state==="已採納"?"ok":s.state==="未採納"?"no":"mid"}">${esc(s.state)}</span></td></tr>`).join("")}</table>`+memberBtn("num");}}
+  if(id==="qa"){const q=D.qa,b=D.backlog;h+=`<h4>待辦中未修的回報</h4><div>${sevHTML(b.qaOpen)}</div><ul>${b.qaOpenItems.map(x=>`<li><span class="sev ${x.sev==="🔴"?"s1":x.sev==="🟠"?"s2":"s3"}"><i></i></span>${esc(x.text)}</li>`).join("")}</ul>`;
+    if(q)h+=`<h4>${esc(q.title)}</h4><div class="muted">${esc(fmtAt(q.at))} · ${esc(noemo(q.tests))}</div><div style="margin-top:6px">${sevHTML(q.counts)}</div><ul>${q.items.map(x=>`<li><span class="sev ${x.sev==="🔴"?"s1":x.sev==="🟠"?"s2":"s3"}"><i></i>${esc(x.id)}</span>${esc(x.text)}</li>`).join("")}</ul>`;h+=memberBtn("qa");}
+  if(id==="lobby"){h+=`<div class="play" style="margin-top:10px"><div class="ver">目前版本 <b>${esc(D.game.version)}</b><br>${esc(D.game.subtitle)}</div><a class="btn" target="_blank" rel="noopener" href="${esc(D.game.url)}">進入遊戲</a></div>
+    <h4>待辦進度</h4>${progressHTML()}<h4>今日排程</h4>${timelineHTML()}<h4>上架路線圖</h4>${roadmapHTML()}`;}
+  openSheet(h);document.querySelectorAll("#sheetbody [data-m]").forEach(b=>b.onclick=()=>openMember(b.dataset.m));}
+function openMember(id){const s=memberState(id),c=D.cards[id]||{},m=(D.office&&D.office.members[id])||{};
+  openSheet(`<div class="who"><canvas width="84" height="96" id="ava"></canvas><div><div class="nm">${esc(NAMES[id])}</div><div class="rl">${esc(m.role||"")}</div><div class="stl"><span class="dot ${s.cat}"></span>${CAT[s.cat]} · <span class="muted">${s.live?esc(agoText(s.updatedAt)):"依每日排程"}</span></div></div></div>
+  <div class="thought">${esc(thoughtOf(id))}</div>
+  <div class="rows"><div class="r"><b>正在忙</b>${esc(noemo(s.full||s.text))}</div><div class="r"><b>剛完成</b>${esc(noemo(c.recent)||"—")}</div><div class="r"><b>下一步</b>${esc(noemo(nextStep(id)))}</div></div>
+  <div class="mbtn"><button id="poke">打招呼</button><button id="tofloor">看這層樓</button></div>`);
+  const cv=$("#ava"),ctx=cv.getContext("2d");let fr=0;const draw=()=>{if(!document.body.contains(cv))return;ctx.clearRect(0,0,84,96);oChibi(ctx,lookOf(id),42,88,4.6,"front",fr%12<6?"stand":"stand",fr);fr++;};draw();const iv=setInterval(()=>{if(!document.body.contains(cv)){clearInterval(iv);return;}draw();},300);
+  $("#poke").onclick=()=>{let k=0;const j=setInterval(()=>{ctx.clearRect(0,0,84,96);const y=88-Math.abs(Math.sin(k/3))*10;oChibi(ctx,lookOf(id),42,y,4.6,"front","stand",k);if(k%2){drawWave(ctx,lookOf(id),42-6*4.6,y,4.6,k);}if(++k>12)clearInterval(j);},80);react(id);};
+  $("#tofloor").onclick=()=>openFloor(SPOT[id].f);}
+
+// ---- 資料 ----
+async function load(){try{const r=await fetch("data.json?t="+Date.now(),{cache:"no-store"});if(!r.ok)return;D=await r.json();renderAll();}catch(e){console.warn("資料暫時讀不到，稍後重試");}}
+buildTower();tick();load().then(()=>requestAnimationFrame(loop));
+setInterval(load,60000);setInterval(tick,30000);
+document.addEventListener("visibilitychange",()=>{if(!document.hidden)load();});
+})();

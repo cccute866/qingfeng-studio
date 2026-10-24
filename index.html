@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b1220">
+<title>青鋒工作室大樓</title>
+<link rel="icon" href="data:,">
+<link rel="preload" as="image" href="assets/roof.webp">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div class="sky" aria-hidden="true"></div>
+<header class="top">
+  <div class="brand"><span class="seal">青鋒</span><div><h1>青鋒工作室大樓</h1><p class="sub">每層一個部門 · 點樓層看細節 · 點小人看他在想什麼</p></div></div>
+  <div class="clock"><b id="clock">--:--</b><span>台北時間</span><small id="updated">更新時間 --</small></div>
+</header>
+<main class="layout">
+  <section class="tower-wrap">
+    <div class="roof"><img src="assets/roof.webp" alt="" width="900" height="279"></div>
+    <div class="tower" id="tower"></div>
+    <div class="ground"></div>
+    <section class="board" id="board"></section>
+  </section>
+  <aside class="side">
+    <div class="feed-card">
+      <h2>工作室動態</h2>
+      <div class="now-line" id="nowline"></div>
+      <ol class="feed" id="feed"></ol>
+    </div>
+  </aside>
+</main>
+<footer class="foot">資料每 60 秒自動刷新 · 時間皆為台北時間 · <span id="foot-upd"></span></footer>
+<div class="sheet-bg" id="sheetbg" hidden></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" hidden><button class="close" id="close" aria-label="關閉">關閉</button><div id="sheetbody"></div></div>
+<script src="assets/office_scene.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
