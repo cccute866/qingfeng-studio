@@ -163,7 +163,7 @@ function renderBoard(){
 function renderFeed(){$("#feed").innerHTML=D.feed.map(e=>`<li><time>${esc(fmtAt(e.at))}<small>${esc(e.at.slice(0,10)===todayStr()?"今天":"")}</small></time><div><span class="k ${esc(e.kind)}">${esc(e.kind)}</span>${esc(noemo(e.text))}</div></li>`).join("");
   const ws=Object.keys(SHORT).map(i=>[i,memberState(i)]).filter(x=>x[1].cat==="work"||x[1].cat==="meet");
   $("#nowline").textContent="台北 "+hm(tpNow())+" · "+(ws.length?ws.map(x=>SHORT[x[0]]+CAT[x[1].cat]).join("、"):"目前沒人在趕工");}
-function renderAll(){if(!D)return;$("#updated").textContent="更新時間 "+D.builtAt.slice(5).replace("-","/");$("#foot-upd").textContent="資料更新時間 "+D.builtAt+"（台北時間）";renderFloors();renderBoard();renderFeed();}
+function renderAll(){if(!D)return;const U=D.updatedAt||D.builtAt;$("#updated").textContent="更新時間 "+U.slice(5).replace("-","/");$("#foot-upd").textContent="資料更新時間 "+U+"（台北時間）";renderFloors();renderBoard();renderFeed();}
 function tick(){$("#clock").textContent=hm(tpNow());if(D){renderFloors();renderFeed();const tl=document.querySelector("#board .tl");if(tl)tl.parentNode.innerHTML='<h2><img src="assets/ic_schedule.webp" alt="">今日排程</h2>'+timelineHTML();}}
 
 // ---- 細節面板 ----
@@ -205,7 +205,25 @@ function openMember(id){const s=memberState(id),c=D.cards[id]||{},m=(D.office&&D
   $("#tofloor").onclick=()=>openFloor(SPOT[id].f);}
 
 // ---- 資料 ----
-async function load(){try{const r=await fetch("data.json?t="+Date.now(),{cache:"no-store"});if(!r.ok)return;D=await r.json();renderAll();}catch(e){console.warn("資料暫時讀不到，稍後重試");}}
+
+// ---- 開發歷程（永久紀錄；月檔用到才載入） ----
+let HI=null, HM={}, histTab=false;
+const WD="日一二三四五六";
+async function hjson(u){const r=await fetch(u+"?t="+Date.now(),{cache:"no-store"});if(!r.ok)throw new Error(r.status);return r.json();}
+function ensureMonth(m){if(!HM[m])HM[m]=hjson("history/"+m+".json").then(j=>{const hid=new Set(HI&&HI.hidden||[]),by={};(j.events||[]).forEach(e=>{if(hid.has(e.id))return;(by[e.at.slice(0,10)]=by[e.at.slice(0,10)]||[]).push(e);});return by;}).catch(e=>{delete HM[m];throw e;});return HM[m];}
+function fillDay(det){const d=det.dataset.d,ol=det.querySelector("ol");ensureMonth(d.slice(0,7)).then(by=>{const L=(by[d]||[]).slice().sort((a,b)=>a.at<b.at?1:-1);
+  ol.innerHTML=L.map(e=>`<li><time>${esc(e.at.slice(11,16))}</time><div><span class="k ${esc(e.kind)}">${esc(e.kind)}</span>${esc(noemo(e.text))}</div></li>`).join("")||'<li class="muted">這天沒有紀錄</li>';}).catch(()=>{ol.innerHTML='<li class="muted">暫時讀不到，稍後再點一次</li>';});}
+function renderHist(){const el=$("#hist");if(!HI){el.innerHTML='<p class="hmeta">載入中…</p>';return;}
+  const open=new Set([...el.querySelectorAll("details[open]")].map(x=>x.dataset.d));if(!el.querySelector("details")&&HI.days[0])open.add(HI.days[0].d);
+  el.innerHTML=`<p class="hmeta">從 ${esc(HI.start)} 開工至今 · ${HI.days.length} 天 · 共 ${HI.total} 則（只增不刪）· 點日期展開</p>`+HI.days.map(x=>{const t=parseTP(x.d+" 12:00"),w=isNaN(t)?"":"週"+WD[new Date(t+8*3600e3).getUTCDay()];
+    return `<details data-d="${esc(x.d)}"${open.has(x.d)?" open":""}><summary><div class="dh"><b>${esc(x.d.slice(5).replace("-","/"))}</b><span class="wd">${w}${x.d===todayStr()?" · 今天":""}</span><span class="n">${x.n} 則</span></div><div class="sum">${esc(x.sum||"")}</div></summary><ol class="feed"><li class="muted">載入中…</li></ol></details>`;}).join("");
+  el.querySelectorAll("details").forEach(det=>{if(det.open)fillDay(det);det.addEventListener("toggle",()=>{if(det.open)fillDay(det);});});}
+async function loadHist(){try{const j=await hjson("history/index.json");const changed=!HI||j.total!==HI.total||JSON.stringify(j.days[0])!==JSON.stringify(HI.days[0]);if(changed){if(HI&&j.months[0])delete HM[j.months[0].m];HI=j;renderHist();}}catch(e){if(!HI)$("#hist").innerHTML='<p class="hmeta">歷程暫時讀不到，稍後重試</p>';}}
+function showTab(t){histTab=t==="hist";document.querySelectorAll(".tab").forEach(b=>{const on=b.dataset.tab===t;b.classList.toggle("on",on);b.setAttribute("aria-selected",on);});
+  $("#feed").hidden=histTab;$("#nowline").hidden=histTab;$("#hist").hidden=!histTab;if(histTab){renderHist();loadHist();}}
+document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>{showTab(b.dataset.tab);history.replaceState(null,"",b.dataset.tab==="hist"?"#history":location.pathname+location.search);}));
+if(location.hash==="#history")showTab("hist");
+async function load(){try{const r=await fetch("data.json?t="+Date.now(),{cache:"no-store"});if(!r.ok)return;D=await r.json();renderAll();if(histTab)loadHist();}catch(e){console.warn("資料暫時讀不到，稍後重試");}}
 buildTower();tick();load().then(()=>requestAnimationFrame(loop));
 setInterval(load,60000);setInterval(tick,30000);
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)load();});

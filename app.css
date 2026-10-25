@@ -88,3 +88,14 @@ table{width:100%;border-collapse:collapse;font-size:12.5px}th,td{text-align:left
 .foot{text-align:center;color:var(--mute);font-size:11.5px;padding:10px 10px 30px}
 @media(max-width:420px){.plate img{width:24px;height:24px}.plate .nm{font-size:13px}.bubble{font-size:11px;max-width:52%}h1{font-size:19px}.tower{padding:0 5px;border-width:4px}.floor{border-bottom-width:6px}}
 @media(prefers-reduced-motion:reduce){.dot{animation:none!important}}
+
+.k.整合{background:#1f4650;color:#aef0ff}.k.決定{background:#55461c;color:#ffe7a0}.k.進度{background:#2f3d1f;color:#d2f5a6}
+.tabs{display:flex;gap:6px;margin:0 0 8px}.tab{flex:1;font:inherit;font-size:15px;font-weight:700;padding:8px 6px;min-height:44px;border-radius:10px;border:1px solid #2c3746;background:#101722;color:#9aa6b4;cursor:pointer}.tab.on{background:#243246;color:#f3e3bb;border-color:var(--gold2)}
+.hist{overflow:auto;flex:1;max-height:560px}@media(min-width:1000px){.hist{max-height:none}}
+.hist .hmeta{font-size:12px;color:var(--mute);margin:0 0 6px}
+.hist details{border:1px solid #2a3442;border-radius:10px;margin:0 0 8px;background:#0f1620}
+.hist summary{list-style:none;cursor:pointer;padding:10px 12px;min-height:44px}.hist summary::-webkit-details-marker{display:none}
+.hist summary .dh{display:flex;align-items:baseline;gap:8px}.hist summary b{color:var(--gold);font-size:15px}.hist summary .wd{color:var(--mute);font-size:12px}.hist summary .n{margin-left:auto;font-size:12px;color:#9aa6b4}
+.hist summary .n::after{content:" ▸";display:inline-block;transition:transform .15s}.hist details[open] summary .n::after{transform:rotate(90deg)}
+.hist .sum{font-size:12.5px;color:#cfd7e1;margin-top:3px;line-height:1.45}
+.hist .feed{max-height:none;overflow:visible;padding:0 10px 6px}

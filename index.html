@@ -24,9 +24,10 @@
   </section>
   <aside class="side">
     <div class="feed-card">
-      <h2>工作室動態</h2>
+      <div class="tabs" role="tablist"><button class="tab on" role="tab" aria-selected="true" data-tab="feed">工作室動態</button><button class="tab" role="tab" aria-selected="false" data-tab="hist">開發歷程</button></div>
       <div class="now-line" id="nowline"></div>
       <ol class="feed" id="feed"></ol>
+      <div class="hist" id="hist" hidden></div>
     </div>
   </aside>
 </main>
