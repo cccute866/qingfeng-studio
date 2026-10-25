@@ -178,7 +178,9 @@ function openFloor(id){const f=FLOORS.find(x=>x.id===id);let h=head(f);
     <h4>你的回饋處理狀況</h4><ul>${d.feedback.map(x=>`<li>${x.done?'<span class="chip ok">已處理</span>':'<span class="chip mid">處理中</span>'} ${esc(x.text)} <span class="muted">（${esc(x.from)}）</span></li>`).join("")}</ul>`+memberBtn("weixiang");}
   if(id==="council"){const c=D.council;if(c){h+=`<h4>${esc(c.title)}</h4><div class="muted">${esc(fmtAt(c.at))} · ${esc(c.attend)}</div><div class="chips" style="margin-top:8px">${Object.entries(c.counts).map(([k,v])=>`<span class="chip ${k==="採納"||k==="縮小後採納"?"ok":k==="不採納"?"no":"mid"}">${esc(k)} ${v}</span>`).join("")}</div>
     <h4>最新裁決</h4><table><tr><th>提案</th><th>結論</th><th>理由</th></tr>${c.verdicts.map(v=>`<tr><td>${esc(v.item)}</td><td>${esc(v.verdict)}</td><td>${esc(v.why)}</td></tr>`).join("")}</table>
-    <h4>三方共同意見</h4><ul>${c.common.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>
+    ${(c.shortlist||[]).length?`<h4>會議排行榜（第二輪投票）</h4><ol>${c.shortlist.map(x=>`<li>${esc(x)}</li>`).join("")}</ol>`:""}
+    ${(c.stances||[]).length?`<h4>各成員立場</h4><ul>${c.stances.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`:""}
+    ${c.common.length?`<h4>共同意見</h4><ul>${c.common.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`:""}
     ${c.grill.length?`<h4>提案檢視（grill）摘要</h4><table><tr><th>提案</th><th>有依據</th><th>付費牆風險</th><th>結論</th></tr>${c.grill.map(g=>`<tr><td>${esc(g.item)}</td><td>${esc(g.evidence)}</td><td>${esc(g.risk)}</td><td>${esc(g.verdict)}</td></tr>`).join("")}</table>`:""}`;}}
   if(id==="dev"){const v=D.dev,t=v.tests;h+=`<div class="big" style="margin-top:10px"><div><b>${esc(v.version)}</b><span>目前版本</span></div><div><b>${t?t.suitesPass+"/"+t.suites:"-"}</b><span>測試組通過</span></div><div><b>${t?t.itemsPass+"/"+t.items:"-"}</b><span>測試項目通過</span></div><div><b>${D.backlog.open}</b><span>待辦剩餘</span></div></div>
     <h4>今天修了什麼（${esc(v.version)}）</h4><ul>${v.changes.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>
