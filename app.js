@@ -14,7 +14,7 @@ const FLOORS=[
  {id:"lobby",no:"1F",name:"一樓大廳",who:"遊戲入口 · 進度 · 路線圖",icon:"ic_lobby",room:"room_lobby"}];
 // 座位（以樓層圖寬高比例）：view back=背對（面向電腦）
 const SPOT={weixiang:{f:"director",x:.27,y:.80,floor:.88},zhiya:{f:"dev",x:.52,y:.76,floor:.80},art:{f:"art",x:.33,y:.73,floor:.82},num:{f:"num",x:.43,y:.79,floor:.84},qa:{f:"qa",x:.58,y:.81,floor:.86},eng:{f:"eng",x:.48,y:.76,floor:.86}};
-const SEAT={zhiya:.41,art:.49,num:.57,qa:.65}; const TABLE_TOP=.535;
+const SEAT={weixiang:.29,zhiya:.37,art:.45,num:.53,qa:.61,eng:.69}; const TABLE_TOP=.535;
 const NAMES={weixiang:"偉翔",zhiya:"智雅",art:"青鋒美術",num:"青鋒數值",qa:"青鋒監管",eng:"青鋒工程",council:"全員會議"};
 const SHORT={weixiang:"偉翔",zhiya:"智雅",art:"美術",num:"數值",qa:"監管",eng:"工程"};
 const LOOKS={eng:{hair:"#1c2326",skin:"#f0c9a2",outfit:"#2a7d86",trim:"#e2b65c",pants:"#25343a",style:"knot"}};
@@ -34,7 +34,16 @@ function mm(s){const p=s.split(":");return +p[0]*60+ +p[1];}
 function fmtAt(s){if(!s)return"";return s.slice(0,10)===todayStr()?s.slice(11,16):s.slice(5,16).replace("-","/");}
 
 // ---- 狀態 ----
+function meetingNow(){
+  const lv=D&&D.live&&D.live.zhiya;
+  if(lv&&lv.status&&lv.updatedAt&&lv.updatedAt.slice(0,10)===todayStr()){const age=(Date.now()-parseTP(lv.updatedAt))/60000;
+    if(age>=0&&age<180)return lv.status==="開會中"?{since:parseTP(lv.updatedAt)}:null;}
+  const c=(D&&D.schedule||[]).find(x=>x.who==="council");if(!c)return null;const min=nowMin();
+  if(min>=mm(c.from)&&min<mm(c.to)){const d=tpNow();return{since:Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate(),0,0)-8*3600e3+mm(c.from)*60000};}
+  return null;}
+function meeters(){return ["zhiya","art","num","qa","eng"].concat(D&&D.weixiangJoins?["weixiang"]:[]);}
 function memberState(id){
+  {const mt=meetingNow();if(mt&&meeters().includes(id))return{cat:"meet",text:id==="zhiya"?"主持全員會議":"全員會議中",full:"全員會議：智雅主持，美術、數值、監管、工程帶提案，ChatGPT、Claude、Gemini 一起辯論"+(D.weixiangJoins?"；偉翔今天也給了意見":"")+"。",where:"meeting",live:true,since:mt.since};}
   const lv=D&&D.live&&D.live[id];
   if(lv&&lv.status&&LIVEMAP[lv.status]){const age=(Date.now()-parseTP(lv.updatedAt))/60000;
     if(age>=0&&age<180)return{cat:LIVEMAP[lv.status],text:lv.task||lv.status,full:lv.task,live:true,updatedAt:lv.updatedAt,where:LIVEMAP[lv.status]==="meet"?"meeting":"desk",since:parseTP(lv.updatedAt)};}
@@ -51,7 +60,7 @@ function memberState(id){
 }
 function floorState(f){
   if(f.member){const s=memberState(f.member);return{cat:s.cat,label:CAT[s.cat],text:s.text};}
-  if(f.id==="council"){const ids=["zhiya","art","num","qa"].filter(i=>memberState(i).where==="meeting");
+  if(f.id==="council"){const ids=meeters().filter(i=>memberState(i).where==="meeting");
     const o=D.office;const min=nowMin();
     if(ids.length)return{cat:"meet",label:"開會中",text:ids.length+" 人在會議室"};
     if(o&&min>=mm(o.meeting.to))return{cat:"done",label:"完成",text:D.council?("裁決 "+D.council.verdicts.length+" 項"):"今日會議結束"};
@@ -97,7 +106,7 @@ function placeChar(c,now){
   const s=memberState(c.id),sp=SPOT[c.id];c.state=s;
   c.clip=null;
   if(s.where==="meeting"){
-    const el=(isNaN(s.since)?1e9:(Date.now()-s.since)/1000)-["zhiya","art","num","qa"].indexOf(c.id)*8; // 秒，錯開出發
+    const el=(isNaN(s.since)?1e9:(Date.now()-s.since)/1000)-meeters().indexOf(c.id)*6; // 秒，錯開出發
     if(el<0){c.floor=sp.f;c.x=sp.x;c.y=sp.floor;c.pose="stand";c.view="front";c.stroll=null;return;}
     if(el<70){c.floor=sp.f;const k=el/70;c.x=sp.x+(1.08-sp.x)*k;c.y=sp.floor;c.pose="walk";c.view="front";c.flip=1;}
     else if(el<120){c.floor="council";const k=(el-70)/50;c.x=1.06+(SEAT[c.id]-1.06)*k;c.y=.9;c.pose="walk";c.view="front";}
