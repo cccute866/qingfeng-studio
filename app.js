@@ -5,7 +5,7 @@ const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;"
 const noemo=s=>String(s||"").replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F000}-\u{1F2FF}\uFE0F]/gu,"").trim();
 const FLOORS=[
  {id:"director",no:"RF",name:"總監室",who:"偉翔 創辦人／總監",icon:"ic_director",room:"room_director",member:"weixiang"},
- {id:"council",no:"7F",name:"會議室",who:"每日 09:47 AI 會議",icon:"ic_council",room:"room_council"},
+ {id:"council",no:"7F",name:"會議室",who:"每日約 10:05 全員會議（智雅主持）",icon:"ic_council",room:"room_council"},
  {id:"dev",no:"6F",name:"開發部",who:"智雅 主程式／整合",icon:"ic_dev",room:"room_dev",member:"zhiya"},
  {id:"art",no:"5F",name:"美術部",who:"青鋒美術",icon:"ic_art",room:"room_art",member:"art"},
  {id:"num",no:"4F",name:"數值部",who:"青鋒數值",icon:"ic_num",room:"room_num",member:"num"},
@@ -15,7 +15,7 @@ const FLOORS=[
 // 座位（以樓層圖寬高比例）：view back=背對（面向電腦）
 const SPOT={weixiang:{f:"director",x:.27,y:.80,floor:.88},zhiya:{f:"dev",x:.52,y:.76,floor:.80},art:{f:"art",x:.33,y:.73,floor:.82},num:{f:"num",x:.43,y:.79,floor:.84},qa:{f:"qa",x:.58,y:.81,floor:.86},eng:{f:"eng",x:.48,y:.76,floor:.86}};
 const SEAT={zhiya:.41,art:.49,num:.57,qa:.65}; const TABLE_TOP=.535;
-const NAMES={weixiang:"偉翔",zhiya:"智雅",art:"青鋒美術",num:"青鋒數值",qa:"青鋒監管",eng:"青鋒工程",council:"AI 會議"};
+const NAMES={weixiang:"偉翔",zhiya:"智雅",art:"青鋒美術",num:"青鋒數值",qa:"青鋒監管",eng:"青鋒工程",council:"全員會議"};
 const SHORT={weixiang:"偉翔",zhiya:"智雅",art:"美術",num:"數值",qa:"監管",eng:"工程"};
 const LOOKS={eng:{hair:"#1c2326",skin:"#f0c9a2",outfit:"#2a7d86",trim:"#e2b65c",pants:"#25343a",style:"knot"}};
 const ROLES={eng:"工程師（修復／QA／介面）"};
@@ -55,7 +55,7 @@ function floorState(f){
     const o=D.office;const min=nowMin();
     if(ids.length)return{cat:"meet",label:"開會中",text:ids.length+" 人在會議室"};
     if(o&&min>=mm(o.meeting.to))return{cat:"done",label:"完成",text:D.council?("裁決 "+D.council.verdicts.length+" 項"):"今日會議結束"};
-    return{cat:"wait",label:"待命",text:"09:47 開會"};}
+    return{cat:"wait",label:"待命",text:"約 10:05 全員開會"};}
   return{cat:"done",label:"營業中",text:D.game.version+" 可玩"};
 }
 function nextStep(id){
@@ -153,11 +153,11 @@ function renderFloors(){for(const f of FLOORS){const F=floorsEl[f.id],s=floorSta
 function timelineHTML(){
   const S=6*60,E=17*60,pct=m=>((m-S)/(E-S)*100).toFixed(2)+"%";const min=nowMin();let h='<div class="tl"><div class="axis"></div>';
   D.schedule.forEach((s,i)=>{const a=mm(s.from),b=mm(s.to);const cls=min>=b?"past":(min>=a?"cur":"");
-    h+=`<div class="seg ${s.who} ${cls}" style="left:${pct(a)};width:calc(${pct(b)} - ${pct(a)})" title="${esc(s.from+"–"+s.to+" "+s.what)}">${b-a>=50?esc(SHORT[s.who]||"會"):""}</div><div class="lbl r${[3,2,4,1,3,2][i]||3}" style="left:${pct(a)}">${s.from} ${esc(SHORT[s.who]||"會議")}</div>`;});
+    h+=`<div class="seg ${s.who} ${cls}" style="left:${pct(a)};width:calc(${pct(b)} - ${pct(a)})" title="${esc(s.from+"–"+s.to+" "+s.what)}">${b-a>=50?esc(SHORT[s.who]||"全員"):""}</div><div class="lbl r${[3,2,4,1,3,2,4][i]||3}" style="left:${pct(a)}">${s.from} ${esc(SHORT[s.who]||"全員會議")}</div>`;});
   if(min>=S&&min<=E)h+=`<div class="now${min>E-120?" r":""}" style="left:${pct(min)}"><span>現在 ${hm(tpNow())}</span></div>`;
   h+="</div>";const cur=D.schedule.filter(s=>min>=mm(s.from)&&min<mm(s.to));
   const liveWork=Object.keys(SHORT).filter(i=>{const s=memberState(i);return s.live&&(s.cat==="work"||s.cat==="meet");});
-  const names=[...new Set([...cur.map(s=>s.who==="council"?"AI 會議":NAMES[s.who]),...liveWork.map(i=>NAMES[i])])];
+  const names=[...new Set([...cur.map(s=>s.who==="council"?"全員會議（智雅主持）":NAMES[s.who]),...liveWork.map(i=>NAMES[i])])];
   h+=`<div class="working">現在工作中：${names.length?esc(names.join("、")):"沒有排程（大家待命）"}</div>`;return h;}
 function roadmapHTML(){return '<div class="rm">'+D.roadmap.map(r=>`<div class="tr"><div class="hd"><span class="n">${r.n}</span>${esc(r.name)}<span class="st ${r.state}">${{doing:"進行中",todo:"未開始",blocked:"卡住"}[r.state]}</span></div><dl><dt>已完成</dt><dd>${esc(r.done)}</dd><dt>下一步</dt><dd>${esc(r.next)}</dd>${r.needYou?`<dt>${r.state==="blocked"?"卡在":"等你"}</dt><dd class="need">${esc(r.needYou.replace(/^無（(.*)）$/,"$1"))}</dd>`:""}</dl></div>`).join("")+"</div>";}
 function progressHTML(){const b=D.backlog;const p=Math.round(b.done/b.total*100);return `<div class="bar"><i style="width:${p}%"></i></div><div class="barlbl"><span>已完成 ${b.done} 項（${p}%）</span><span>還剩 ${b.open} 項</span></div>${tiersHTML()}`;}
