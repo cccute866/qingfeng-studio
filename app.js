@@ -150,7 +150,7 @@ function loop(now){
     thinking.el.style.left=Math.min(80,Math.max(20,c.x*100))+"%";thinking.el.style.top=((c.clip?c.clip:c.y)*100-30)+"%";
     if(now>thinking.until){thinking.el.remove();thinking=null;}}
 }
-function thoughtOf(id){const lv=D.live&&D.live[id];const s=memberState(id);if(s.live&&lv.thought)return lv.thought;return noemo((D.cards[id]||{}).thought)||"先把手上的事做好。";}
+function thoughtOf(id){const lv=D.live&&D.live[id];const s=memberState(id);if(s.live&&lv&&lv.thought)return lv.thought;return noemo((D.cards[id]||{}).thought)||"先把手上的事做好。";}
 function showThought(id,ms){if(thinking)thinking.el.remove();const el=document.createElement("div");el.className="think";el.textContent=thoughtOf(id);thinking={id,el,until:performance.now()+(ms||4500)};}
 function react(id){const c=chars[id];const now=performance.now();if(c.view==="front"&&Math.random()<.6)c.wave=now+1400;else c.bounce=now+700;showThought(id,4000);}
 setInterval(()=>{if(!D||document.hidden||!$("#sheet").hidden)return;const ids=Object.keys(chars).filter(i=>{const c=chars[i];return c.x<1&&c.x>0&&floorsEl[c.floor].visible;});if(ids.length)showThought(ids[Math.floor(Math.random()*ids.length)]);},9000);
