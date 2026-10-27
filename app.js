@@ -166,33 +166,43 @@ function usageAlert(){
   const u=D&&D.usage; if(!u) return {level:"",short:"",html:""};
   const grace=+(u.graceMin||60);
   const min=nowMin(), tod=todayStr();
-  const live=D.live||{}, ev=((usageToday()||{}).evidence)||{};
+  const live=D.live||{};
+  const dayU=usageToday()||{};
+  const evAt=Object.assign({}, dayU.evidenceAt||{});
+  // live 心跳併入證據時間
+  for(const [id,lv] of Object.entries(live)){
+    const upd=lv&&lv.updatedAt||"";
+    if(upd.slice(0,10)===tod && upd>(evAt[id]||"")) evAt[id]=upd;
+  }
+  // last seen = 全部門證據（含心跳）最大值
+  let lastSeen=dayU.lastSeen||"";
+  for(const v of Object.values(evAt)) if(v&&v>lastSeen) lastSeen=v;
+  const whoKey=w=>w==="council"?"council":w;
   const misses=[];
   for(const s of (D.schedule||[])){
     if(s.soft) continue;
     const end=mm(s.to);
-    if(min < end + grace) continue;          // 尚未到「時段結束 + 寬限」
-    if(min > 22*60) break;                   // 深夜不再追
-    const who = s.who==="council" ? "zhiya" : s.who;
-    const lv = live[who] || live[s.who];
-    const upd = lv && lv.updatedAt || "";
-    const okLive = upd.slice(0,10)===tod && (()=>{const hm=/ (\d{2}:\d{2})/.exec(upd); return hm ? mm(hm[1]) >= mm(s.from)-30 : false;})();
-    const okEv = !!(ev[s.who] || ev[who]);
-    if(!okLive && !okEv){
-      misses.push({chip:s.chip||s.who, from:s.from, to:s.to, last:upd||"—"});
+    if(min < end + grace) continue;          // 時段結束 + 寬限尚未到
+    if(min > 22*60) continue;
+    const key=whoKey(s.who);
+    const alt=s.who==="council"?"zhiya":s.who; // 會議時智雅也算主持證據
+    const since=tod+" "+s.from;
+    const et= [evAt[key], evAt[alt], evAt[s.who]].filter(Boolean).sort().slice(-1)[0]||"";
+    // 需有「時段開始之後」的產出／心跳
+    if(!et || et < since){
+      misses.push({chip:s.chip||s.who, from:s.from, to:s.to, last:et||"—"});
     }
   }
   if(misses.length){
-    const lastSeen = Object.keys(live).map(k=>live[k].updatedAt||"").filter(Boolean).sort().slice(-1)[0]||"—";
     const short = "可能額度用完或例行失敗（缺 "+misses.length+" 時段）";
     const html = `<div class="ub-row"><span><b>可能額度用完或例行失敗</b> · 已過時段仍無心跳／產出：`
       + misses.map(m=>esc(m.chip)+" "+m.from+"–"+m.to).join("、")
-      + `。最後見到活動 ${esc(lastSeen)}（台北時間）。請到設定 → Usage & Billing 查看真實額度。</span>`
+      + `。最後見到活動 ${esc(lastSeen||"—")}（台北時間）。請到設定 → Usage & Billing 查看真實額度。</span>`
       + `<button type="button" class="ub-act" id="ub-open">打開總監室用量</button></div>`;
-    return {level:"red", short, html, misses};
+    return {level:"red", short, html, misses, lastSeen};
   }
   // 黃色：今日估算超過預算
-  const todD = usageToday(), bud=u.budget||{};
+  const todD = dayU, bud=u.budget||{};
   if(todD){
     const overs=[];
     const checks=[
@@ -212,10 +222,10 @@ function usageAlert(){
       const short="今日用量偏高（估算）："+overs[0];
       const html=`<div class="ub-row"><span><b>今日用量偏高（估算）</b> · ${esc(overs.join("、"))}。此非帳單餘額；真實額度請看設定 → Usage & Billing。</span>`
         +`<button type="button" class="ub-act" id="ub-open">打開總監室用量</button></div>`;
-      return {level:"yellow", short, html, overs};
+      return {level:"yellow", short, html, overs, lastSeen};
     }
   }
-  return {level:"", short:"", html:""};
+  return {level:"", short:"", html:"", lastSeen};
 }
 function renderUsageBanner(){
   const el=$("#usage-banner"); if(!el) return;
@@ -267,9 +277,9 @@ function usagePanelHTML(){
     <div class="muted">預算可改 live/usage_budget.json；預設依近三日量級留餘裕。超過亮黃燈；例行無心跳亮紅燈。</div>
     <h4>近 7 天</h4>${hist}
     <h4>怎麼判斷「可能額度用完」</h4>
-    <ul><li>排程時段結束後超過 ${u.graceMin||60} 分鐘，該部門仍無 live 心跳、也無當日產出檔 → 紅燈</li>
-    <li>判斷在瀏覽器端算，bot 全停時只要 data.json 仍是舊的也會亮</li>
-    <li>真實餘額／上限請到設定 → Usage & Billing 查看；此頁從不顯示金額</li></ul>`;
+    <ul><li>排程時段結束後超過 ${u.graceMin||60} 分鐘，且該時段開始後仍無心跳／產出 → 紅燈</li>
+    <li>今日任一證據（交件、提案、提交、心跳）都算活著；「最後見到」取全部門最新時間</li>
+    <li>判斷在瀏覽器端算；真實餘額請到設定 → Usage & Billing；此頁從不顯示金額</li></ul>`;
 }
 
 // ---- 畫面資料 ----
