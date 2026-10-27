@@ -159,15 +159,50 @@ setInterval(()=>{if(!D||document.hidden||!$("#sheet").hidden)return;const ids=Ob
 function renderFloors(){for(const f of FLOORS){const F=floorsEl[f.id],s=floorState(f);const b=F.el.querySelector(".bubble");
   b.querySelector(".dot").className="dot "+s.cat;b.querySelector("b").textContent=s.label;b.querySelector(".t").textContent=noemo(s.text);}
   document.querySelectorAll(".play-link").forEach(a=>{a.href=D.game.url;a.textContent="進入遊戲 "+D.game.version;});}
+function chipOf(s){
+  if(s.chip)return s.chip;
+  if(s.who==="council")return"會議";
+  if(s.who==="zhiya")return /補跑/.test(s.what||"")?"智雅補跑":"智雅建版";
+  return SHORT[s.who]||NAMES[s.who]||"排程";
+}
 function timelineHTML(){
-  const S=6*60,E=17*60,pct=m=>((m-S)/(E-S)*100).toFixed(2)+"%";const min=nowMin();let h='<div class="tl"><div class="axis"></div>';
-  D.schedule.forEach((s,i)=>{const a=mm(s.from),b=mm(s.to);const cls=min>=b?"past":(min>=a?"cur":"");
-    h+=`<div class="seg ${s.who} ${cls}" style="left:${pct(a)};width:calc(${pct(b)} - ${pct(a)})" title="${esc(s.from+"–"+s.to+" "+s.what)}">${b-a>=50?esc(SHORT[s.who]||"全員"):""}</div><div class="lbl r${[3,2,4,1,3,2,4][i]||3}" style="left:${pct(a)}">${s.from} ${esc(SHORT[s.who]||"全員會議")}</div>`;});
+  const S=6*60,E=17*60,span=E-S,pct=m=>((m-S)/span*100).toFixed(2)+"%";
+  const min=nowMin();
+  const items=(D.schedule||[]).map(s=>{
+    const a=mm(s.from),b=Math.max(mm(s.to),a+1);
+    const soft=!!s.soft||/補跑|若尚未|若進度/.test(s.what||"");
+    return{...s,a,b,soft,chip:chipOf(s)};
+  }).sort((x,y)=>x.a-y.a||x.b-y.b);
+  // 重疊或視覺上會撞（短 slot 有 min-width）時分到不同 lane
+  const minGap=Math.ceil(span*52/360);
+  const laneEnds=[];
+  items.forEach(it=>{
+    const visEnd=Math.max(it.b,it.a+minGap);
+    let lane=0;
+    while(lane<laneEnds.length&&laneEnds[lane]>it.a)lane++;
+    it.lane=lane;
+    laneEnds[lane]=visEnd;
+  });
+  const nLane=Math.max(1,laneEnds.length);
+  const rowH=26,baseTop=34,axisY=baseTop+11;
+  const hTl=baseTop+nLane*rowH+28;
+  let h=`<div class="tl" style="height:${hTl}px"><div class="axis" style="top:${axisY}px"></div>`;
+  items.forEach(s=>{
+    const cls=(min>=s.b?"past":(min>=s.a?"cur":""))+(s.soft?" soft":"");
+    const top=baseTop+s.lane*rowH;
+    const wPct=Math.max(((s.b-s.a)/span*100),0.5);
+    h+=`<div class="seg ${s.who} ${cls}" style="left:${pct(s.a)};width:${wPct.toFixed(2)}%;top:${top}px;z-index:${2+s.lane}" title="${esc(s.from+"–"+s.to+" "+s.what)}"><span class="sg">${esc(s.chip)}</span></div>`;
+    const lblSide=s.lane%2===0?"above":"below";
+    const lblTop=s.lane%2===0?top-14:top+rowH+1;
+    h+=`<div class="lbl ${lblSide}" style="left:${pct(s.a)};top:${lblTop}px">${s.from}</div>`;
+  });
   if(min>=S&&min<=E)h+=`<div class="now${min>E-120?" r":""}" style="left:${pct(min)}"><span>現在 ${hm(tpNow())}</span></div>`;
-  h+="</div>";const cur=D.schedule.filter(s=>min>=mm(s.from)&&min<mm(s.to));
-  const liveWork=Object.keys(SHORT).filter(i=>{const s=memberState(i);return s.live&&(s.cat==="work"||s.cat==="meet");});
-  const names=[...new Set([...cur.map(s=>s.who==="council"?"全員會議（智雅主持）":NAMES[s.who]),...liveWork.map(i=>NAMES[i])])];
-  h+=`<div class="working">現在工作中：${names.length?esc(names.join("、")):"沒有排程（大家待命）"}</div>`;return h;}
+  h+="</div>";
+  const cur=items.filter(s=>min>=s.a&&min<s.b);
+  const liveWork=Object.keys(SHORT).filter(i=>{const st=memberState(i);return st.live&&(st.cat==="work"||st.cat==="meet");});
+  const names=[...new Set([...cur.map(s=>s.who==="council"?"全員會議（智雅主持）":(s.soft?s.chip:NAMES[s.who])),...liveWork.map(i=>NAMES[i])])];
+  h+=`<div class="working">現在工作中：${names.length?esc(names.join("、")):"沒有排程（大家待命）"}</div>`;
+  return h;}
 function roadmapHTML(){return '<div class="rm">'+D.roadmap.map(r=>`<div class="tr"><div class="hd"><span class="n">${r.n}</span>${esc(r.name)}<span class="st ${r.state}">${{doing:"進行中",todo:"未開始",blocked:"卡住"}[r.state]}</span></div><dl><dt>已完成</dt><dd>${esc(r.done)}</dd><dt>下一步</dt><dd>${esc(r.next)}</dd>${r.needYou?`<dt>${r.state==="blocked"?"卡在":"等你"}</dt><dd class="need">${esc(r.needYou.replace(/^無（(.*)）$/,"$1"))}</dd>`:""}</dl></div>`).join("")+"</div>";}
 function progressHTML(){const b=D.backlog;const p=Math.round(b.done/b.total*100);return `<div class="bar"><i style="width:${p}%"></i></div><div class="barlbl"><span>已完成 ${b.done} 項（${p}%）</span><span>還剩 ${b.open} 項</span></div>${tiersHTML()}`;}
 function tiersHTML(){const t=(D.backlog||{}).tiers;if(!t)return"";return `<div class="tiers"><span class="chip ok">本週目標 ${t.weekDone}/${t.week}</span><span class="chip mid">排隊中 ${t.queue}</span><span class="chip">長期 ${t.long}</span><span class="chip">已關閉 ${t.closed}</span></div>`;}
