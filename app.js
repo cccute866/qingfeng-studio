@@ -174,7 +174,7 @@ function timelineHTML(){
     return{...s,a,b,soft,chip:chipOf(s)};
   }).sort((x,y)=>x.a-y.a||x.b-y.b);
   // 時間重疊或短 slot（min-width）視覺會撞時，分到不同 lane
-  const minGap=Math.ceil(span*72/360);
+  const minGap=Math.ceil(span*96/360);
   const laneEnds=[];
   items.forEach(it=>{
     const visEnd=Math.max(it.b,it.a+minGap);
@@ -191,7 +191,7 @@ function timelineHTML(){
     const cls=(min>=s.b?"past":(min>=s.a?"cur":""))+(s.soft?" soft":"");
     const top=baseTop+s.lane*rowH;
     const wPct=((s.b-s.a)/span*100);
-    h+=`<div class="seg ${s.who} ${cls}" style="left:${pct(s.a)};width:max(${wPct.toFixed(2)}%,72px);top:${top}px;z-index:${3+s.lane}" title="${esc(s.from+"–"+s.to+" "+s.what)}"><span class="tm">${s.from}</span><span class="sg">${esc(s.chip)}</span></div>`;
+    h+=`<div class="seg ${s.who} ${cls}" style="left:${pct(s.a)};width:max(${wPct.toFixed(2)}%,96px);top:${top}px;z-index:${3+s.lane}" title="${esc(s.from+"–"+s.to+" "+s.what)}"><span class="tm">${s.from}</span><span class="sg">${esc(s.chip)}</span></div>`;
   });
   if(min>=S&&min<=E)h+=`<div class="now${min>E-120?" r":""}" style="left:${pct(min)}"><span>現在 ${hm(tpNow())}</span></div>`;
   h+="</div>";
