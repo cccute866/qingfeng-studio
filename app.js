@@ -59,6 +59,9 @@ function memberState(id){
   return{cat,text,full,where:r.where,live:false,since};
 }
 function floorState(f){
+  if(f.id==="director"){const a=typeof usageAlert==="function"?usageAlert():{level:""};
+    if(a.level==="red")return{cat:"you",label:"額度警示",text:a.short||"可能額度用完或例行失敗"};
+    if(a.level==="yellow")return{cat:"you",label:"用量偏高",text:a.short||"今日估算超預算"};}
   if(f.member){const s=memberState(f.member);return{cat:s.cat,label:CAT[s.cat],text:s.text};}
   if(f.id==="council"){const ids=meeters().filter(i=>memberState(i).where==="meeting");
     const o=D.office;const min=nowMin();
@@ -155,9 +158,124 @@ function showThought(id,ms){if(thinking)thinking.el.remove();const el=document.c
 function react(id){const c=chars[id];const now=performance.now();if(c.view==="front"&&Math.random()<.6)c.wave=now+1400;else c.bounce=now+700;showThought(id,4000);}
 setInterval(()=>{if(!D||document.hidden||!$("#sheet").hidden)return;const ids=Object.keys(chars).filter(i=>{const c=chars[i];return c.x<1&&c.x>0&&floorsEl[c.floor].visible;});if(ids.length)showThought(ids[Math.floor(Math.random()*ids.length)]);},9000);
 
+
+// ---- 用量室（真實 token + 估算活動；額度警示純前端） ----
+function fmtN(n){n=+n||0;return n>=1e6?(n/1e6).toFixed(2)+"M":n>=1e3?(n/1e3).toFixed(1)+"k":String(n);}
+function usageToday(){const u=D&&D.usage;if(!u||!u.days)return null;const t=todayStr();return u.days.find(d=>d.date===t)||u.days.slice(-1)[0]||null;}
+function usageAlert(){
+  const u=D&&D.usage; if(!u) return {level:"",short:"",html:""};
+  const grace=+(u.graceMin||60);
+  const min=nowMin(), tod=todayStr();
+  const live=D.live||{}, ev=((usageToday()||{}).evidence)||{};
+  const misses=[];
+  for(const s of (D.schedule||[])){
+    if(s.soft) continue;
+    const end=mm(s.to);
+    if(min < end + grace) continue;          // 尚未到「時段結束 + 寬限」
+    if(min > 22*60) break;                   // 深夜不再追
+    const who = s.who==="council" ? "zhiya" : s.who;
+    const lv = live[who] || live[s.who];
+    const upd = lv && lv.updatedAt || "";
+    const okLive = upd.slice(0,10)===tod && (()=>{const hm=/ (\d{2}:\d{2})/.exec(upd); return hm ? mm(hm[1]) >= mm(s.from)-30 : false;})();
+    const okEv = !!(ev[s.who] || ev[who]);
+    if(!okLive && !okEv){
+      misses.push({chip:s.chip||s.who, from:s.from, to:s.to, last:upd||"—"});
+    }
+  }
+  if(misses.length){
+    const lastSeen = Object.keys(live).map(k=>live[k].updatedAt||"").filter(Boolean).sort().slice(-1)[0]||"—";
+    const short = "可能額度用完或例行失敗（缺 "+misses.length+" 時段）";
+    const html = `<div class="ub-row"><span><b>可能額度用完或例行失敗</b> · 已過時段仍無心跳／產出：`
+      + misses.map(m=>esc(m.chip)+" "+m.from+"–"+m.to).join("、")
+      + `。最後見到活動 ${esc(lastSeen)}（台北時間）。請到設定 → Usage & Billing 查看真實額度。</span>`
+      + `<button type="button" class="ub-act" id="ub-open">打開總監室用量</button></div>`;
+    return {level:"red", short, html, misses};
+  }
+  // 黃色：今日估算超過預算
+  const todD = usageToday(), bud=u.budget||{};
+  if(todD){
+    const overs=[];
+    const checks=[
+      ["artImages","美術圖", (todD.est||{}).artImages],
+      ["numReports","數值報告", (todD.est||{}).numReports],
+      ["qaReports","QA 報告", (todD.est||{}).qaReports],
+      ["proposals","提案／答辯", (todD.est||{}).proposals],
+      ["councilCalls","會議呼叫", ((todD.real||{}).council||{}).calls],
+      ["councilInputTokens","會議輸入 token", ((todD.real||{}).council||{}).inputTokens],
+      ["councilOutputTokens","會議輸出 token", ((todD.real||{}).council||{}).outputTokens],
+    ];
+    for(const [k,label,val] of checks){
+      const lim=bud[k]; if(!lim) continue;
+      if((+val||0) > lim) overs.push(label+" "+fmtN(val)+"／"+fmtN(lim));
+    }
+    if(overs.length){
+      const short="今日用量偏高（估算）："+overs[0];
+      const html=`<div class="ub-row"><span><b>今日用量偏高（估算）</b> · ${esc(overs.join("、"))}。此非帳單餘額；真實額度請看設定 → Usage & Billing。</span>`
+        +`<button type="button" class="ub-act" id="ub-open">打開總監室用量</button></div>`;
+      return {level:"yellow", short, html, overs};
+    }
+  }
+  return {level:"", short:"", html:""};
+}
+function renderUsageBanner(){
+  const el=$("#usage-banner"); if(!el) return;
+  const a=usageAlert();
+  if(!a.level){el.hidden=true;el.className="usage-banner";el.innerHTML="";return;}
+  el.hidden=false; el.className="usage-banner "+a.level; el.innerHTML=a.html;
+  const btn=$("#ub-open"); if(btn) btn.onclick=()=>openFloor("director");
+}
+function usageBarRows(rows){
+  return `<div class="ubar">${rows.map(r=>{
+    const pct=Math.min(100, Math.round((r.val/(r.lim||1))*100));
+    const cls=(r.real?"real ":"")+(r.val>(r.lim||0)?"over":"");
+    return `<div class="row"><span class="lab">${esc(r.label)}${r.real?'<span class="tag-real">實數</span>':'<span class="tag-est">估算</span>'}</span>`
+      +`<div class="track"><i class="${cls}" style="width:${pct}%"></i></div>`
+      +`<span class="val">${fmtN(r.val)}／${fmtN(r.lim)}</span></div>`;
+  }).join("")}</div>`;
+}
+function usagePanelHTML(){
+  const u=D.usage; if(!u) return '<div class="muted">尚無用量資料</div>';
+  const tod=usageToday()||{est:{},real:{council:{}}};
+  const c=(tod.real&&tod.real.council)||{};
+  const e=tod.est||{}, bud=u.budget||{};
+  const rows=[
+    {label:"會議呼叫", val:c.calls||0, lim:bud.councilCalls||0, real:true},
+    {label:"會議輸入 token", val:c.inputTokens||0, lim:bud.councilInputTokens||0, real:true},
+    {label:"會議輸出 token", val:c.outputTokens||0, lim:bud.councilOutputTokens||0, real:true},
+    {label:"美術圖檔", val:e.artImages||0, lim:bud.artImages||0},
+    {label:"數值報告", val:e.numReports||0, lim:bud.numReports||0},
+    {label:"QA 報告", val:e.qaReports||0, lim:bud.qaReports||0},
+    {label:"提案／答辯", val:e.proposals||0, lim:bud.proposals||0},
+  ];
+  const days=[...(u.days||[])].slice().reverse();
+  const maxIn=Math.max(1,...days.map(d=>((d.real||{}).council||{}).inputTokens||0));
+  let hist=`<table class="utable"><tr><th>日期</th><th>呼叫<span class="tag-real">實</span></th><th>輸入 token</th><th>輸出 token</th><th>美術圖<span class="tag-est">估</span></th><th>報告</th><th>提案</th></tr>`;
+  for(const d of days){
+    const cc=(d.real||{}).council||{}, ee=d.est||{};
+    const bar=Math.round(((cc.inputTokens||0)/maxIn)*100);
+    hist+=`<tr><td>${esc(d.date.slice(5))}<div class="track" style="margin-top:3px"><i class="real" style="width:${bar}%"></i></div></td>`
+      +`<td>${cc.calls||0}</td><td>${fmtN(cc.inputTokens||0)}</td><td>${fmtN(cc.outputTokens||0)}</td>`
+      +`<td>${ee.artImages||0}</td><td>${(ee.numReports||0)+(ee.qaReports||0)}</td><td>${ee.proposals||0}</td></tr>`;
+  }
+  hist+="</table>";
+  const a=usageAlert();
+  return `<div class="muted">${esc(u.note||"")}</div>
+    <div class="muted" style="margin-top:4px">${esc(u.sources||"")}</div>
+    ${a.level?`<div class="chips" style="margin-top:8px"><span class="chip ${a.level==="red"?"no":"mid"}">${esc(a.short)}</span></div>`:""}
+    <h4>今日對照預算（${esc(tod.date||u.today||"")}）</h4>
+    ${usageBarRows(rows)}
+    <div class="muted">預算可改 live/usage_budget.json；預設依近三日量級留餘裕。超過亮黃燈；例行無心跳亮紅燈。</div>
+    <h4>近 7 天</h4>${hist}
+    <h4>怎麼判斷「可能額度用完」</h4>
+    <ul><li>排程時段結束後超過 ${u.graceMin||60} 分鐘，該部門仍無 live 心跳、也無當日產出檔 → 紅燈</li>
+    <li>判斷在瀏覽器端算，bot 全停時只要 data.json 仍是舊的也會亮</li>
+    <li>真實餘額／上限請到設定 → Usage & Billing 查看；此頁從不顯示金額</li></ul>`;
+}
+
 // ---- 畫面資料 ----
 function renderFloors(){for(const f of FLOORS){const F=floorsEl[f.id],s=floorState(f);const b=F.el.querySelector(".bubble");
-  b.querySelector(".dot").className="dot "+s.cat;b.querySelector("b").textContent=s.label;b.querySelector(".t").textContent=noemo(s.text);}
+  b.querySelector(".dot").className="dot "+s.cat;b.querySelector("b").textContent=s.label;b.querySelector(".t").textContent=noemo(s.text);
+  if(f.id==="director"){const a=usageAlert();F.el.classList.toggle("usage-alert",a.level==="red");F.el.classList.toggle("usage-warn",a.level==="yellow");}}
   document.querySelectorAll(".play-link").forEach(a=>{a.href=D.game.url;a.textContent="進入遊戲 "+D.game.version;});}
 function chipOf(s){
   if(s.chip)return s.chip;
@@ -209,14 +327,21 @@ function weekHTML(filter){const w=(D.backlog.week||[]).filter(x=>!filter||x.owne
 function queueHTML(filter,max){const q=(D.backlog.queue||[]).filter(x=>!filter||x.owner===filter);const sh=q.slice(0,max||99);
   return `<ul class="qu">${sh.map(x=>`<li>${ownerChip(x.owner)}${x.sev?`<span class="sev ${x.sev==="🔴"?"s1":x.sev==="🟠"?"s2":"s3"}"><i></i></span>`:""}${esc(x.text)}</li>`).join("")}</ul>${q.length>sh.length?`<div class="muted">還有 ${q.length-sh.length} 項</div>`:""}`;}
 function renderBoard(){
+  const a=usageAlert(); const tod=usageToday(); const c=tod&&tod.real&&tod.real.council||{};
+  const ub=a.level?`<span class="chip ${a.level==="red"?"no":"mid"}">${esc(a.short)}</span>`:`<span class="chip ok">例行正常</span>`;
   $("#board").innerHTML=`<div class="card"><h2><img src="assets/ic_lobby.webp" alt="">一樓大廳 · 遊戲入口</h2><div class="play"><div class="ver">目前版本 <b>${esc(D.game.version)}</b><br>${esc(D.game.subtitle)}</div><a class="btn" target="_blank" rel="noopener" href="${esc(D.game.url)}">進入遊戲</a></div></div>
+  <div class="card" id="usage-card" style="cursor:pointer"><h2><img src="assets/ic_director.webp" alt="">總監室用量 · 每日估算</h2>
+    <div class="chips">${ub}<span class="chip">會議呼叫 ${c.calls||0}<span class="tag-real">實</span></span><span class="chip">輸入 ${fmtN(c.inputTokens||0)}</span><span class="chip">美術圖 ${(tod&&tod.est&&tod.est.artImages)||0}<span class="tag-est">估</span></span></div>
+    <div class="muted" style="margin-top:6px">點此或頂樓總監室看 7 天明細 · 非帳單餘額</div></div>
   <div class="card"><h2>待辦進度</h2>${progressHTML()}</div>
   <div class="card"><h2><img src="assets/ic_schedule.webp" alt="">今日排程</h2>${timelineHTML()}</div>
-  <div class="card"><h2><img src="assets/ic_roadmap.webp" alt="">上架路線圖 · 7 條</h2>${roadmapHTML()}</div>`;}
+  <div class="card"><h2><img src="assets/ic_roadmap.webp" alt="">上架路線圖 · 7 條</h2>${roadmapHTML()}</div>`;
+  const uc=$("#usage-card"); if(uc) uc.onclick=()=>openFloor("director");
+}
 function renderFeed(){$("#feed").innerHTML=D.feed.map(e=>`<li><time>${esc(fmtAt(e.at))}<small>${esc(e.at.slice(0,10)===todayStr()?"今天":"")}</small></time><div><span class="k ${esc(e.kind)}">${esc(e.kind)}</span>${esc(noemo(e.text))}</div></li>`).join("");
   const ws=Object.keys(SHORT).map(i=>[i,memberState(i)]).filter(x=>x[1].cat==="work"||x[1].cat==="meet");
   $("#nowline").textContent="台北 "+hm(tpNow())+" · "+(ws.length?ws.map(x=>SHORT[x[0]]+CAT[x[1].cat]).join("、"):"目前沒人在趕工");}
-function renderAll(){if(!D)return;const U=D.updatedAt||D.builtAt;const LA=D.lastActivity||"";$("#updated").textContent="更新時間 "+U.slice(5).replace("-","/")+(LA?" · 最後進度 "+LA.slice(5).replace("-","/"):"")+(D.notice?" · "+D.notice:"");$("#foot-upd").textContent="資料更新時間 "+U+"（台北時間）";renderFloors();renderBoard();renderFeed();}
+function renderAll(){if(!D)return;const U=D.updatedAt||D.builtAt;const LA=D.lastActivity||"";$("#updated").textContent="更新時間 "+U.slice(5).replace("-","/")+(LA?" · 最後進度 "+LA.slice(5).replace("-","/"):"")+(D.notice?" · "+D.notice:"");$("#foot-upd").textContent="資料更新時間 "+U+"（台北時間）";renderFloors();renderBoard();renderFeed();renderUsageBanner();}
 function tick(){$("#clock").textContent=hm(tpNow());if(D){renderFloors();renderFeed();const tl=document.querySelector("#board .tl");if(tl)tl.parentNode.innerHTML='<h2><img src="assets/ic_schedule.webp" alt="">今日排程</h2>'+timelineHTML();}}
 
 // ---- 細節面板 ----
@@ -231,7 +356,7 @@ function openFloor(id){const f=FLOORS.find(x=>x.id===id);let h=head(f);
     ${D.backlog.tiers?`<h4>本週目標（${D.backlog.tiers.weekDone}/${D.backlog.tiers.week}，每週一會議挑選）</h4>${weekHTML()}
     <h4>排隊中（${D.backlog.tiers.queue} 項：工程 ${D.backlog.tiers.queueBy["工程"]}、智雅 ${D.backlog.tiers.queueBy["智雅"]}）</h4><div class="muted">新建議先排在這裡，週一會議再挑進本週。</div>${queueHTML(null,8)}
     <div class="tiers"><span class="chip">長期／上架前 ${D.backlog.tiers.long}</span><span class="chip">已關閉 ${D.backlog.tiers.closed}（重複或過時，附原因）</span></div>`:""}
-    <h4>你的回饋處理狀況</h4><ul>${d.feedback.map(x=>`<li>${x.done?'<span class="chip ok">已處理</span>':'<span class="chip mid">處理中</span>'} ${esc(x.text)} <span class="muted">（${esc(x.from)}）</span></li>`).join("")}</ul>`+memberBtn("weixiang");}
+    <h4>你的回饋處理狀況</h4><ul>${d.feedback.map(x=>`<li>${x.done?'<span class="chip ok">已處理</span>':'<span class="chip mid">處理中</span>'} ${esc(x.text)} <span class="muted">（${esc(x.from)}）</span></li>`).join("")}</ul>`+`<h4>用量與額度警示</h4>`+usagePanelHTML()+memberBtn("weixiang");}
   if(id==="council"){const c=D.council;if(c){h+=`<h4>${esc(c.title)}</h4><div class="muted">${esc(fmtAt(c.at))} · ${esc(c.attend)}</div><div class="chips" style="margin-top:8px">${Object.entries(c.counts).map(([k,v])=>`<span class="chip ${k==="採納"||k==="縮小後採納"?"ok":k==="不採納"?"no":"mid"}">${esc(k)} ${v}</span>`).join("")}</div>
     <h4>最新裁決</h4><table><tr><th>提案</th><th>結論</th><th>理由</th></tr>${c.verdicts.map(v=>`<tr><td>${esc(v.item)}</td><td>${esc(v.verdict)}</td><td>${esc(v.why)}</td></tr>`).join("")}</table>
     ${(c.shortlist||[]).length?`<h4>會議排行榜（第二輪投票）</h4><ol>${c.shortlist.map(x=>`<li>${esc(x)}</li>`).join("")}</ol>`:""}

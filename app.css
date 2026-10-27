@@ -132,3 +132,8 @@ ul.qu{margin:6px 0}ul.qu li{margin:3px 0}
 .utable th{color:var(--mute);font-weight:600}
 .tag-real{display:inline-block;font-size:10.5px;border-radius:8px;padding:0 6px;background:#1e3a57;color:#b7dbff;margin-left:4px}
 .tag-est{display:inline-block;font-size:10.5px;border-radius:8px;padding:0 6px;background:#4f4219;color:#ffe9a8;margin-left:4px}
+
+.floor.usage-alert .plate{box-shadow:0 0 0 2px var(--red),0 0 14px #ff5d5d88}
+.floor.usage-alert .plate .no{background:#5a1818;color:#ffd0d0;animation:pulse 1.2s infinite}
+.floor.usage-warn .plate{box-shadow:0 0 0 2px var(--yel),0 0 10px #f2d04b66}
+.floor.usage-warn .plate .no{background:#4a3a12;color:#ffe9a8}
