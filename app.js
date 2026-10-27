@@ -5,7 +5,7 @@ const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;"
 const noemo=s=>String(s||"").replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F000}-\u{1F2FF}\uFE0F]/gu,"").trim();
 const FLOORS=[
  {id:"director",no:"RF",name:"總監室",who:"偉翔 創辦人／總監",icon:"ic_director",room:"room_director",member:"weixiang"},
- {id:"council",no:"7F",name:"會議室",who:"每日約 10:05 全員會議（智雅主持）",icon:"ic_council",room:"room_council"},
+ {id:"council",no:"7F",name:"會議室",who:"每日 09:47 全員會議（智雅主持；10:45 建版發布）",icon:"ic_council",room:"room_council"},
  {id:"dev",no:"6F",name:"開發部",who:"智雅 主程式／整合",icon:"ic_dev",room:"room_dev",member:"zhiya"},
  {id:"art",no:"5F",name:"美術部",who:"青鋒美術",icon:"ic_art",room:"room_art",member:"art"},
  {id:"num",no:"4F",name:"數值部",who:"青鋒數值",icon:"ic_num",room:"room_num",member:"num"},
@@ -64,7 +64,7 @@ function floorState(f){
     const o=D.office;const min=nowMin();
     if(ids.length)return{cat:"meet",label:"開會中",text:ids.length+" 人在會議室"};
     if(o&&min>=mm(o.meeting.to))return{cat:"done",label:"完成",text:D.council?("裁決 "+D.council.verdicts.length+" 項"):"今日會議結束"};
-    return{cat:"wait",label:"待命",text:"約 10:05 全員開會"};}
+    return{cat:"wait",label:"待命",text:"約 09:47 全員開會"};}
   return{cat:"done",label:"營業中",text:D.game.version+" 可玩"};
 }
 function nextStep(id){
@@ -220,7 +220,7 @@ function openFloor(id){const f=FLOORS.find(x=>x.id===id);let h=head(f);
     if(q)h+=`<h4>${esc(q.title)}</h4><div class="muted">${esc(fmtAt(q.at))} · ${esc(noemo(q.tests))}</div><div style="margin-top:6px">${sevHTML(q.counts)}</div><ul>${q.items.map(x=>`<li><span class="sev ${x.sev==="🔴"?"s1":x.sev==="🟠"?"s2":"s3"}"><i></i>${esc(x.id)}</span>${esc(x.text)}</li>`).join("")}</ul>`;h+=memberBtn("qa");}
   if(id==="eng"){const t=D.backlog.tiers||{};h+=`<div class="big" style="margin-top:10px"><div><b>${(D.backlog.week||[]).filter(x=>x.owner==="工程"&&!x.done).length}</b><span>本週負責</span></div><div><b>${(t.queueBy||{})["工程"]||0}</b><span>排隊中</span></div><div><b>${Object.values(D.backlog.qaOpen).reduce((a,b)=>a+b,0)}</b><span>未修回報</span></div></div>
     <h4>本週負責</h4>${weekHTML("工程")}<h4>排隊中（工程）</h4>${queueHTML("工程")}
-    <h4>工作方式</h4><ul><li>每天約 15:00–16:30 修 QA 回報、介面打磨，發布 v3.9.x 熱修</li><li>在自己的修復分支工作，時段內才併回主線；動手前先登記「誰、何時、做什麼」，做完解除</li><li>每個修正都附回歸測試，存檔保持相容</li></ul>`+memberBtn("eng");}
+    <h4>工作方式</h4><ul><li>每天約 15:00–16:30 修 QA 回報、介面打磨，發布修補版熱修</li><li>在自己的修復分支工作，時段內才併回主線；動手前先登記「誰、何時、做什麼」，做完解除</li><li>每個修正都附回歸測試，存檔保持相容</li></ul>`+memberBtn("eng");}
   if(id==="lobby"){h+=`<div class="play" style="margin-top:10px"><div class="ver">目前版本 <b>${esc(D.game.version)}</b><br>${esc(D.game.subtitle)}</div><a class="btn" target="_blank" rel="noopener" href="${esc(D.game.url)}">進入遊戲</a></div>
     <h4>待辦進度</h4>${progressHTML()}<h4>今日排程</h4>${timelineHTML()}<h4>上架路線圖</h4>${roadmapHTML()}`;}
   openSheet(h);document.querySelectorAll("#sheetbody [data-m]").forEach(b=>b.onclick=()=>openMember(b.dataset.m));}
