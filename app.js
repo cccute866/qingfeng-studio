@@ -173,8 +173,8 @@ function timelineHTML(){
     const soft=!!s.soft||/補跑|若尚未|若進度/.test(s.what||"");
     return{...s,a,b,soft,chip:chipOf(s)};
   }).sort((x,y)=>x.a-y.a||x.b-y.b);
-  // 重疊或視覺上會撞（短 slot 有 min-width）時分到不同 lane
-  const minGap=Math.ceil(span*52/360);
+  // 時間重疊或短 slot（min-width）視覺會撞時，分到不同 lane
+  const minGap=Math.ceil(span*72/360);
   const laneEnds=[];
   items.forEach(it=>{
     const visEnd=Math.max(it.b,it.a+minGap);
@@ -184,17 +184,14 @@ function timelineHTML(){
     laneEnds[lane]=visEnd;
   });
   const nLane=Math.max(1,laneEnds.length);
-  const rowH=26,baseTop=34,axisY=baseTop+11;
-  const hTl=baseTop+nLane*rowH+28;
+  const rowH=30,baseTop=36,axisY=baseTop+11;
+  const hTl=baseTop+nLane*rowH+22;
   let h=`<div class="tl" style="height:${hTl}px"><div class="axis" style="top:${axisY}px"></div>`;
   items.forEach(s=>{
     const cls=(min>=s.b?"past":(min>=s.a?"cur":""))+(s.soft?" soft":"");
     const top=baseTop+s.lane*rowH;
-    const wPct=Math.max(((s.b-s.a)/span*100),0.5);
-    h+=`<div class="seg ${s.who} ${cls}" style="left:${pct(s.a)};width:${wPct.toFixed(2)}%;top:${top}px;z-index:${2+s.lane}" title="${esc(s.from+"–"+s.to+" "+s.what)}"><span class="sg">${esc(s.chip)}</span></div>`;
-    const lblSide=s.lane%2===0?"above":"below";
-    const lblTop=s.lane%2===0?top-14:top+rowH+1;
-    h+=`<div class="lbl ${lblSide}" style="left:${pct(s.a)};top:${lblTop}px">${s.from}</div>`;
+    const wPct=((s.b-s.a)/span*100);
+    h+=`<div class="seg ${s.who} ${cls}" style="left:${pct(s.a)};width:max(${wPct.toFixed(2)}%,72px);top:${top}px;z-index:${3+s.lane}" title="${esc(s.from+"–"+s.to+" "+s.what)}"><span class="tm">${s.from}</span><span class="sg">${esc(s.chip)}</span></div>`;
   });
   if(min>=S&&min<=E)h+=`<div class="now${min>E-120?" r":""}" style="left:${pct(min)}"><span>現在 ${hm(tpNow())}</span></div>`;
   h+="</div>";
