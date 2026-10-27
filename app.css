@@ -109,3 +109,26 @@ table{width:100%;border-collapse:collapse;font-size:12.5px}th,td{text-align:left
 .own.eng{background:#1d4f55;color:#a8f1f7}.own.zy{background:#1f4d39;color:#9ff0c6}
 ol.wk{padding-left:20px;margin:6px 0}ol.wk li{margin:6px 0}ol.wk li .muted{font-size:12px;margin-top:2px}ol.wk li.dn b{text-decoration:line-through;opacity:.7}
 ul.qu{margin:6px 0}ul.qu li{margin:3px 0}
+
+/* 用量室／額度警示 */
+.usage-banner{position:sticky;top:0;z-index:30;padding:10px 14px;font-size:13.5px;line-height:1.4;border-bottom:1px solid #0008;box-shadow:0 4px 16px #0008}
+.usage-banner[hidden]{display:none!important}
+.usage-banner.red{background:#5a1818;color:#ffd0d0;border-bottom-color:#ff5d5d55}
+.usage-banner.yellow{background:#4a3a12;color:#ffe9a8;border-bottom-color:#f2d04b55}
+.usage-banner b{color:#fff}
+.usage-banner a{color:#f3e3bb;text-decoration:underline}
+.usage-banner .ub-row{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:baseline}
+.usage-banner .ub-act{margin-left:auto;font-size:12px;opacity:.9;cursor:pointer;border:1px solid #ffffff44;background:transparent;color:inherit;border-radius:8px;padding:4px 10px;min-height:36px}
+.ubar{display:grid;gap:6px;margin:8px 0}
+.ubar .row{display:grid;grid-template-columns:72px 1fr 64px;gap:8px;align-items:center;font-size:12.5px}
+.ubar .lab{color:var(--mute)}.ubar .val{text-align:right;font-variant-numeric:tabular-nums;color:#f3e3bb}
+.ubar .track{height:10px;background:#0b111a;border-radius:6px;overflow:hidden;border:1px solid #2c3746}
+.ubar .track i{display:block;height:100%;background:linear-gradient(90deg,#2f9e6e,#7fe0b0)}
+.ubar .track i.over{background:linear-gradient(90deg,#a34a1a,#f2d04b)}
+.ubar .track i.real{background:linear-gradient(90deg,#1e4d7a,#5ab0ff)}
+.utable{width:100%;border-collapse:collapse;font-size:12px;margin-top:6px}
+.utable th,.utable td{padding:5px 4px;border-bottom:1px solid #263142;text-align:right;font-variant-numeric:tabular-nums}
+.utable th:first-child,.utable td:first-child{text-align:left}
+.utable th{color:var(--mute);font-weight:600}
+.tag-real{display:inline-block;font-size:10.5px;border-radius:8px;padding:0 6px;background:#1e3a57;color:#b7dbff;margin-left:4px}
+.tag-est{display:inline-block;font-size:10.5px;border-radius:8px;padding:0 6px;background:#4f4219;color:#ffe9a8;margin-left:4px}
