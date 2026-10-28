@@ -214,7 +214,7 @@ function usageAlert(){
     }
     const overs=[];
     const checks=[
-      ["artImages","美術圖", (todD.est||{}).artImages],
+      ["artImages","美術新圖", (todD.est||{}).artImages],
       ["numReports","數值報告", (todD.est||{}).numReports],
       ["qaReports","QA 報告", (todD.est||{}).qaReports],
       ["proposals","提案／答辯", (todD.est||{}).proposals],
@@ -270,6 +270,7 @@ function usageBarRows(rows){
       const list=[];
       (r.items||[]).forEach(x=>list.push(`<li>${esc(x)}</li>`));
       (r.excluded||[]).forEach(x=>list.push(`<li class="ex">${esc(x)}</li>`));
+      if(r.note) list.unshift(`<li class="why">${esc(r.note)}</li>`);
       if(r.reason) list.unshift(`<li class="why">${esc(r.reason)}</li>`);
       detail=`<button type="button" class="ud-tog" data-ud="${id}">看明細</button>`
         +`<div class="ud-list" id="${id}" hidden><ul>${list.join("")||"<li>（無清單）</li>"}</ul></div>`;
@@ -300,13 +301,13 @@ function usagePanelHTML(){
       (key==="proposals"&&x.includes("會議/"))
     );
     return {label, val:val||0, lim:lim||0, real:!!real, key, needCheck:!!fl,
-      reason:fl?fl.reason:"", items, excluded:ex};
+      reason:fl?fl.reason:"", note:key==="artImages"?(tod.artNote||""):"", items, excluded:ex};
   };
   const rows=[
     mk("councilCalls","會議呼叫",c.calls,bud.councilCalls,true),
     mk("councilInputTokens","會議輸入 token",c.inputTokens,bud.councilInputTokens,true),
     mk("councilOutputTokens","會議輸出 token",c.outputTokens,bud.councilOutputTokens,true),
-    mk("artImages","美術圖檔",e.artImages,bud.artImages),
+    mk("artImages","美術新圖",e.artImages,bud.artImages),
     mk("numReports","數值報告",e.numReports,bud.numReports),
     mk("qaReports","QA 報告",e.qaReports,bud.qaReports),
     mk("proposals","提案／答辯",e.proposals,bud.proposals),
