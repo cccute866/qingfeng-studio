@@ -39,6 +39,8 @@ const BANDS={f9_top:[202,349],f8:[349,490],f7:[490,629],f6:[629,769],f5:[769,906
 const TOWER_H=1800;
 /* 座位：room2 floor_y/520；view back=背對螢幕 */
 const SPOT={weixiang:{f:"director",x:.30,y:.70,floor:.75},zhiya:{f:"dev",x:.52,y:.68,floor:.74},art:{f:"art",x:.34,y:.66,floor:.73},num:{f:"num",x:.44,y:.70,floor:.75},qa:{f:"qa",x:.58,y:.68,floor:.74},eng:{f:"eng",x:.48,y:.74,floor:.81}};
+/* 半寫實正常比例：以房間高度比例對家具；eng 機櫃區略小、總裁室略大 */
+const ROOM_SCALE={director:.50,council:.48,trade:.48,lobby:.48,dev:.48,art:.47,num:.47,qa:.47,eng:.44};
 const SEAT={weixiang:.29,zhiya:.37,art:.45,num:.53,qa:.61,eng:.69}; const TABLE_TOP=.62;
 const NAMES={weixiang:"偉翔",zhiya:"智雅",art:"青鋒美術",num:"青鋒數值",qa:"青鋒監管",eng:"青鋒工程",council:"全員會議"};
 const SHORT={weixiang:"偉翔",zhiya:"智雅",art:"美術",num:"數值",qa:"監管",eng:"工程"};
@@ -206,10 +208,11 @@ function placeChar(c,now){
       c.x=x;c.y=sp.floor;c.pose=(e<c.stroll.dur||e>c.stroll.dur+2500)?"walk":"stand";c.view="front";return;}}
   c.x=sp.x;c.y=s.cat==="you"?sp.floor:sp.y;c.pose=s.cat==="you"?"stand":"sit";c.view=s.cat==="you"?"front":"back";
 }
-// ---- Q版立繪（美術交件 assets/chars/<id>_<idle|walk|wave>.webp，128×160，腳底 y=152） ----
+// ---- 半寫實立繪（assets/chars/<id>_<idle|walk|wave>.webp，128×160，腳底 y=152）＋棚拍頭像 ----
 const SPR={};
 function sprite(id,pose){const k=id+"_"+pose;let im=SPR[k];if(!im){im=new Image();im.decoding="async";im.src="assets/chars/"+k+".webp";SPR[k]=im;}return im;}
 function preloadSprites(){for(const id of Object.keys(SPOT))for(const p of ["idle","walk","wave"])sprite(id,p);}
+function avatarURL(id,lg){return lg?`assets/avatars/avatar_${id}_lg.webp`:`assets/avatars/avatar_${id}.webp`;}
 function spritePose(c,now){
   if(c.wave>now)return"wave";
   if(c.pose==="walk")return Math.floor(now/220)%2?"walk":"idle";
@@ -234,7 +237,7 @@ function loop(now){
       ctx.save();if(c.clip){ctx.beginPath();ctx.rect(0,0,cv.width,c.clip*cv.height);ctx.clip();}
       if(c.x<1.02&&c.x>-.02){ctx.fillStyle="rgba(0,0,0,.35)";if(!c.clip){ctx.beginPath();ctx.ellipse(x,y+u*.3,5*u,1.4*u,0,0,7);ctx.fill();}
         const im=sprite(c.id,spritePose(c,now));
-        if(im.complete&&im.naturalWidth){const dh=(c.pose==="sit"?20:24)*u,dw=dh*.8,top=y+b-dh*.95;
+        if(im.complete&&im.naturalWidth){const sc=ROOM_SCALE[k]||.48,dh=(c.pose==="sit"?sc*.82:sc)*cv.height,dw=dh*.8,top=y+b-dh*.95;
           ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality="high";
           if(c.dir===-1&&c.pose==="walk"){ctx.translate(x,0);ctx.scale(-1,1);ctx.drawImage(im,-dw/2,top,dw,dh);}
           else ctx.drawImage(im,x-dw/2,top,dw,dh);}}
@@ -574,7 +577,7 @@ function decisionBoardHTML(){
   return `<div class="dboard">${dec.map(d=>{
     const ids=driIds(d.dri); const st=dueStatus(d.due);
     const av=ids.length
-      ?`<div class="davs">${ids.map(id=>`<img class="dav" src="assets/chars/${id}_idle.webp" alt="">`).join("")}</div>`
+      ?`<div class="davs">${ids.map(id=>`<img class="dav" src="${avatarURL(id)}" alt="" width="36" height="36">`).join("")}</div>`
       :`<div class="davs"><div class="dav"></div></div>`;
     return `<div class="dcard">${av}<div class="dmeta"><div class="ditem">${esc(d.item)}</div><div class="ddri">${esc(d.tag)} · ${esc(d.dri||"未指派")}</div></div><div class="dright"><span class="slite ${st.lite}"></span><span class="ddue ${st.cls}">${esc(st.text)}</span></div></div>`;
   }).join("")}</div>`;
@@ -690,7 +693,7 @@ function openSheet(html){$("#sheetbody").innerHTML=html;$("#sheet").hidden=false
 function closeSheet(){$("#sheet").hidden=true;$("#sheetbg").hidden=true;}
 $("#close").onclick=closeSheet;$("#sheetbg").onclick=closeSheet;document.addEventListener("keydown",e=>{if(e.key==="Escape")closeSheet();});
 function sevHTML(c){const L=[["🔴","s1","致命"],["🟠","s2","重要"],["🟡","s3","次要"]];return L.map(([k,cl,n])=>`<span class="sev ${cl}"><i></i>${n} ${typeof c[k]==="object"?c[k].new+" 新 / "+c[k].old+" 舊":c[k]}</span>`).join("");}
-function memberBtn(id){return `<div class="mbtn"><button data-m="${id}">看 ${esc(NAMES[id])} 在想什麼</button></div>`;}
+function memberBtn(id){return `<div class="mbtn"><button data-m="${id}" class="mbtn-ava"><img class="mava" src="${avatarURL(id)}" alt="" width="28" height="28">看 ${esc(NAMES[id])} 在想什麼</button></div>`;}
 function head(f,extra){const s=floorState(f);return `<h3>${iconSVG(f.id)}<span class="no">${f.no}</span> ${f.name}</h3><div class="muted"><span class="dot ${s.cat}"></span> ${esc(s.label)} · ${esc(noemo(s.text))}${extra||""}</div>`;}
 function openFloor(id){const f=FLOORS.find(x=>x.id===id);let h=head(f);
   if(id==="director"){const d=D.director;h+=`<h4>等你決定／開通（${d.needYou.length}）</h4><ul>${d.needYou.map(x=>`<li><b>${esc(x.track)}</b>：${esc(x.what)}</li>`).join("")}</ul>
@@ -734,13 +737,12 @@ function openFloor(id){const f=FLOORS.find(x=>x.id===id);let h=head(f);
     <h4>待辦進度</h4>${progressHTML()}<h4>今日排程</h4>${timelineHTML()}<h4>上架路線圖</h4>${roadmapHTML()}`;}
   openSheet(h);document.querySelectorAll("#sheetbody [data-m]").forEach(b=>b.onclick=()=>openMember(b.dataset.m));bindUsageDetails($("#sheetbody"));}
 function openMember(id){const s=memberState(id),c=D.cards[id]||{},m=(D.office&&D.office.members[id])||{role:ROLES[id]};
-  openSheet(`<div class="who"><img id="ava" class="ava" width="96" height="120" alt="${esc(NAMES[id])} Q版立繪" src="assets/chars/${id}_idle_lg.webp" onerror="this.onerror=null;this.src='assets/chars/'+this.dataset.id+'_idle.webp'" data-id="${id}"><div><div class="nm">${esc(NAMES[id])}</div><div class="rl">${esc(m.role||"")}</div><div class="stl"><span class="dot ${s.cat}"></span>${CAT[s.cat]} · <span class="muted">${s.live?esc(agoText(s.updatedAt)):"依每日排程"}</span></div></div></div>
+  openSheet(`<div class="who"><img id="ava" class="ava" width="96" height="96" alt="${esc(NAMES[id])}" src="${avatarURL(id,true)}" data-id="${id}"><div><div class="nm">${esc(NAMES[id])}</div><div class="rl">${esc(m.role||"")}</div><div class="stl"><span class="dot ${s.cat}"></span>${CAT[s.cat]} · <span class="muted">${s.live?esc(agoText(s.updatedAt)):"依每日排程"}</span></div></div></div>
   <div class="thought">${esc(thoughtOf(id))}</div>
   <div class="rows"><div class="r"><b>正在忙</b>${esc(noemo(s.full||s.text))}</div><div class="r"><b>剛完成</b>${esc(noemo(c.recent)||"—")}</div><div class="r"><b>下一步</b>${esc(noemo(nextStep(id)))}</div></div>
   <div class="mbtn"><button id="poke">打招呼</button><button id="tofloor">看這層樓</button></div>`);
   const ava=$("#ava");
-  $("#poke").onclick=()=>{ava.src="assets/chars/"+id+"_wave_lg.webp";ava.classList.remove("hop");void ava.offsetWidth;ava.classList.add("hop");
-    clearTimeout(ava._t);ava._t=setTimeout(()=>{if(document.body.contains(ava))ava.src="assets/chars/"+id+"_idle_lg.webp";},1400);react(id);};
+  $("#poke").onclick=()=>{ava.classList.remove("hop");void ava.offsetWidth;ava.classList.add("hop");react(id);};
   $("#tofloor").onclick=()=>{setView("room",SPOT[id].f);openFloor(SPOT[id].f);};}
 
 // ---- 資料 ----
