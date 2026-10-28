@@ -40,7 +40,7 @@ const TOWER_H=1800;
 /* 座位：room2 floor_y/520；view back=背對螢幕 */
 const SPOT={weixiang:{f:"director",x:.30,y:.70,floor:.75},zhiya:{f:"dev",x:.52,y:.68,floor:.74},art:{f:"art",x:.34,y:.66,floor:.73},num:{f:"num",x:.44,y:.70,floor:.75},qa:{f:"qa",x:.58,y:.68,floor:.74},eng:{f:"eng",x:.48,y:.74,floor:.81}};
 /* 半寫實正常比例：以房間高度比例對家具；eng 機櫃區略小、總裁室略大 */
-const ROOM_SCALE={director:.50,council:.48,trade:.48,lobby:.48,dev:.48,art:.47,num:.47,qa:.47,eng:.44};
+const ROOM_SCALE={director:.44,council:.42,trade:.42,lobby:.42,dev:.42,art:.41,num:.41,qa:.41,eng:.38};
 const SEAT={weixiang:.29,zhiya:.37,art:.45,num:.53,qa:.61,eng:.69}; const TABLE_TOP=.62;
 const NAMES={weixiang:"偉翔",zhiya:"智雅",art:"青鋒美術",num:"青鋒數值",qa:"青鋒監管",eng:"青鋒工程",council:"全員會議"};
 const SHORT={weixiang:"偉翔",zhiya:"智雅",art:"美術",num:"數值",qa:"監管",eng:"工程"};
@@ -237,7 +237,7 @@ function loop(now){
       ctx.save();if(c.clip){ctx.beginPath();ctx.rect(0,0,cv.width,c.clip*cv.height);ctx.clip();}
       if(c.x<1.02&&c.x>-.02){ctx.fillStyle="rgba(0,0,0,.35)";if(!c.clip){ctx.beginPath();ctx.ellipse(x,y+u*.3,5*u,1.4*u,0,0,7);ctx.fill();}
         const im=sprite(c.id,spritePose(c,now));
-        if(im.complete&&im.naturalWidth){const sc=ROOM_SCALE[k]||.48,dh=(c.pose==="sit"?sc*.82:sc)*cv.height,dw=dh*.8,top=y+b-dh*.95;
+        if(im.complete&&im.naturalWidth){const sc=ROOM_SCALE[k]||.42,dh=(c.pose==="sit"||c.pose==="type"?sc*.78:sc)*cv.height,dw=dh*.8,top=y+b-dh*.95;
           ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality="high";
           if(c.dir===-1&&c.pose==="walk"){ctx.translate(x,0);ctx.scale(-1,1);ctx.drawImage(im,-dw/2,top,dw,dh);}
           else ctx.drawImage(im,x-dw/2,top,dw,dh);}}
