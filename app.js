@@ -201,9 +201,17 @@ function usageAlert(){
       + `<button type="button" class="ub-act" id="ub-open">打開總監室用量</button></div>`;
     return {level:"red", short, html, misses, lastSeen};
   }
-  // 黃色：今日估算超過預算
+  // 黃色／待核對：建站自檢 needsCheck（超預算或高於近三日均×2）
   const todD = dayU, bud=u.budget||{};
   if(todD){
+    const nc = todD.needsCheck||[];
+    if(nc.length){
+      const bits=nc.map(f=>esc((f.label||f.key)+" "+(f.reason||"")));
+      const short="待核對："+(nc[0].label||nc[0].key);
+      const html=`<div class="ub-row"><span><b>待核對</b> · ${bits.join("、")}。計數只認日期資料夾／檔名；點總監室用量看明細。此非帳單餘額；真實額度請看設定 → Usage & Billing。</span>`
+        +`<button type="button" class="ub-act" id="ub-open">打開總監室用量</button></div>`;
+      return {level:"yellow", short, html, overs:bits, needsCheck:nc, lastSeen};
+    }
     const overs=[];
     const checks=[
       ["artImages","美術圖", (todD.est||{}).artImages],
@@ -219,8 +227,8 @@ function usageAlert(){
       if((+val||0) > lim) overs.push(label+" "+fmtN(val)+"／"+fmtN(lim));
     }
     if(overs.length){
-      const short="今日用量偏高（估算）："+overs[0];
-      const html=`<div class="ub-row"><span><b>今日用量偏高（估算）</b> · ${esc(overs.join("、"))}。此非帳單餘額；真實額度請看設定 → Usage & Billing。</span>`
+      const short="待核對："+overs[0];
+      const html=`<div class="ub-row"><span><b>待核對</b> · ${esc(overs.join("、"))}。此非帳單餘額；真實額度請看設定 → Usage & Billing。</span>`
         +`<button type="button" class="ub-act" id="ub-open">打開總監室用量</button></div>`;
       return {level:"yellow", short, html, overs, lastSeen};
     }
@@ -234,28 +242,74 @@ function renderUsageBanner(){
   el.hidden=false; el.className="usage-banner "+a.level; el.innerHTML=a.html;
   const btn=$("#ub-open"); if(btn) btn.onclick=()=>openFloor("director");
 }
+
+function bindUsageDetails(root){
+  (root||document).querySelectorAll(".ud-tog").forEach(btn=>{
+    if(btn._ud) return; btn._ud=1;
+    btn.onclick=e=>{
+      e.stopPropagation();
+      const id=btn.getAttribute("data-ud");
+      const box=id&&document.getElementById(id);
+      if(!box) return;
+      const on=box.hasAttribute("hidden");
+      if(on) box.removeAttribute("hidden"); else box.setAttribute("hidden","");
+      btn.textContent=on?"收合明細":"看明細";
+    };
+  });
+}
 function usageBarRows(rows){
-  return `<div class="ubar">${rows.map(r=>{
+  return `<div class="ubar">${rows.map((r,i)=>{
     const pct=Math.min(100, Math.round((r.val/(r.lim||1))*100));
-    const cls=(r.real?"real ":"")+(r.val>(r.lim||0)?"over":"");
-    return `<div class="row"><span class="lab">${esc(r.label)}${r.real?'<span class="tag-real">實數</span>':'<span class="tag-est">估算</span>'}</span>`
+    const over=r.val>(r.lim||0)||r.needCheck;
+    const cls=(r.real?"real ":"")+(over?"over":"");
+    const tags=(r.real?'<span class="tag-real">實數</span>':'<span class="tag-est">估算</span>')
+      +(r.needCheck?'<span class="tag-check">待核對</span>':'');
+    let detail="";
+    if(r.needCheck||(r.items&&r.items.length)||(r.excluded&&r.excluded.length)){
+      const id="ud-"+i;
+      const list=[];
+      (r.items||[]).forEach(x=>list.push(`<li>${esc(x)}</li>`));
+      (r.excluded||[]).forEach(x=>list.push(`<li class="ex">${esc(x)}</li>`));
+      if(r.reason) list.unshift(`<li class="why">${esc(r.reason)}</li>`);
+      detail=`<button type="button" class="ud-tog" data-ud="${id}">看明細</button>`
+        +`<div class="ud-list" id="${id}" hidden><ul>${list.join("")||"<li>（無清單）</li>"}</ul></div>`;
+    }
+    return `<div class="row${r.needCheck?" need-check":""}"><span class="lab">${esc(r.label)}${tags}</span>`
       +`<div class="track"><i class="${cls}" style="width:${pct}%"></i></div>`
-      +`<span class="val">${fmtN(r.val)}／${fmtN(r.lim)}</span></div>`;
+      +`<span class="val">${fmtN(r.val)}／${fmtN(r.lim)}</span>${detail}</div>`;
   }).join("")}</div>`;
 }
 function usagePanelHTML(){
   const u=D.usage; if(!u) return '<div class="muted">尚無用量資料</div>';
-  const tod=usageToday()||{est:{},real:{council:{}}};
+  const tod=usageToday()||{est:{},real:{council:{}},counted:{},needsCheck:[],excluded:[]};
   const c=(tod.real&&tod.real.council)||{};
   const e=tod.est||{}, bud=u.budget||{};
+  const counted=tod.counted||{};
+  const ncMap={}; (tod.needsCheck||[]).forEach(f=>{ncMap[f.key]=f;});
+  const mk=(key,label,val,lim,real)=>{
+    const fl=ncMap[key];
+    let items=[];
+    if(key==="artImages") items=counted.artImages||[];
+    else if(key==="numReports") items=counted.numReports||[];
+    else if(key==="qaReports") items=counted.qaReports||[];
+    else if(key==="proposals") items=counted.proposals||[];
+    const ex=(tod.excluded||[]).filter(x=>
+      (key==="numReports"&&x.includes("數值報告"))||
+      (key==="artImages"&&x.includes("incoming"))||
+      (key==="qaReports"&&x.includes("screenshots/qa"))||
+      (key==="proposals"&&x.includes("會議/"))
+    );
+    return {label, val:val||0, lim:lim||0, real:!!real, key, needCheck:!!fl,
+      reason:fl?fl.reason:"", items, excluded:ex};
+  };
   const rows=[
-    {label:"會議呼叫", val:c.calls||0, lim:bud.councilCalls||0, real:true},
-    {label:"會議輸入 token", val:c.inputTokens||0, lim:bud.councilInputTokens||0, real:true},
-    {label:"會議輸出 token", val:c.outputTokens||0, lim:bud.councilOutputTokens||0, real:true},
-    {label:"美術圖檔", val:e.artImages||0, lim:bud.artImages||0},
-    {label:"數值報告", val:e.numReports||0, lim:bud.numReports||0},
-    {label:"QA 報告", val:e.qaReports||0, lim:bud.qaReports||0},
-    {label:"提案／答辯", val:e.proposals||0, lim:bud.proposals||0},
+    mk("councilCalls","會議呼叫",c.calls,bud.councilCalls,true),
+    mk("councilInputTokens","會議輸入 token",c.inputTokens,bud.councilInputTokens,true),
+    mk("councilOutputTokens","會議輸出 token",c.outputTokens,bud.councilOutputTokens,true),
+    mk("artImages","美術圖檔",e.artImages,bud.artImages),
+    mk("numReports","數值報告",e.numReports,bud.numReports),
+    mk("qaReports","QA 報告",e.qaReports,bud.qaReports),
+    mk("proposals","提案／答辯",e.proposals,bud.proposals),
   ];
   const days=[...(u.days||[])].slice().reverse();
   const maxIn=Math.max(1,...days.map(d=>((d.real||{}).council||{}).inputTokens||0));
@@ -263,23 +317,32 @@ function usagePanelHTML(){
   for(const d of days){
     const cc=(d.real||{}).council||{}, ee=d.est||{};
     const bar=Math.round(((cc.inputTokens||0)/maxIn)*100);
-    hist+=`<tr><td>${esc(d.date.slice(5))}<div class="track" style="margin-top:3px"><i class="real" style="width:${bar}%"></i></div></td>`
+    const flag=(d.needsCheck&&d.needsCheck.length)?'<span class="tag-check">待核對</span>':"";
+    hist+=`<tr><td>${esc(d.date.slice(5))}${flag}<div class="track" style="margin-top:3px"><i class="real" style="width:${bar}%"></i></div></td>`
       +`<td>${cc.calls||0}</td><td>${fmtN(cc.inputTokens||0)}</td><td>${fmtN(cc.outputTokens||0)}</td>`
       +`<td>${ee.artImages||0}</td><td>${(ee.numReports||0)+(ee.qaReports||0)}</td><td>${ee.proposals||0}</td></tr>`;
   }
   hist+="</table>";
   const a=usageAlert();
+  const commitBits=[];
+  const ch=(counted.commits)||{};
+  for(const [repo,hs] of Object.entries(ch)){
+    if(hs&&hs.length) commitBits.push(`${repo} ${hs.length}：${hs.slice(0,8).join(", ")}${hs.length>8?"…":""}`);
+  }
+  const commitHtml=commitBits.length?`<div class="muted" style="margin-top:6px">今日提交（短 hash）：${esc(commitBits.join("；"))}</div>`:"";
   return `<div class="muted">${esc(u.note||"")}</div>
     <div class="muted" style="margin-top:4px">${esc(u.sources||"")}</div>
     ${a.level?`<div class="chips" style="margin-top:8px"><span class="chip ${a.level==="red"?"no":"mid"}">${esc(a.short)}</span></div>`:""}
     <h4>今日對照預算（${esc(tod.date||u.today||"")}）</h4>
     ${usageBarRows(rows)}
-    <div class="muted">預算可改 live/usage_budget.json；預設依近三日量級留餘裕。超過亮黃燈；例行無心跳亮紅燈。</div>
+    ${commitHtml}
+    <div class="muted">預算可改 live/usage_budget.json。超預算或高於近三日均×2 標「待核對」，可點「看明細」核對檔名；例行無心跳亮紅燈。計數不用 mtime 歸日。</div>
     <h4>近 7 天</h4>${hist}
     <h4>怎麼判斷「可能額度用完」</h4>
     <ul><li>排程時段結束後超過 ${u.graceMin||60} 分鐘，且該時段開始後仍無心跳／產出 → 紅燈</li>
     <li>監管 11:00 時段：沒有新版上線（或已寫「無新版，略過實測」）就不算缺，不亮紅燈</li>
     <li>今日任一證據（交件、提案、提交、心跳）都算活著；「最後見到」取全部門最新時間</li>
+    <li>用量自檢：只認日期資料夾／檔名；異常標「待核對」並附計入清單，不必等你先質疑</li>
     <li>判斷在瀏覽器端算；真實餘額請到設定 → Usage & Billing；此頁從不顯示金額</li></ul>`;
 }
 
@@ -367,7 +430,7 @@ function openFloor(id){const f=FLOORS.find(x=>x.id===id);let h=head(f);
     ${D.backlog.tiers?`<h4>本週目標（${D.backlog.tiers.weekDone}/${D.backlog.tiers.week}，每週一會議挑選）</h4>${weekHTML()}
     <h4>排隊中（${D.backlog.tiers.queue} 項：工程 ${D.backlog.tiers.queueBy["工程"]}、智雅 ${D.backlog.tiers.queueBy["智雅"]}）</h4><div class="muted">新建議先排在這裡，週一會議再挑進本週。</div>${queueHTML(null,8)}
     <div class="tiers"><span class="chip">長期／上架前 ${D.backlog.tiers.long}</span><span class="chip">已關閉 ${D.backlog.tiers.closed}（重複或過時，附原因）</span></div>`:""}
-    <h4>你的回饋處理狀況</h4><ul>${d.feedback.map(x=>`<li>${x.done?'<span class="chip ok">已處理</span>':'<span class="chip mid">處理中</span>'} ${esc(x.text)} <span class="muted">（${esc(x.from)}）</span></li>`).join("")}</ul>`+`<h4>用量與額度警示</h4>`+usagePanelHTML()+memberBtn("weixiang");}
+    <h4>你的回饋處理狀況</h4><ul>${d.feedback.map(x=>`<li>${x.done?'<span class="chip ok">已處理</span>':'<span class="chip mid">處理中</span>'} ${esc(x.text)} <span class="muted">（${esc(x.from)}）</span></li>`).join("")}</ul>`+`<h4>用量與額度警示</h4>`+usagePanelHTML()+memberBtn("weixiang"); bindUsageDetails();}
   if(id==="council"){const c=D.council;if(c){h+=`<h4>${esc(c.title)}</h4><div class="muted">${esc(fmtAt(c.at))} · ${esc(c.attend)}</div><div class="chips" style="margin-top:8px">${Object.entries(c.counts).map(([k,v])=>`<span class="chip ${k==="採納"||k==="縮小後採納"?"ok":k==="不採納"?"no":"mid"}">${esc(k)} ${v}</span>`).join("")}</div>
     <h4>最新裁決</h4><table><tr><th>提案</th><th>結論</th><th>理由</th></tr>${c.verdicts.map(v=>`<tr><td>${esc(v.item)}</td><td>${esc(v.verdict)}</td><td>${esc(v.why)}</td></tr>`).join("")}</table>
     ${(c.shortlist||[]).length?`<h4>會議排行榜（第二輪投票）</h4><ol>${c.shortlist.map(x=>`<li>${esc(x)}</li>`).join("")}</ol>`:""}
