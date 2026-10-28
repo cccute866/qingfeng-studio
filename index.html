@@ -3,29 +3,73 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#0b1220">
-<title>青鋒工作室大樓</title>
+<meta name="theme-color" content="#0a0f16">
+<title>青鋒研發中心</title>
 <link rel="icon" href="data:,">
-<link rel="preload" as="image" href="assets/roof.webp">
+<link rel="preload" as="image" href="assets/city_map.webp">
 <link rel="stylesheet" href="app.css">
 </head>
 <body>
 <div id="usage-banner" class="usage-banner" hidden role="status" aria-live="polite"></div>
-<div class="sky" aria-hidden="true"></div>
 <header class="top">
-  <div class="brand"><span class="seal">青鋒</span><div><h1>青鋒工作室大樓</h1><p class="sub">每層一個部門 · 點樓層看細節 · 點小人看他在想什麼</p></div></div>
+  <div class="brand">
+    <span class="mark" aria-hidden="true">QF</span>
+    <div>
+      <h1>青鋒研發中心</h1>
+      <p class="sub" id="view-sub">城市地圖 · 點大樓進入</p>
+    </div>
+  </div>
   <div class="clock"><b id="clock">--:--</b><span>台北時間</span><small id="updated">更新時間 --</small></div>
 </header>
 <main class="layout">
-  <section class="tower-wrap">
-    <div class="roof"><img src="assets/roof.webp" alt="" width="900" height="279"></div>
-    <div class="tower" id="tower"></div>
-    <div class="ground"></div>
+  <section class="stage-wrap">
+    <!-- 城市落地頁 -->
+    <section class="view view-city" id="view-city">
+      <div class="city">
+        <img class="city-img" src="assets/city_map.webp" width="1600" height="1000" alt="夜景城市地圖，青鋒大樓位於中央">
+        <button type="button" class="tower-hit" id="enter-tower" aria-label="進入青鋒大樓">
+          <span class="th-glow"></span>
+          <span class="th-label">青鋒大樓<span>點擊進入</span></span>
+        </button>
+      </div>
+      <div class="city-caption">遊戲事業部 · 交易事業部（籌備中）· 總裁辦公室</div>
+    </section>
+
+    <!-- 大樓剖面 -->
+    <section class="view view-tower" id="view-tower" hidden>
+      <div class="tower-bar">
+        <button type="button" class="navback" id="back-city" aria-label="回城市地圖">← 城市</button>
+        <div class="units">
+          <span class="unit game">遊戲事業部</span>
+          <span class="unit trade">交易事業部 · 籌備中</span>
+        </div>
+      </div>
+      <div class="tower-xray" id="tower-xray">
+        <img class="tower-img" id="tower-img" src="assets/tower.webp" width="900" height="1800" alt="青鋒大樓外觀">
+        <div class="bands" id="bands" role="list"></div>
+      </div>
+    </section>
+
+    <!-- 單一樓層房間（含角色） -->
+    <section class="view view-room" id="view-room" hidden>
+      <div class="tower-bar">
+        <button type="button" class="navback" id="back-tower" aria-label="回大樓剖面">← 大樓</button>
+        <div class="room-title" id="room-title"></div>
+        <button type="button" class="navmore" id="open-detail">看明細</button>
+      </div>
+      <div class="rooms" id="tower"></div>
+      <div class="room-dash" id="room-dash"></div>
+    </section>
+
     <section class="board" id="board"></section>
   </section>
+
   <aside class="side">
-    <div class="feed-card">
-      <div class="tabs" role="tablist"><button class="tab on" role="tab" aria-selected="true" data-tab="feed">工作室動態</button><button class="tab" role="tab" aria-selected="false" data-tab="hist">開發歷程</button></div>
+    <div class="feed-card glass">
+      <div class="tabs" role="tablist">
+        <button class="tab on" role="tab" aria-selected="true" data-tab="feed">工作室動態</button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="hist">開發歷程</button>
+      </div>
       <div class="now-line" id="nowline"></div>
       <ol class="feed" id="feed"></ol>
       <div class="hist" id="hist" hidden></div>
@@ -34,7 +78,10 @@
 </main>
 <footer class="foot">資料每 60 秒自動刷新 · 時間皆為台北時間 · <span id="foot-upd"></span></footer>
 <div class="sheet-bg" id="sheetbg" hidden></div>
-<div class="sheet" id="sheet" role="dialog" aria-modal="true" hidden><button class="close" id="close" aria-label="關閉">關閉</button><div id="sheetbody"></div></div>
+<div class="sheet glass" id="sheet" role="dialog" aria-modal="true" hidden>
+  <button class="close" id="close" aria-label="關閉">關閉</button>
+  <div id="sheetbody"></div>
+</div>
 <script src="assets/office_scene.js"></script>
 <script src="app.js"></script>
 </body>
