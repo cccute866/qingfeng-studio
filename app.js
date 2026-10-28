@@ -107,6 +107,7 @@ function setView(v, floorId){
     for(const k in floorsEl) floorsEl[k].visible=false;
     renderBands();
   }
+  if(typeof renderBoard==="function" && D) renderBoard();
   try{history.replaceState(null,"",v==="city"?"#":v==="tower"?"#tower":"#room="+activeFloor);}catch(e){}
 }
 function renderBands(){
@@ -705,7 +706,7 @@ function openFloor(id){const f=FLOORS.find(x=>x.id===id);let h=head(f);
     <h4>待辦進度</h4>${progressHTML()}<h4>今日排程</h4>${timelineHTML()}<h4>上架路線圖</h4>${roadmapHTML()}`;}
   openSheet(h);document.querySelectorAll("#sheetbody [data-m]").forEach(b=>b.onclick=()=>openMember(b.dataset.m));bindUsageDetails($("#sheetbody"));}
 function openMember(id){const s=memberState(id),c=D.cards[id]||{},m=(D.office&&D.office.members[id])||{role:ROLES[id]};
-  openSheet(`<div class="who"><img id="ava" class="ava" width="96" height="120" alt="${esc(NAMES[id])} Q版立繪" src="assets/chars/${id}_idle_lg.webp"><div><div class="nm">${esc(NAMES[id])}</div><div class="rl">${esc(m.role||"")}</div><div class="stl"><span class="dot ${s.cat}"></span>${CAT[s.cat]} · <span class="muted">${s.live?esc(agoText(s.updatedAt)):"依每日排程"}</span></div></div></div>
+  openSheet(`<div class="who"><img id="ava" class="ava" width="96" height="120" alt="${esc(NAMES[id])} Q版立繪" src="assets/chars/${id}_idle_lg.webp" onerror="this.onerror=null;this.src='assets/chars/'+this.dataset.id+'_idle.webp'" data-id="${id}"><div><div class="nm">${esc(NAMES[id])}</div><div class="rl">${esc(m.role||"")}</div><div class="stl"><span class="dot ${s.cat}"></span>${CAT[s.cat]} · <span class="muted">${s.live?esc(agoText(s.updatedAt)):"依每日排程"}</span></div></div></div>
   <div class="thought">${esc(thoughtOf(id))}</div>
   <div class="rows"><div class="r"><b>正在忙</b>${esc(noemo(s.full||s.text))}</div><div class="r"><b>剛完成</b>${esc(noemo(c.recent)||"—")}</div><div class="r"><b>下一步</b>${esc(noemo(nextStep(id)))}</div></div>
   <div class="mbtn"><button id="poke">打招呼</button><button id="tofloor">看這層樓</button></div>`);
