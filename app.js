@@ -244,17 +244,20 @@ function renderUsageBanner(){
 }
 
 function bindUsageDetails(root){
-  (root||document).querySelectorAll(".ud-tog").forEach(btn=>{
-    if(btn._ud) return; btn._ud=1;
-    btn.onclick=e=>{
-      e.stopPropagation();
-      const id=btn.getAttribute("data-ud");
-      const box=id&&document.getElementById(id);
-      if(!box) return;
-      const on=box.hasAttribute("hidden");
-      if(on) box.removeAttribute("hidden"); else box.setAttribute("hidden","");
-      btn.textContent=on?"收合明細":"看明細";
-    };
+  // 事件委派掛在 sheetbody：openFloor 必須先 openSheet 再綁，否則 .ud-tog 還不在 DOM。
+  // 委派一次即可，之後每次重開總監室不用重綁。
+  const el=root||document.getElementById("sheetbody")||document;
+  if(el._udBound) return; el._udBound=1;
+  el.addEventListener("click",e=>{
+    const btn=e.target&&e.target.closest&&e.target.closest(".ud-tog");
+    if(!btn||!el.contains(btn)) return;
+    e.stopPropagation();
+    const id=btn.getAttribute("data-ud");
+    const box=id&&document.getElementById(id);
+    if(!box) return;
+    const on=box.hasAttribute("hidden");
+    if(on) box.removeAttribute("hidden"); else box.setAttribute("hidden","");
+    btn.textContent=on?"收合明細":"看明細";
   });
 }
 function usageBarRows(rows){
@@ -431,7 +434,7 @@ function openFloor(id){const f=FLOORS.find(x=>x.id===id);let h=head(f);
     ${D.backlog.tiers?`<h4>本週目標（${D.backlog.tiers.weekDone}/${D.backlog.tiers.week}，每週一會議挑選）</h4>${weekHTML()}
     <h4>排隊中（${D.backlog.tiers.queue} 項：工程 ${D.backlog.tiers.queueBy["工程"]}、智雅 ${D.backlog.tiers.queueBy["智雅"]}）</h4><div class="muted">新建議先排在這裡，週一會議再挑進本週。</div>${queueHTML(null,8)}
     <div class="tiers"><span class="chip">長期／上架前 ${D.backlog.tiers.long}</span><span class="chip">已關閉 ${D.backlog.tiers.closed}（重複或過時，附原因）</span></div>`:""}
-    <h4>你的回饋處理狀況</h4><ul>${d.feedback.map(x=>`<li>${x.done?'<span class="chip ok">已處理</span>':'<span class="chip mid">處理中</span>'} ${esc(x.text)} <span class="muted">（${esc(x.from)}）</span></li>`).join("")}</ul>`+`<h4>用量與額度警示</h4>`+usagePanelHTML()+memberBtn("weixiang"); bindUsageDetails();}
+    <h4>你的回饋處理狀況</h4><ul>${d.feedback.map(x=>`<li>${x.done?'<span class="chip ok">已處理</span>':'<span class="chip mid">處理中</span>'} ${esc(x.text)} <span class="muted">（${esc(x.from)}）</span></li>`).join("")}</ul>`+`<h4>用量與額度警示</h4>`+usagePanelHTML()+memberBtn("weixiang");}
   if(id==="council"){const c=D.council;if(c){h+=`<h4>${esc(c.title)}</h4><div class="muted">${esc(fmtAt(c.at))} · ${esc(c.attend)}</div><div class="chips" style="margin-top:8px">${Object.entries(c.counts).map(([k,v])=>`<span class="chip ${k==="採納"||k==="縮小後採納"?"ok":k==="不採納"?"no":"mid"}">${esc(k)} ${v}</span>`).join("")}</div>
     <h4>最新裁決</h4><table><tr><th>提案</th><th>結論</th><th>理由</th></tr>${c.verdicts.map(v=>`<tr><td>${esc(v.item)}</td><td>${esc(v.verdict)}</td><td>${esc(v.why)}</td></tr>`).join("")}</table>
     ${(c.shortlist||[]).length?`<h4>會議排行榜（第二輪投票）</h4><ol>${c.shortlist.map(x=>`<li>${esc(x)}</li>`).join("")}</ol>`:""}
@@ -455,7 +458,7 @@ function openFloor(id){const f=FLOORS.find(x=>x.id===id);let h=head(f);
     <h4>工作方式</h4><ul><li>每天約 15:00–16:30 修 QA 回報、介面打磨，發布修補版熱修</li><li>在自己的修復分支工作，時段內才併回主線；動手前先登記「誰、何時、做什麼」，做完解除</li><li>每個修正都附回歸測試，存檔保持相容</li></ul>`+memberBtn("eng");}
   if(id==="lobby"){h+=`<div class="play" style="margin-top:10px"><div class="ver">目前版本 <b>${esc(D.game.version)}</b><br>${esc(D.game.subtitle)}</div><a class="btn" target="_blank" rel="noopener" href="${esc(D.game.url)}">進入遊戲</a></div>
     <h4>待辦進度</h4>${progressHTML()}<h4>今日排程</h4>${timelineHTML()}<h4>上架路線圖</h4>${roadmapHTML()}`;}
-  openSheet(h);document.querySelectorAll("#sheetbody [data-m]").forEach(b=>b.onclick=()=>openMember(b.dataset.m));}
+  openSheet(h);document.querySelectorAll("#sheetbody [data-m]").forEach(b=>b.onclick=()=>openMember(b.dataset.m));bindUsageDetails($("#sheetbody"));}
 function openMember(id){const s=memberState(id),c=D.cards[id]||{},m=(D.office&&D.office.members[id])||{role:ROLES[id]};
   openSheet(`<div class="who"><canvas width="84" height="96" id="ava"></canvas><div><div class="nm">${esc(NAMES[id])}</div><div class="rl">${esc(m.role||"")}</div><div class="stl"><span class="dot ${s.cat}"></span>${CAT[s.cat]} · <span class="muted">${s.live?esc(agoText(s.updatedAt)):"依每日排程"}</span></div></div></div>
   <div class="thought">${esc(thoughtOf(id))}</div>
