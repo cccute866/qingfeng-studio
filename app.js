@@ -3,6 +3,26 @@
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const noemo=s=>String(s||"").replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F000}-\u{1F2FF}\uFE0F]/gu,"").trim();
+
+function iconSVG(kind){
+  const common='xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#3FD8A0" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
+  const paths={
+    director:'<circle cx="12" cy="8" r="3.2"/><path d="M5 19c1.5-3.2 4-4.8 7-4.8s5.5 1.6 7 4.8"/><path d="M12 2.5v1.2"/>',
+    council:'<rect x="3.5" y="5" width="17" height="11" rx="1.5"/><path d="M8 19h8M12 16v3"/>',
+    trade:'<path d="M4 16l4-4 3 3 6-7"/><path d="M15 8h4v4"/>',
+    dev:'<path d="M8 8l-4 4 4 4"/><path d="M16 8l4 4-4 4"/><path d="M13 6l-2 12"/>',
+    art:'<path d="M12 3.5l1.8 5.4H19l-4.4 3.2 1.7 5.4L12 14.8 7.7 17.5l1.7-5.4L5 8.9h5.2z"/>',
+    num:'<path d="M5 6h6M5 12h6M5 18h6M15 6v12M15 6l4 3.5M15 18l4-3.5"/>',
+    qa:'<circle cx="10.5" cy="10.5" r="5.5"/><path d="M15 15l4.5 4.5"/>',
+    eng:'<path d="M14.7 6.3l2 2-1.4 1.4 2.1 2.1 1.4-1.4 2 2-6.4 6.4-2-2 1.4-1.4-2.1-2.1-1.4 1.4-2-2z"/><circle cx="8" cy="16" r="1.2"/>',
+    lobby:'<path d="M4 20V9.5L12 4l8 5.5V20"/><path d="M10 20v-6h4v6"/>',
+    schedule:'<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3.5v3M16 3.5v3M4 10h16"/>',
+    roadmap:'<circle cx="6" cy="7" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="18" cy="17" r="2"/><path d="M8 8l2.5 2.5M14 13.5l2.5 2.5"/>'
+  };
+  const p=paths[kind]||paths.lobby;
+  return `<svg class="ic" ${common}>${p}</svg>`;
+}
+
 const FLOORS=[
  {id:"director",no:"9F",name:"總裁辦公室",who:"偉翔 創辦人／總監",icon:"ic_director",room:"room_director",member:"weixiang",unit:"exec",band:"f9_top"},
  {id:"council",no:"8F",name:"決策會議室",who:"每日 09:47 Top-5 會議（DRI／新點子實驗；10:45 建版）",icon:"ic_council",room:"room_council",unit:"exec",band:"f8"},
@@ -14,7 +34,8 @@ const FLOORS=[
  {id:"eng",no:"2F",name:"工程部",who:"青鋒工程 修復／介面打磨 · 遊戲事業部",icon:"ic_eng",room:"room_eng",member:"eng",unit:"game",band:"f2"},
  {id:"lobby",no:"1F",name:"大廳",who:"遊戲入口 · 進度 · 路線圖",icon:"ic_lobby",room:"room_lobby",unit:"lobby",band:"lobby"}];
 /* tower.webp 900×1800 樓層 y 帶（manifest）；百分比相對整張圖 */
-const BANDS={f9_top:[202,491],f8:[491,630],f7:[630,770],f6:[770,908],f5:[908,1044],f4:[1044,1179],f3:[1179,1312],f2:[1312,1441],lobby:[1441,1799]};
+/* LED 實測對齊：頂兩薄層併為 9F，其餘一層一帶；lobby 自 1439 */
+const BANDS={f9_top:[202,349],f8:[349,490],f7:[490,629],f6:[629,769],f5:[769,906],f4:[906,1042],f3:[1042,1178],f2:[1178,1439],lobby:[1439,1799]};
 const TOWER_H=1800;
 /* 座位：room2 floor_y/520；view back=背對螢幕 */
 const SPOT={weixiang:{f:"director",x:.30,y:.70,floor:.75},zhiya:{f:"dev",x:.52,y:.68,floor:.74},art:{f:"art",x:.34,y:.66,floor:.73},num:{f:"num",x:.44,y:.70,floor:.75},qa:{f:"qa",x:.58,y:.68,floor:.74},eng:{f:"eng",x:.48,y:.74,floor:.81}};
@@ -133,7 +154,7 @@ function buildTower(){
   for(const f of FLOORS){
     const el=document.createElement("div");el.className="floor";el.tabIndex=0;el.hidden=true;el.setAttribute("role","button");el.setAttribute("aria-label",f.no+" "+f.name+"，打開細節");
     el.innerHTML=`<div class="room" style="background-image:url(assets/${f.room}.webp)"><canvas></canvas><div class="hits"></div>
-      <div class="plate"><span class="no">${f.no}</span><img src="assets/${f.icon}.webp" alt="" width="30" height="30" onerror="this.style.display='none'"><span><span class="nm">${f.name}</span><span class="who">${esc(f.who)}</span></span></div>
+      <div class="plate"><span class="no">${f.no}</span>${iconSVG(f.id)}<span><span class="nm">${f.name}</span><span class="who">${esc(f.who)}</span></span></div>
       <div class="bubble"><span class="dot"></span><b></b><span class="t"></span></div>
       <div class="fviz" aria-hidden="true"></div>
       ${f.id==="lobby"?'<div class="lobby-sign"><a class="btn play-link" target="_blank" rel="noopener" href="#">進入遊戲</a></div>':""}
@@ -510,16 +531,21 @@ function floorVizHTML(id){
   }
   return "";
 }
-function driId(dri){
+function driIds(dri){
   const s=String(dri||"");
-  if(/工程/.test(s)) return "eng";
-  if(/智雅/.test(s)) return "zhiya";
-  if(/美術/.test(s)) return "art";
-  if(/數值/.test(s)) return "num";
-  if(/監管/.test(s)) return "qa";
-  if(/偉翔|總監|總裁/.test(s)) return "weixiang";
-  return "";
+  const out=[];
+  // 依出現順序收集，支援 工程＋監管／工程、智雅／工程/監管
+  const rules=[["eng",/工程/],["zhiya",/智雅/],["art",/美術/],["num",/數值/],["qa",/監管/],["weixiang",/偉翔|總監|總裁/]];
+  // 用分隔符切開再對每段匹配，保留順序
+  const parts=s.split(/[＋+、／/,，&與和]+/).map(x=>x.trim()).filter(Boolean);
+  const src=parts.length?parts:[s];
+  for(const p of src){
+    for(const [id,re] of rules){ if(re.test(p) && !out.includes(id)){ out.push(id); break; } }
+  }
+  if(!out.length){ for(const [id,re] of rules){ if(re.test(s)) out.push(id); } }
+  return out;
 }
+function driId(dri){return driIds(dri)[0]||"";}
 function dueStatus(due){
   if(!due) return {lite:"green", text:"—", cls:""};
   const m=/^(\d{1,2}):(\d{2})$/.exec(due);
@@ -546,8 +572,10 @@ function decisionBoardHTML(){
   const dec=((D.council||{}).decisions)||[];
   if(!dec.length) return `<div class="muted">今天尚無已裁決的決定</div>`;
   return `<div class="dboard">${dec.map(d=>{
-    const id=driId(d.dri); const st=dueStatus(d.due);
-    const av=id?`<img class="dav" src="assets/chars/${id}_idle.webp" alt="">`:`<div class="dav"></div>`;
+    const ids=driIds(d.dri); const st=dueStatus(d.due);
+    const av=ids.length
+      ?`<div class="davs">${ids.map(id=>`<img class="dav" src="assets/chars/${id}_idle.webp" alt="">`).join("")}</div>`
+      :`<div class="davs"><div class="dav"></div></div>`;
     return `<div class="dcard">${av}<div class="dmeta"><div class="ditem">${esc(d.item)}</div><div class="ddri">${esc(d.tag)} · ${esc(d.dri||"未指派")}</div></div><div class="dright"><span class="slite ${st.lite}"></span><span class="ddue ${st.cls}">${esc(st.text)}</span></div></div>`;
   }).join("")}</div>`;
 }
@@ -642,20 +670,20 @@ function renderBoard(){
   if(view==="room") return;
   board.innerHTML=`<div class="card"><h2>事業部</h2><div class="chips"><span class="chip ok">遊戲事業部 · 開發／美術／數值／品管／工程</span><span class="chip mid">交易事業部 · 籌備中</span></div></div>
   <div class="card"><h2>今日決定看板</h2>${decisionBoardHTML()}<div class="muted" style="margin-top:6px">點大樓 → 8F 決策會議室看完整裁決</div></div>
-  <div class="card"><h2><img src="assets/ic_lobby.webp" alt="">大廳 · 遊戲入口</h2><div class="play"><div class="ver">目前版本 <b>${esc(D.game.version)}</b><br>${esc(D.game.subtitle)}</div><a class="btn" target="_blank" rel="noopener" href="${esc(D.game.url)}">進入遊戲</a></div></div>
-  <div class="card" id="usage-card" style="cursor:pointer"><h2><img src="assets/ic_director.webp" alt="">總裁辦公室用量 · 每日估算</h2>
+  <div class="card"><h2>${iconSVG("lobby")}大廳 · 遊戲入口</h2><div class="play"><div class="ver">目前版本 <b>${esc(D.game.version)}</b><br>${esc(D.game.subtitle)}</div><a class="btn" target="_blank" rel="noopener" href="${esc(D.game.url)}">進入遊戲</a></div></div>
+  <div class="card" id="usage-card" style="cursor:pointer"><h2>${iconSVG("director")}總裁辦公室用量 · 每日估算</h2>
     <div class="chips">${ub}<span class="chip">會議呼叫 ${c.calls||0}<span class="tag-real">實</span></span><span class="chip">輸入 ${fmtN(c.inputTokens||0)}</span><span class="chip">美術圖 ${(tod&&tod.est&&tod.est.artImages)||0}<span class="tag-est">估</span></span></div>
     <div class="muted" style="margin-top:6px">點此或 9F 總裁辦公室看 7 天明細 · 非帳單餘額</div></div>
   <div class="card"><h2>待辦進度</h2>${progressHTML()}</div>
-  <div class="card"><h2><img src="assets/ic_schedule.webp" alt="">今日排程</h2>${timelineHTML()}</div>
-  <div class="card"><h2><img src="assets/ic_roadmap.webp" alt="">上架路線圖 · 7 條</h2>${roadmapHTML()}</div>`;
+  <div class="card"><h2>${iconSVG("schedule")}今日排程</h2>${timelineHTML()}</div>
+  <div class="card"><h2>${iconSVG("roadmap")}上架路線圖 · 7 條</h2>${roadmapHTML()}</div>`;
   const uc=$("#usage-card"); if(uc) uc.onclick=()=>{setView("room","director"); openFloor("director");};
 }
 function renderFeed(){$("#feed").innerHTML=D.feed.map(e=>`<li><time>${esc(fmtAt(e.at))}<small>${esc(e.at.slice(0,10)===todayStr()?"今天":"")}</small></time><div><span class="k ${esc(e.kind)}">${esc(e.kind)}</span>${esc(noemo(e.text))}</div></li>`).join("");
   const ws=Object.keys(SHORT).map(i=>[i,memberState(i)]).filter(x=>x[1].cat==="work"||x[1].cat==="meet");
   $("#nowline").textContent="台北 "+hm(tpNow())+" · "+(ws.length?ws.map(x=>SHORT[x[0]]+CAT[x[1].cat]).join("、"):"目前沒人在趕工");}
 function renderAll(){if(!D)return;const U=D.updatedAt||D.builtAt;const LA=D.lastActivity||"";$("#updated").textContent="更新時間 "+U.slice(5).replace("-","/")+(LA?" · 最後進度 "+LA.slice(5).replace("-","/"):"")+(D.notice?" · "+D.notice:"");$("#foot-upd").textContent="資料更新時間 "+U+"（台北時間）";renderFloors();renderBoard();renderFeed();renderUsageBanner();if(view==="room")renderRoomDash();if(view==="tower")renderBands();}
-function tick(){$("#clock").textContent=hm(tpNow());if(D){renderFloors();renderFeed();const tl=document.querySelector("#board .tl");if(tl)tl.parentNode.innerHTML='<h2><img src="assets/ic_schedule.webp" alt="">今日排程</h2>'+timelineHTML();}}
+function tick(){$("#clock").textContent=hm(tpNow());if(D){renderFloors();renderFeed();const tl=document.querySelector("#board .tl");if(tl)tl.parentNode.innerHTML='<h2>'+iconSVG('schedule')+'今日排程</h2>'+timelineHTML();}}
 
 // ---- 細節面板 ----
 function openSheet(html){$("#sheetbody").innerHTML=html;$("#sheet").hidden=false;$("#sheetbg").hidden=false;$("#sheet").scrollTop=0;$("#close").focus();}
@@ -663,7 +691,7 @@ function closeSheet(){$("#sheet").hidden=true;$("#sheetbg").hidden=true;}
 $("#close").onclick=closeSheet;$("#sheetbg").onclick=closeSheet;document.addEventListener("keydown",e=>{if(e.key==="Escape")closeSheet();});
 function sevHTML(c){const L=[["🔴","s1","致命"],["🟠","s2","重要"],["🟡","s3","次要"]];return L.map(([k,cl,n])=>`<span class="sev ${cl}"><i></i>${n} ${typeof c[k]==="object"?c[k].new+" 新 / "+c[k].old+" 舊":c[k]}</span>`).join("");}
 function memberBtn(id){return `<div class="mbtn"><button data-m="${id}">看 ${esc(NAMES[id])} 在想什麼</button></div>`;}
-function head(f,extra){const s=floorState(f);return `<h3><img src="assets/${f.icon}.webp" alt="">${f.no} ${f.name}</h3><div class="muted"><span class="dot ${s.cat}"></span> ${esc(s.label)} · ${esc(noemo(s.text))}${extra||""}</div>`;}
+function head(f,extra){const s=floorState(f);return `<h3>${iconSVG(f.id)}<span class="no">${f.no}</span> ${f.name}</h3><div class="muted"><span class="dot ${s.cat}"></span> ${esc(s.label)} · ${esc(noemo(s.text))}${extra||""}</div>`;}
 function openFloor(id){const f=FLOORS.find(x=>x.id===id);let h=head(f);
   if(id==="director"){const d=D.director;h+=`<h4>等你決定／開通（${d.needYou.length}）</h4><ul>${d.needYou.map(x=>`<li><b>${esc(x.track)}</b>：${esc(x.what)}</li>`).join("")}</ul>
     ${D.backlog.tiers?`<h4>本週目標（${D.backlog.tiers.weekDone}/${D.backlog.tiers.week}，每週一會議挑選）</h4>${weekHTML()}
