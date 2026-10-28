@@ -17,9 +17,7 @@ const SPOT={weixiang:{f:"director",x:.27,y:.80,floor:.88},zhiya:{f:"dev",x:.52,y
 const SEAT={weixiang:.29,zhiya:.37,art:.45,num:.53,qa:.61,eng:.69}; const TABLE_TOP=.535;
 const NAMES={weixiang:"偉翔",zhiya:"智雅",art:"青鋒美術",num:"青鋒數值",qa:"青鋒監管",eng:"青鋒工程",council:"全員會議"};
 const SHORT={weixiang:"偉翔",zhiya:"智雅",art:"美術",num:"數值",qa:"監管",eng:"工程"};
-const LOOKS={eng:{hair:"#1c2326",skin:"#f0c9a2",outfit:"#2a7d86",trim:"#e2b65c",pants:"#25343a",style:"knot"}};
 const ROLES={eng:"工程師（修復／QA／介面）"};
-const DEFLOOK={hair:"#222",skin:"#f2c9a0",outfit:"#456",trim:"#d6a63a",pants:"#333",style:"knot"};
 const CAT={work:"工作中",meet:"開會中",done:"完成",wait:"待命",you:"等你"};
 const LIVEMAP={"工作中":"work","開會中":"meet","完成":"done","待命":"wait","等你":"you"};
 let D=null, floorsEl={}, chars={}, thinking=null;
@@ -100,6 +98,7 @@ function buildTower(){
     b.addEventListener("click",e=>{e.stopPropagation();react(id);openMember(id);});
     chars[id]={id,btn:b,x:SPOT[id].x,y:SPOT[id].y,floor:SPOT[id].f,pose:"type",view:"back",bounce:0,wave:0,stroll:null,lastStroll:performance.now()+Math.random()*8000};
   }
+  preloadSprites();
   resize();
 }
 function resize(){const dpr=Math.min(window.devicePixelRatio||1,2.5);for(const k in floorsEl){const c=floorsEl[k].cv,r=floorsEl[k].room;c.width=Math.round(r.clientWidth*dpr);c.height=Math.round(r.clientHeight*dpr);}}
@@ -126,9 +125,15 @@ function placeChar(c,now){
       c.x=x;c.y=sp.floor;c.pose=(e<c.stroll.dur||e>c.stroll.dur+2500)?"walk":"stand";c.view="front";return;}}
   c.x=sp.x;c.y=s.cat==="you"?sp.floor:sp.y;c.pose=s.cat==="you"?"stand":"sit";c.view=s.cat==="you"?"front":"back";
 }
-function lookOf(id){return(D&&D.office&&D.office.members[id]&&D.office.members[id].look)||LOOKS[id]||DEFLOOK;}
-function drawWave(ctx,look,x,y,u,frame){ // 舉手揮動
-  const up=frame%2;ctx.fillStyle="#140d0a";ctx.fillRect(x+4*u-2,y-15*u-up*u-2,1.75*u+4,4*u+4);ctx.fillStyle=look.outfit;ctx.fillRect(x+4*u,y-14*u-up*u,1.75*u,3*u);ctx.fillStyle=look.skin;ctx.fillRect(x+4*u,y-15*u-up*u,1.75*u,1*u);}
+// ---- Q版立繪（美術交件 assets/chars/<id>_<idle|walk|wave>.webp，128×160，腳底 y=152） ----
+const SPR={};
+function sprite(id,pose){const k=id+"_"+pose;let im=SPR[k];if(!im){im=new Image();im.decoding="async";im.src="assets/chars/"+k+".webp";SPR[k]=im;}return im;}
+function preloadSprites(){for(const id of Object.keys(SPOT))for(const p of ["idle","walk","wave"])sprite(id,p);}
+function spritePose(c,now){
+  if(c.wave>now)return"wave";
+  if(c.pose==="walk")return Math.floor(now/220)%2?"walk":"idle";
+  return"idle";
+}
 let last=0;
 function loop(now){
   requestAnimationFrame(loop);
@@ -142,10 +147,16 @@ function loop(now){
     list.sort((a,b)=>a.y-b.y);
     for(const c of list){const x=c.x*cv.width,y=c.y*cv.height;let b=0;
       if(c.bounce>now){const p=1-(c.bounce-now)/700;b=-Math.abs(Math.sin(p*Math.PI*2))*5*u;}
+      else if(c.pose==="walk")b=-Math.abs(Math.sin(now/220*Math.PI))*1.2*u;
+      else if(c.pose==="type")b=-(frame%2)*.6*u;
+      if(c.px!=null&&Math.abs(c.x-c.px)>1e-4)c.dir=c.x<c.px?-1:1;c.px=c.x;
       ctx.save();if(c.clip){ctx.beginPath();ctx.rect(0,0,cv.width,c.clip*cv.height);ctx.clip();}
       if(c.x<1.02&&c.x>-.02){ctx.fillStyle="rgba(0,0,0,.35)";if(!c.clip){ctx.beginPath();ctx.ellipse(x,y+u*.3,5*u,1.4*u,0,0,7);ctx.fill();}
-        oChibi(ctx,lookOf(c.id),x,y+b,u,c.view,c.pose,c.pose==="walk"?Math.floor(now/180):frame);
-        if(c.wave>now&&c.view==="front")drawWave(ctx,lookOf(c.id),x-6*u,y+b,u,Math.floor(now/160));}
+        const im=sprite(c.id,spritePose(c,now));
+        if(im.complete&&im.naturalWidth){const dh=(c.pose==="sit"?17:19)*u,dw=dh*.8,top=y+b-dh*.95;
+          ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality="high";
+          if(c.dir===-1&&c.pose==="walk"){ctx.translate(x,0);ctx.scale(-1,1);ctx.drawImage(im,-dw/2,top,dw,dh);}
+          else ctx.drawImage(im,x-dw/2,top,dw,dh);}}
       ctx.restore();
       const px=c.x*100,py=(c.clip?c.clip:c.y)*100;c.btn.style.left=Math.min(96,Math.max(4,px))+"%";c.btn.style.top=py+"%";c.btn.style.display=(c.x>1.02||c.x<-.02)?"none":"";
     }
@@ -532,12 +543,13 @@ function openFloor(id){const f=FLOORS.find(x=>x.id===id);let h=head(f);
     <h4>待辦進度</h4>${progressHTML()}<h4>今日排程</h4>${timelineHTML()}<h4>上架路線圖</h4>${roadmapHTML()}`;}
   openSheet(h);document.querySelectorAll("#sheetbody [data-m]").forEach(b=>b.onclick=()=>openMember(b.dataset.m));bindUsageDetails($("#sheetbody"));}
 function openMember(id){const s=memberState(id),c=D.cards[id]||{},m=(D.office&&D.office.members[id])||{role:ROLES[id]};
-  openSheet(`<div class="who"><canvas width="84" height="96" id="ava"></canvas><div><div class="nm">${esc(NAMES[id])}</div><div class="rl">${esc(m.role||"")}</div><div class="stl"><span class="dot ${s.cat}"></span>${CAT[s.cat]} · <span class="muted">${s.live?esc(agoText(s.updatedAt)):"依每日排程"}</span></div></div></div>
+  openSheet(`<div class="who"><img id="ava" class="ava" width="96" height="120" alt="${esc(NAMES[id])} Q版立繪" src="assets/chars/${id}_idle_lg.webp"><div><div class="nm">${esc(NAMES[id])}</div><div class="rl">${esc(m.role||"")}</div><div class="stl"><span class="dot ${s.cat}"></span>${CAT[s.cat]} · <span class="muted">${s.live?esc(agoText(s.updatedAt)):"依每日排程"}</span></div></div></div>
   <div class="thought">${esc(thoughtOf(id))}</div>
   <div class="rows"><div class="r"><b>正在忙</b>${esc(noemo(s.full||s.text))}</div><div class="r"><b>剛完成</b>${esc(noemo(c.recent)||"—")}</div><div class="r"><b>下一步</b>${esc(noemo(nextStep(id)))}</div></div>
   <div class="mbtn"><button id="poke">打招呼</button><button id="tofloor">看這層樓</button></div>`);
-  const cv=$("#ava"),ctx=cv.getContext("2d");let fr=0;const draw=()=>{if(!document.body.contains(cv))return;ctx.clearRect(0,0,84,96);oChibi(ctx,lookOf(id),42,88,4.6,"front",fr%12<6?"stand":"stand",fr);fr++;};draw();const iv=setInterval(()=>{if(!document.body.contains(cv)){clearInterval(iv);return;}draw();},300);
-  $("#poke").onclick=()=>{let k=0;const j=setInterval(()=>{ctx.clearRect(0,0,84,96);const y=88-Math.abs(Math.sin(k/3))*10;oChibi(ctx,lookOf(id),42,y,4.6,"front","stand",k);if(k%2){drawWave(ctx,lookOf(id),42-6*4.6,y,4.6,k);}if(++k>12)clearInterval(j);},80);react(id);};
+  const ava=$("#ava");
+  $("#poke").onclick=()=>{ava.src="assets/chars/"+id+"_wave_lg.webp";ava.classList.remove("hop");void ava.offsetWidth;ava.classList.add("hop");
+    clearTimeout(ava._t);ava._t=setTimeout(()=>{if(document.body.contains(ava))ava.src="assets/chars/"+id+"_idle_lg.webp";},1400);react(id);};
   $("#tofloor").onclick=()=>openFloor(SPOT[id].f);}
 
 // ---- 資料 ----
