@@ -86,6 +86,7 @@ function buildTower(){
     el.innerHTML=`<div class="room" style="background-image:url(assets/${f.room}.webp)"><canvas></canvas><div class="hits"></div>
       <div class="plate"><span class="no">${f.no}</span><img src="assets/${f.icon}.webp" alt="" width="30" height="30"><span><span class="nm">${f.name}</span><span class="who">${esc(f.who)}</span></span></div>
       <div class="bubble"><span class="dot"></span><b></b><span class="t"></span></div>
+      <div class="fviz" aria-hidden="true"></div>
       ${f.id==="lobby"?'<div class="lobby-sign"><a class="btn play-link" target="_blank" rel="noopener" href="#">進入遊戲</a></div>':""}</div>`;
     el.addEventListener("click",e=>{if(e.target.closest(".hit,.btn"))return;openFloor(f.id);});
     el.addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target===el)openFloor(f.id);});
@@ -351,8 +352,69 @@ function usagePanelHTML(){
 }
 
 // ---- 畫面資料 ----
+
+function sparkSVG(series,key){
+  const pts=(series||[]).map(s=>s[key]).filter(v=>typeof v==="number"&&!isNaN(v));
+  if(pts.length<2)return"";
+  const W=160,H=36,pad=2;
+  const min=Math.min(...pts),max=Math.max(...pts);
+  const span=Math.max(1,max-min);
+  const xy=pts.map((v,i)=>{
+    const x=pad+i*(W-2*pad)/Math.max(1,pts.length-1);
+    const y=H-pad-((v-min)/span)*(H-2*pad);
+    return x.toFixed(1)+","+y.toFixed(1);
+  });
+  return `<svg class="spark" viewBox="0 0 ${W} ${H}" width="160" height="36" aria-hidden="true"><polyline fill="none" stroke="currentColor" stroke-width="2" points="${xy.join(" ")}"/></svg>`;
+}
+function lightHTML(light,label){
+  const L=light||"green";
+  return `<span class="light ${esc(L)}" title="${esc(label||"")}"><i></i><b>${L==="red"?"紅燈":L==="yellow"?"黃燈":"綠燈"}</b></span>`;
+}
+function pipeHTML(pipe,compact){
+  if(!pipe||!pipe.stages)return `<div class="muted">今天尚無建版進度</div>`;
+  const stages=pipe.stages.map(s=>{
+    const cls=s.done?"done":(s.current?"cur":"todo");
+    return `<span class="pstep ${cls}"><i></i>${esc(s.name)}</span>`;
+  }).join('<span class="parrow">→</span>');
+  if(compact) return `<div class="pipe compact">${stages}</div>`;
+  return `<div class="pipe">${stages}</div><div class="muted" style="margin-top:4px">${esc(pipe.version||"")} · ${esc(pipe.note||"")}</div>`;
+}
+function floorVizHTML(id){
+  if(!D)return"";
+  if(id==="art"){
+    const a=D.art||{}; const thumbs=(a.todayCount>0?a.todayThumbs:a.thumbs)||[];
+    const n=a.todayCount||0;
+    if(!thumbs.length) return `<div class="fv-empty">${n?("今日 "+n+" 張"):"今天尚無新圖"}</div>`;
+    const show=thumbs.slice(0,4).map(t=>`<img src="${esc(t.src)}" alt="" loading="lazy">`).join("");
+    return `<div class="fv-thumbs">${show}</div><span class="fv-cap">${n?("今日 "+n+" 張"):("最新 "+(a.baseCount||thumbs.length)+" 張")}</span>`;
+  }
+  if(id==="num"){
+    const n=D.numbers||{};
+    if((n.series||[]).length>=2) return sparkSVG(n.series,"free")+`<span class="fv-cap">免費戰力 · ${esc(n.date||"")}</span>`;
+    if((n.stats||[]).length) return `<div class="fv-chips">${n.stats.slice(0,2).map(s=>`<span class="chip">${esc(s.label)} ${esc(s.value)}</span>`).join("")}</div>`;
+    return `<div class="fv-empty">今天尚無模擬資料</div>`;
+  }
+  if(id==="qa"){
+    const q=D.qa||{}; const b=D.backlog||{};
+    const imp=(q.important||0)+(q.openImportant||0);
+    const min=(q.minor||0)+(q.openMinor||0);
+    return lightHTML(q.light||"green")+`<span class="fv-cap">重要 ${imp} · 次要 ${min}</span>`;
+  }
+  if(id==="dev"||id==="eng"){
+    const pipe=(D.dev&&D.dev.pipeline)||null;
+    return pipeHTML(pipe,true)+`<span class="fv-cap">${esc((pipe&&pipe.version)||(D.game&&D.game.version)||"")}</span>`;
+  }
+  if(id==="council"){
+    const dec=((D.council||{}).decisions)||[];
+    if(!dec.length) return `<div class="fv-empty">今天尚無裁決</div>`;
+    const top=dec.slice(0,2).map(d=>`<span class="chip ok">${esc(d.item)}</span>`).join("");
+    return `<div class="fv-chips">${top}</div><span class="fv-cap">${dec.length} 項決定</span>`;
+  }
+  return "";
+}
 function renderFloors(){for(const f of FLOORS){const F=floorsEl[f.id],s=floorState(f);const b=F.el.querySelector(".bubble");
   b.querySelector(".dot").className="dot "+s.cat;b.querySelector("b").textContent=s.label;b.querySelector(".t").textContent=noemo(s.text);
+  const fv=F.el.querySelector(".fviz"); if(fv) fv.innerHTML=floorVizHTML(f.id);
   if(f.id==="director"){const a=usageAlert();F.el.classList.toggle("usage-alert",a.level==="red");F.el.classList.toggle("usage-warn",a.level==="yellow");}}
   document.querySelectorAll(".play-link").forEach(a=>{a.href=D.game.url;a.textContent="進入遊戲 "+D.game.version;});}
 function chipOf(s){
@@ -435,25 +497,35 @@ function openFloor(id){const f=FLOORS.find(x=>x.id===id);let h=head(f);
     <h4>排隊中（${D.backlog.tiers.queue} 項：工程 ${D.backlog.tiers.queueBy["工程"]}、智雅 ${D.backlog.tiers.queueBy["智雅"]}）</h4><div class="muted">新建議先排在這裡，週一會議再挑進本週。</div>${queueHTML(null,8)}
     <div class="tiers"><span class="chip">長期／上架前 ${D.backlog.tiers.long}</span><span class="chip">已關閉 ${D.backlog.tiers.closed}（重複或過時，附原因）</span></div>`:""}
     <h4>你的回饋處理狀況</h4><ul>${d.feedback.map(x=>`<li>${x.done?'<span class="chip ok">已處理</span>':'<span class="chip mid">處理中</span>'} ${esc(x.text)} <span class="muted">（${esc(x.from)}）</span></li>`).join("")}</ul>`+`<h4>用量與額度警示</h4>`+usagePanelHTML()+memberBtn("weixiang");}
-  if(id==="council"){const c=D.council;if(c){h+=`<h4>${esc(c.title)}</h4><div class="muted">${esc(fmtAt(c.at))} · ${esc(c.attend)}</div><div class="chips" style="margin-top:8px">${Object.entries(c.counts).map(([k,v])=>`<span class="chip ${k==="採納"||k==="縮小後採納"?"ok":k==="不採納"?"no":"mid"}">${esc(k)} ${v}</span>`).join("")}</div>
+  if(id==="council"){const c=D.council;if(c){const dec=c.decisions||[];
+    h+=`<h4>${esc(c.title)}</h4><div class="muted">${esc(fmtAt(c.at))} · ${esc(c.attend)}</div><div class="chips" style="margin-top:8px">${Object.entries(c.counts).map(([k,v])=>`<span class="chip ${k==="採納"||k==="縮小後採納"?"ok":k==="不採納"?"no":"mid"}">${esc(k)} ${v}</span>`).join("")}</div>
+    ${dec.length?`<h4>今日決定（負責人／期限）</h4><table><tr><th>提案</th><th>結論</th><th>負責人</th><th>期限</th></tr>${dec.map(v=>`<tr><td>${esc(v.item)}</td><td>${esc(v.verdict)}</td><td>${esc(v.dri||"—")}</td><td>${esc(v.due||"—")}</td></tr>`).join("")}</table>`:""}
     <h4>最新裁決</h4><table><tr><th>提案</th><th>結論</th><th>理由</th></tr>${c.verdicts.map(v=>`<tr><td>${esc(v.item)}</td><td>${esc(v.verdict)}</td><td>${esc(v.why)}</td></tr>`).join("")}</table>
     ${(c.shortlist||[]).length?`<h4>會議排行榜（第二輪投票）</h4><ol>${c.shortlist.map(x=>`<li>${esc(x)}</li>`).join("")}</ol>`:""}
     ${(c.stances||[]).length?`<h4>各成員立場</h4><ul>${c.stances.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`:""}
     ${c.common.length?`<h4>共同意見</h4><ul>${c.common.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`:""}
     ${c.grill.length?`<h4>提案檢視（grill）摘要</h4><table><tr><th>提案</th><th>有依據</th><th>付費牆風險</th><th>結論</th></tr>${c.grill.map(g=>`<tr><td>${esc(g.item)}</td><td>${esc(g.evidence)}</td><td>${esc(g.risk)}</td><td>${esc(g.verdict)}</td></tr>`).join("")}</table>`:""}`;}}
   if(id==="dev"){const v=D.dev,t=v.tests;h+=`<div class="big" style="margin-top:10px"><div><b>${esc(v.version)}</b><span>目前版本</span></div><div><b>${t?t.suitesPass+"/"+t.suites:"-"}</b><span>測試組通過</span></div><div><b>${t?t.itemsPass+"/"+t.items:"-"}</b><span>測試項目通過</span></div><div><b>${D.backlog.open}</b><span>待辦剩餘</span></div></div>
+    <h4>發布管線</h4>${pipeHTML(v.pipeline)}
     <h4>今天修了什麼（${esc(v.version)}）</h4><ul>${v.changes.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>
     <h4>版本紀錄</h4><table>${v.releases.map(r=>`<tr><td><b>${esc(r.ver)}</b></td><td class="muted">${esc(fmtAt(r.at))}</td><td>${esc(r.msg)}</td></tr>`).join("")}</table>
     <h4>待辦進度</h4>${progressHTML()}`+memberBtn("zhiya");}
-  if(id==="art"){const a=D.art;if(a){h+=`<h4>最新交件：${esc(a.batch)} 批次</h4><div class="chips"><span class="chip ${a.integrated?"ok":"mid"}">${a.integrated?"已整合":"待整合"}</span><span class="chip">${a.files} 張圖</span><span class="chip">交件 ${esc(fmtAt(a.at))}</span><span class="chip">已整合批次 ${esc(a.integratedBatches.join("、"))}</span></div>
-    <h4>內容</h4><ul>${a.groups.map(g=>`<li><b>${esc(g.name)}</b>：${esc(g.desc)}</li>`).join("")}</ul>
-    <h4>縮圖</h4><div class="thumbs">${a.thumbs.map(t=>`<figure><img loading="lazy" src="${esc(t.src)}" alt="${esc(t.label)}"><figcaption>${esc(t.label)}</figcaption></figure>`).join("")}</div>`+memberBtn("art");}}
-  if(id==="num"){const n=D.numbers;if(n){h+=`<div class="big" style="margin-top:10px"><div><b>${n.suggestions.length}</b><span>建議</span></div><div><b>${n.adopted}</b><span>已採納</span></div><div><b>${n.declined}</b><span>未採納</span></div></div>
-    <h4>報告 ${esc(n.date)} 重點</h4><ul>${n.highlights.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>
-    <h4>建議與採納</h4><table>${n.suggestions.map(s=>`<tr><td><b>${esc(s.id)}</b></td><td>${esc(s.title)}</td><td><span class="chip ${s.state==="已採納"?"ok":s.state==="未採納"?"no":"mid"}">${esc(s.state)}</span></td></tr>`).join("")}</table>`+memberBtn("num");}}
-  if(id==="qa"){const q=D.qa,b=D.backlog;h+=`<h4>待辦中未修的回報</h4><div>${sevHTML(b.qaOpen)}</div><ul>${b.qaOpenItems.map(x=>`<li><span class="sev ${x.sev==="🔴"?"s1":x.sev==="🟠"?"s2":"s3"}"><i></i></span>${esc(x.text)}</li>`).join("")}</ul>`;
-    if(q)h+=`<h4>${esc(q.title)}</h4><div class="muted">${esc(fmtAt(q.at))} · ${esc(noemo(q.tests))}</div><div style="margin-top:6px">${sevHTML(q.counts)}</div><ul>${q.items.map(x=>`<li><span class="sev ${x.sev==="🔴"?"s1":x.sev==="🟠"?"s2":"s3"}"><i></i>${esc(x.id)}</span>${esc(x.text)}</li>`).join("")}</ul>`;h+=memberBtn("qa");}
+  if(id==="art"){const a=D.art;if(a){const tod=a.todayThumbs||[]; const show=tod.length?tod:(a.thumbs||[]);
+    h+=`<h4>今日新圖</h4>${a.todayCount?`<div class="chips"><span class="chip ok">今日 ${a.todayCount} 張</span></div><div class="thumbs">${tod.map(t=>`<figure><img loading="lazy" src="${esc(t.src)}" alt="${esc(t.label)}"><figcaption>${esc(t.label)}</figcaption></figure>`).join("")}</div>`:`<div class="muted">今天尚無新圖</div>`}
+    <h4>最新交件：${esc(a.batch)} 批次</h4><div class="chips"><span class="chip ${a.integrated?"ok":"mid"}">${a.integrated?"已整合":"待整合"}</span><span class="chip">${a.baseCount||a.files} 張圖</span><span class="chip">交件 ${esc(fmtAt(a.at))}</span><span class="chip">已整合批次 ${esc((a.integratedBatches||[]).join("、"))}</span></div>
+    <h4>內容</h4><ul>${(a.groups||[]).map(g=>`<li><b>${esc(g.name)}</b>：${esc(g.desc)}</li>`).join("")}</ul>
+    <h4>縮圖</h4><div class="thumbs">${show.map(t=>`<figure><img loading="lazy" src="${esc(t.src)}" alt="${esc(t.label)}"><figcaption>${esc(t.label)}</figcaption></figure>`).join("")}</div>`+memberBtn("art");}}
+  if(id==="num"){const n=D.numbers;if(n){const ser=n.series||[]; const st=n.stats||[];
+    h+=`<div class="big" style="margin-top:10px"><div><b>${(n.suggestions||[]).length}</b><span>建議</span></div><div><b>${n.adopted}</b><span>已採納</span></div><div><b>${n.declined}</b><span>未採納</span></div></div>
+    <h4>模擬曲線（${esc(n.date)}）</h4>${ser.length>=2?`<div class="spark-wrap">${sparkSVG(ser,"free")}<span class="muted">免費戰力</span>${sparkSVG(ser,"v10")}<span class="muted">V10 戰力</span></div>`:(st.length?"":'<div class="muted">今天尚無模擬資料</div>')}
+    ${st.length?`<div class="chips" style="margin-top:8px">${st.map(s=>`<span class="chip">${esc(s.label)} <b>${esc(s.value)}</b></span>`).join("")}</div>`:""}
+    <h4>報告重點</h4><ul>${(n.highlights||[]).map(x=>`<li>${esc(x)}</li>`).join("")}</ul>
+    <h4>建議與採納</h4><table>${(n.suggestions||[]).map(s=>`<tr><td><b>${esc(s.id)}</b></td><td>${esc(s.title)}</td><td><span class="chip ${s.state==="已採納"?"ok":s.state==="未採納"?"no":"mid"}">${esc(s.state)}</span></td></tr>`).join("")}</table>`+memberBtn("num");}}
+  if(id==="qa"){const q=D.qa,b=D.backlog;h+=`<h4>今日燈號</h4>${q?lightHTML(q.light)+`<div class="chips" style="margin-top:8px"><span class="chip">重要 ${ (q.important||0)+(q.openImportant||0) }</span><span class="chip">次要 ${ (q.minor||0)+(q.openMinor||0) }</span><span class="chip">致命新 ${q.fatal||0}</span></div>`:'<div class="muted">尚無 QA 報告</div>'}
+    <h4>待辦中未修的回報</h4><div>${sevHTML(b.qaOpen)}</div><ul>${b.qaOpenItems.map(x=>`<li><span class="sev ${x.sev==="🔴"?"s1":x.sev==="🟠"?"s2":"s3"}"><i></i></span>${esc(x.text)}</li>`).join("")}</ul>`;
+    if(q)h+=`<h4>${esc(q.title)}</h4><div class="muted">${esc(fmtAt(q.at))} · ${esc(noemo(q.tests))}</div><div style="margin-top:6px">${sevHTML(q.counts)}</div><ul>${(q.items||[]).map(x=>`<li><span class="sev ${x.sev==="🔴"?"s1":x.sev==="🟠"?"s2":"s3"}"><i></i>${esc(x.id)}</span>${esc(x.text)}</li>`).join("")}</ul>`;h+=memberBtn("qa");}
   if(id==="eng"){const t=D.backlog.tiers||{};h+=`<div class="big" style="margin-top:10px"><div><b>${(D.backlog.week||[]).filter(x=>x.owner==="工程"&&!x.done).length}</b><span>本週負責</span></div><div><b>${(t.queueBy||{})["工程"]||0}</b><span>排隊中</span></div><div><b>${Object.values(D.backlog.qaOpen).reduce((a,b)=>a+b,0)}</b><span>未修回報</span></div></div>
+    <h4>發布管線</h4>${pipeHTML((D.dev||{}).pipeline)}
     <h4>本週負責</h4>${weekHTML("工程")}<h4>排隊中（工程）</h4>${queueHTML("工程")}
     <h4>工作方式</h4><ul><li>每天約 15:00–16:30 修 QA 回報、介面打磨，發布修補版熱修</li><li>在自己的修復分支工作，時段內才併回主線；動手前先登記「誰、何時、做什麼」，做完解除</li><li>每個修正都附回歸測試，存檔保持相容</li></ul>`+memberBtn("eng");}
   if(id==="lobby"){h+=`<div class="play" style="margin-top:10px"><div class="ver">目前版本 <b>${esc(D.game.version)}</b><br>${esc(D.game.subtitle)}</div><a class="btn" target="_blank" rel="noopener" href="${esc(D.game.url)}">進入遊戲</a></div>
