@@ -153,7 +153,7 @@ function loop(now){
       ctx.save();if(c.clip){ctx.beginPath();ctx.rect(0,0,cv.width,c.clip*cv.height);ctx.clip();}
       if(c.x<1.02&&c.x>-.02){ctx.fillStyle="rgba(0,0,0,.35)";if(!c.clip){ctx.beginPath();ctx.ellipse(x,y+u*.3,5*u,1.4*u,0,0,7);ctx.fill();}
         const im=sprite(c.id,spritePose(c,now));
-        if(im.complete&&im.naturalWidth){const dh=(c.pose==="sit"?17:19)*u,dw=dh*.8,top=y+b-dh*.95;
+        if(im.complete&&im.naturalWidth){const dh=(c.pose==="sit"?20:24)*u,dw=dh*.8,top=y+b-dh*.95;
           ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality="high";
           if(c.dir===-1&&c.pose==="walk"){ctx.translate(x,0);ctx.scale(-1,1);ctx.drawImage(im,-dw/2,top,dw,dh);}
           else ctx.drawImage(im,x-dw/2,top,dw,dh);}}
