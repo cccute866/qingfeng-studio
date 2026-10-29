@@ -26,7 +26,7 @@ function iconSVG(kind){
 const FLOORS=[
  {id:"director",no:"9F",name:"總裁辦公室",who:"偉翔 創辦人／總監",icon:"ic_director",room:"room_director",member:"weixiang",unit:"exec",band:"f9_top"},
  {id:"council",no:"8F",name:"決策會議室",who:"每日 09:47 Top-5 會議（DRI／新點子實驗；10:45 建版）",icon:"ic_council",room:"room_council",unit:"exec",band:"f8"},
- {id:"trade",no:"7F",name:"交易室",who:"台股・幣圈（籌備中）",icon:"ic_trade",room:"room_trade",unit:"trade",band:"f7",prep:true},
+ {id:"trade",no:"7F",name:"交易室",who:"青鋒交易 · 模擬營運中",icon:"ic_trade",room:"room_trade",unit:"trade",band:"f7"},
  {id:"dev",no:"6F",name:"開發部",who:"智雅 主程式／整合 · 遊戲事業部",icon:"ic_dev",room:"room_dev",member:"zhiya",unit:"game",band:"f6"},
  {id:"art",no:"5F",name:"美術部",who:"青鋒美術 · 遊戲事業部",icon:"ic_art",room:"room_art",member:"art",unit:"game",band:"f5"},
  {id:"num",no:"4F",name:"數值部",who:"青鋒數值 · 遊戲事業部",icon:"ic_num",room:"room_num",member:"num",unit:"game",band:"f4"},
@@ -84,7 +84,11 @@ function memberState(id){
   return{cat,text,full,where:r.where,live:false,since};
 }
 function floorState(f){
-  if(f.prep)return{cat:"wait",label:"籌備中",text:"交易事業部 · 台股・幣圈（尚未開放）"};
+  if(f.id==="trade"){
+    const tr=D&&D.trade; const sm=tr&&tr.summary||{};
+    const ok=sm.ok||0, total=sm.total||0;
+    return{cat:"work",label:"模擬營運中",text:total?(`行情已連線 ${ok}/${total}`):"模擬交易 · 非投資建議"};
+  }
   if(f.id==="director"){const a=typeof usageAlert==="function"?usageAlert():{level:""};
     if(a.level==="red")return{cat:"you",label:"額度警示",text:a.short||"可能額度用完或例行失敗"};
     if(a.level==="yellow")return{cat:"you",label:"用量偏高",text:a.short||"今日估算超預算"};}
@@ -143,7 +147,7 @@ function renderBands(){
     b.type="button"; b.className="band"+(f.prep?" prep":""); b.setAttribute("role","listitem");
     b.style.top=top.toFixed(2)+"%"; b.style.height=h.toFixed(2)+"%";
     b.setAttribute("aria-label",f.no+" "+f.name+(f.prep?"（籌備中）":""));
-    const tag=f.prep?'<span class="tag prep">籌備中</span>':(f.unit==="game"?'<span class="tag">遊戲</span>':"");
+    const tag=f.prep?'<span class="tag prep">籌備中</span>':(f.unit==="trade"?'<span class="tag trade">模擬</span>':(f.unit==="game"?'<span class="tag">遊戲</span>':(f.unit==="exec"?'<span class="tag">總裁</span>':"")));
     b.innerHTML=`<span class="blabel"><b>${f.no}</b>${esc(f.name)}${tag}</span>`;
     b.addEventListener("click",()=>setView("room",f.id));
     box.appendChild(b);
@@ -160,7 +164,7 @@ function buildTower(){
       <div class="bubble"><span class="dot"></span><b></b><span class="t"></span></div>
       <div class="fviz" aria-hidden="true"></div>
       ${f.id==="lobby"?'<div class="lobby-sign"><a class="btn play-link" target="_blank" rel="noopener" href="#">進入遊戲</a></div>':""}
-      ${f.prep?'<div class="prep-banner" style="position:absolute;left:10%;right:10%;top:38%;z-index:3"><b>交易事業部 · 籌備中</b>台股・幣圈交易室尚未開放，暫無行情或下單功能</div>':""}</div>`;
+      </div>`;
     el.addEventListener("click",e=>{if(e.target.closest(".hit,.btn"))return;openFloor(f.id);});
     el.addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target===el)openFloor(f.id);});
     t.appendChild(el);
@@ -491,9 +495,35 @@ function gaugeSVG(pct,color){
   const r=14,c=2*Math.PI*r,dash=c*p/100;
   return `<span class="fv-gauge"><svg width="36" height="36" viewBox="0 0 36 36" aria-hidden="true"><circle cx="18" cy="18" r="${r}" fill="none" stroke="#1a2433" stroke-width="4"/><circle cx="18" cy="18" r="${r}" fill="none" stroke="${color||"#3FD8A0"}" stroke-width="4" stroke-linecap="round" stroke-dasharray="${dash.toFixed(1)} ${c.toFixed(1)}" transform="rotate(-90 18 18)"/></svg><b>${p}%</b></span>`;
 }
+
+function feedStatusHTML(){
+  const tr=D&&D.trade||{};
+  const markets=tr.markets||[];
+  const sm=tr.summary||{};
+  const checked=tr.checkedAt?`最後檢查 ${esc(tr.checkedAt)}（台北）`:"";
+  const disc=esc(tr.disclaimer||"模擬交易，非投資建議、不碰真錢");
+  if(!markets.length){
+    return `<div class="feed-panel"><div class="muted">尚無行情檢查資料</div><div class="feed-disc">${disc}</div></div>`;
+  }
+  const blocks=markets.map(m=>{
+    const rows=(m.feeds||[]).map(f=>{
+      const ok=f.status==="ok";
+      const lite=ok?"green":(f.status==="blocked"?"yellow":"red");
+      const why=(!ok && f.reason)?`<span class="feed-why">${esc(f.reason)}</span>`:"";
+      return `<div class="feed-row"><span class="slite ${lite}"></span><span class="feed-src">${esc(f.source)}</span><span class="feed-st ${ok?"ok":"no"}">${esc(f.label|| (ok?"已連線":"未連線"))}</span>${why}</div>`;
+    }).join("");
+    return `<div class="feed-mkt"><div class="feed-mhd">${esc(m.name)} <span class="muted">${m.ok||0}/${m.total||0} 已連線</span></div>${rows}</div>`;
+  }).join("");
+  return `<div class="feed-panel"><div class="chips" style="margin-bottom:8px"><span class="chip ok">已連線 ${sm.ok||0}</span><span class="chip mid">需金鑰 ${sm.need_key||0}</span><span class="chip no">封鎖／離線 ${(sm.blocked||0)+(sm.down||0)}</span></div>${blocks}<div class="feed-meta muted">${checked}</div><div class="feed-disc">${disc}</div></div>`;
+}
 function floorVizHTML(id){
   if(!D)return"";
-  if(id==="trade") return `<div class="fv-empty">籌備中 · 尚無資料</div>`;
+  if(id==="trade"){
+    const tr=D.trade||{}; const sm=tr.summary||{};
+    const ok=sm.ok||0, total=sm.total||0;
+    const lite=total&&ok===total?"green":(ok?"yellow":"red");
+    return lightHTML(lite)+`<span class="fv-cap">行情 ${ok}/${total} · 模擬</span>`;
+  }
   if(id==="art"){
     const a=D.art||{};
     const n=a.todayCount||0;
@@ -585,7 +615,7 @@ function decisionBoardHTML(){
 function renderRoomDash(){
   const el=$("#room-dash"); if(!el||!D) return;
   const id=activeFloor;
-  if(id==="trade"){ el.innerHTML=`<div class="card"><div class="prep-banner"><b>交易事業部 · 籌備中</b>台股・幣圈交易室尚未開放。上線後會顯示行情看板與風控燈號；目前不提供任何交易功能。</div></div>`; return; }
+  if(id==="trade"){ el.innerHTML=`<div class="card"><h2>行情連線</h2>${feedStatusHTML()}</div>`; return; }
   if(id==="council"){ el.innerHTML=`<div class="card"><h2>今日決定看板</h2>${decisionBoardHTML()}</div>`; return; }
   if(id==="art"){
     const a=D.art||{}; const n=a.todayCount||0;
@@ -671,7 +701,7 @@ function renderBoard(){
   const board=$("#board"); if(!board) return;
   board.hidden = view==="room";
   if(view==="room") return;
-  board.innerHTML=`<div class="card"><h2>事業部</h2><div class="chips"><span class="chip ok">遊戲事業部 · 開發／美術／數值／品管／工程</span><span class="chip mid">交易事業部 · 籌備中</span></div></div>
+  board.innerHTML=`<div class="card"><h2>事業部</h2><div class="chips"><span class="chip ok">遊戲事業部 · 開發／美術／數值／品管／工程</span><span class="chip ok">交易事業部 · 模擬營運中</span></div></div>
   <div class="card"><h2>今日決定看板</h2>${decisionBoardHTML()}<div class="muted" style="margin-top:6px">點大樓 → 8F 決策會議室看完整裁決</div></div>
   <div class="card"><h2>${iconSVG("lobby")}大廳 · 遊戲入口</h2><div class="play"><div class="ver">目前版本 <b>${esc(D.game.version)}</b><br>${esc(D.game.subtitle)}</div><a class="btn" target="_blank" rel="noopener" href="${esc(D.game.url)}">進入遊戲</a></div></div>
   <div class="card" id="usage-card" style="cursor:pointer"><h2>${iconSVG("director")}總裁辦公室用量 · 每日估算</h2>
@@ -714,7 +744,7 @@ function openFloor(id){const f=FLOORS.find(x=>x.id===id);let h=head(f);
     <h4>今天修了什麼（${esc(v.version)}）</h4><ul>${v.changes.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>
     <h4>版本紀錄</h4><table>${v.releases.map(r=>`<tr><td><b>${esc(r.ver)}</b></td><td class="muted">${esc(fmtAt(r.at))}</td><td>${esc(r.msg)}</td></tr>`).join("")}</table>
     <h4>待辦進度</h4>${progressHTML()}`+memberBtn("zhiya");}
-  if(id==="trade"){h+=`<div class="prep-banner"><b>交易事業部 · 籌備中</b>台股・幣圈交易室尚未開放。這裡之後會放行情與風控看板，目前不提供下單或帳戶功能。</div>`;}
+  if(id==="trade"){h+=`<h4>行情資料來源</h4>${feedStatusHTML()}<h4>營運說明</h4><ul><li>青鋒交易 · 專業投資人角色（紙上模擬）</li><li>只用不需金鑰的公開行情；Alpaca／永豐／OKX 模擬盤待偉翔申請</li><li>不碰真錢、不下單、非投資建議</li></ul>`;}
   if(id==="art"){const a=D.art;if(a){
     h+=`<h4>交件統計</h4><div class="chips"><span class="chip ok">今日 ${a.todayCount||0} 張</span><span class="chip">最新批次 ${a.baseCount||a.files||0} 張</span><span class="chip ${a.integrated?"ok":"mid"}">${a.integrated?"已整合":"待整合"}</span><span class="chip">交件 ${esc(fmtAt(a.at))}</span></div>
     <div class="spark-wrap" style="margin-top:10px">${artTrendSVG(a.trend)}<span class="muted">近 7 日交件量</span></div>
