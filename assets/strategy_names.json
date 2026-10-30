@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "note": "策略中文顯示名／白話狀態理由；由 registry＋RULES／proposals 整理，供 7F AgentX+ 手機版",
+    "note": "策略中文顯示名／白話狀態理由；0050 為對照基準非抱緊主策略；供 7F AgentX+ 手機版",
     "updatedAt": "2026-10-30"
   },
   "statusMap": {
@@ -11,8 +11,8 @@
   },
   "strategies": {
     "FALLBACK_0050_S1": {
-      "displayName": "核心：抱緊 0050",
-      "plainReason": "過去幾年總報酬還是贏不了直接買 0050，但仍作核心底倉"
+      "displayName": "退回方案（對照 0050）",
+      "plainReason": "0050 只作對照基準，不再當「抱緊不賣」的主策略；舊回測留作參考"
     },
     "SCREEN3_L2L3_practice": {
       "displayName": "三層掃描練習",
