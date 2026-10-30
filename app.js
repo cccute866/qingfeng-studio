@@ -561,7 +561,7 @@ function feedStatusHTML(){
     }).join("");
     return `<div class="feed-mkt"><div class="feed-mhd">${esc(m.name)} <span class="muted">${m.ok||0}/${m.total||0} 已連線</span></div>${rows}</div>`;
   }).join("");
-  return `<div class="feed-panel"><div class="chips" style="margin-bottom:8px"><span class="chip ok">已連線 ${sm.ok||0}</span><span class="chip mid">需金鑰 ${sm.need_key||0}</span><span class="chip no">封鎖／離線 ${(sm.blocked||0)+(sm.down||0)}</span></div>${blocks}<div class="feed-meta muted">${checked}</div><div class="feed-disc">${disc}</div></div>`;
+  const chips=[`<span class="chip ok">已連線 ${sm.ok||0}</span>`]; if(sm.need_key) chips.push(`<span class="chip mid">需金鑰 ${sm.need_key}</span>`); chips.push(`<span class="chip no">封鎖／離線 ${(sm.blocked||0)+(sm.down||0)}</span>`); return `<div class="feed-panel"><div class="chips" style="margin-bottom:8px">${chips.join("")}</div>${blocks}<div class="feed-meta muted">${checked}</div><div class="feed-disc">${disc}</div></div>`;
 }
 function floorVizHTML(id){
   if(!D)return"";
