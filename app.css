@@ -494,3 +494,28 @@ button.wl-row:active{background:#ffffff08}
   .ds-item{font-size:11px}
   .dcard .ditem{font-size:13.5px}
 }
+
+/* 7F 斜角立體交易室：房間比例貼近 iso 底圖 1761×1069 */
+.floor .room.room-iso{aspect-ratio:1761/1069;background-size:cover;background-position:center bottom}
+@media (max-width:480px){
+  .floor .room.room-iso{aspect-ratio:16/10}
+}
+@media (prefers-reduced-motion:reduce){
+  .floor .room.room-iso{/* 小人散步已在 JS 關閉 */}
+}
+
+/* 策略簿卡片（庫存／策略中心） */
+.sbook-note{font-size:12px;margin:4px 0 8px;line-height:1.45}
+.sbook-sec{margin-top:10px}
+.sbook-grid-cards{display:grid;grid-template-columns:1fr;gap:8px}
+@media (min-width:560px){
+  .sbook-grid-cards{grid-template-columns:1fr 1fr}
+}
+.sbook-card{background:#0c141ecc;border:1px solid #ffffff14;border-radius:12px;padding:10px 12px;text-align:left}
+.sbook-card.is-bench{border-style:dashed;border-color:#C9A22766;background:#12100acc}
+.sbook-hd{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+.sbook-name{font-weight:700;font-size:13.5px;color:var(--text)}
+.sbook-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.sbook-k{display:block;font-size:10px;color:#9aa8b8}
+.sbook-v{display:block;font-size:13px;font-weight:650;color:var(--text);margin-top:2px}
+.chip.bench{background:#C9A22722;color:#E8C547;border-color:#C9A22755}

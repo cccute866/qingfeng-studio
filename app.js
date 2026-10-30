@@ -38,9 +38,9 @@ const FLOORS=[
 const BANDS={f9_top:[202,349],f8:[349,490],f7:[490,629],f6:[629,769],f5:[769,906],f4:[906,1042],f3:[1042,1178],f2:[1178,1439],lobby:[1439,1799]};
 const TOWER_H=1800;
 /* 座位：room2 floor_y/520；view back=背對螢幕 */
-const SPOT={weixiang:{f:"director",x:.30,y:.70,floor:.75},zhiya:{f:"dev",x:.52,y:.68,floor:.74},art:{f:"art",x:.34,y:.66,floor:.73},num:{f:"num",x:.44,y:.70,floor:.75},qa:{f:"qa",x:.58,y:.68,floor:.74},eng:{f:"eng",x:.48,y:.74,floor:.81}};
+const SPOT={weixiang:{f:"director",x:.30,y:.70,floor:.75},zhiya:{f:"dev",x:.52,y:.68,floor:.74},art:{f:"art",x:.34,y:.66,floor:.73},num:{f:"num",x:.44,y:.70,floor:.75},qa:{f:"qa",x:.58,y:.68,floor:.74},eng:{f:"eng",x:.48,y:.74,floor:.81},trade:{f:"trade",x:.38,y:.58,floor:.72}};
 /* 半寫實正常比例：以房間高度比例對家具；eng 機櫃區略小、總裁室略大 */
-const ROOM_SCALE={director:.44,council:.42,trade:.42,lobby:.42,dev:.42,art:.41,num:.41,qa:.41,eng:.38};
+const ROOM_SCALE={director:.44,council:.42,trade:.34,lobby:.42,dev:.42,art:.41,num:.41,qa:.41,eng:.38};
 const SEAT={weixiang:.29,zhiya:.37,art:.45,num:.53,qa:.61,eng:.69}; const TABLE_TOP=.62;
 const NAMES={weixiang:"偉翔",zhiya:"智雅",art:"青鋒美術",num:"青鋒數值",qa:"青鋒監管",eng:"青鋒工程",council:"全員會議",trade:"青鋒交易"};
 const SHORT={weixiang:"偉翔",zhiya:"智雅",art:"美術",num:"數值",qa:"監管",eng:"工程",trade:"交易"};
@@ -68,6 +68,14 @@ function meetingNow(){
   return null;}
 function meeters(){return ["zhiya","art","num","qa","eng"].concat(D&&D.weixiangJoins?["weixiang"]:[]);}
 function memberState(id){
+  if(id==="trade"){
+    const tr=D&&D.trade||{}; const perf=tr.perf||{};
+    const focus=perf.focusTw||perf.todayFocus||perf.status||"紙上模擬交易";
+    if(perf.waitingFirstFill) return{cat:"work",text:perf.status||"等待首筆模擬單成交",full:focus,where:"desk",live:false};
+    const nPend=(perf.trades||[]).filter(t=>t&&t.planned).length || perf.pendingOrderCount || 0;
+    if(nPend) return{cat:"work",text:"預計掛單 "+nPend+" 筆",full:focus,where:"desk",live:false};
+    return{cat:"work",text:perf.status||"模擬營運中",full:focus,where:"desk",live:false};
+  }
   {const mt=meetingNow();if(mt&&meeters().includes(id))return{cat:"meet",text:id==="zhiya"?"主持全員會議":"全員會議中",full:"全員會議：智雅主持，美術、數值、監管、工程帶提案，ChatGPT、Claude、Gemini 一起辯論"+(D&&D.weixiangJoins?"；偉翔今天也給了意見":"")+"。",where:"meeting",live:true,since:mt.since};}
   const lv=D&&D.live&&D.live[id];
   if(lv&&lv.status&&LIVEMAP[lv.status]){const age=(Date.now()-parseTP(lv.updatedAt))/60000;
@@ -170,7 +178,7 @@ function buildTower(){
   const t=$("#tower");t.innerHTML="";
   for(const f of FLOORS){
     const el=document.createElement("div");el.className="floor";el.tabIndex=0;el.hidden=true;el.setAttribute("role","button");el.setAttribute("aria-label",f.no+" "+f.name+"，打開細節");
-    el.innerHTML=`<div class="room" style="background-image:url(assets/${f.room}.webp)"><canvas></canvas><div class="hits"></div>
+    el.innerHTML=`<div class="room${f.id==="trade"?" room-iso":""}" data-floor="${f.id}" style="background-image:url(assets/${f.room}.webp)"><canvas></canvas><div class="hits"></div>
       <div class="plate"><span class="no">${f.no}</span>${iconSVG(f.id)}<span><span class="nm">${f.name}</span><span class="who">${esc(f.who)}</span></span></div>
       <div class="bubble"><span class="dot"></span><b></b><span class="t"></span></div>
       <div class="fviz" aria-hidden="true"></div>
@@ -199,7 +207,9 @@ function buildTower(){
   else setView("city");
   resize();
 }
-function resize(){const dpr=Math.min(window.devicePixelRatio||1,2.5);for(const k in floorsEl){const c=floorsEl[k].cv,r=floorsEl[k].room;c.width=Math.round(r.clientWidth*dpr);c.height=Math.round(r.clientHeight*dpr);}}
+function resize(){const dpr=Math.min(window.devicePixelRatio||1,2.5);for(const k in floorsEl){const c=floorsEl[k].cv,r=floorsEl[k].room;c.width=Math.round(r.clientWidth*dpr);c.height=Math.round(r.clientHeight*dpr);
+    if(k==="trade"&&r){const w=r.clientWidth;const url=w<=480?"assets/room_trade_sm.webp":(w<=720?"assets/room_trade_md.webp":"assets/room_trade.webp");if(r.dataset.bg!==url){r.style.backgroundImage=`url(${url})`;r.dataset.bg=url;}}
+  }}
 window.addEventListener("resize",resize);
 
 // ---- 角色位置 ----
@@ -214,9 +224,10 @@ function placeChar(c,now){
     else{c.floor="council";c.x=SEAT[c.id];c.y=TABLE_TOP+.08;c.pose="sit";c.view="front";c.clip=TABLE_TOP;}
     c.stroll=null;return;}
   c.floor=sp.f;
-  if(s.cat==="work"){c.x=sp.x;c.y=sp.y;c.pose="type";c.view="back";c.stroll=null;return;}
-  // 閒置：偶爾散步
-  if(!c.stroll&&now-c.lastStroll>9000+Math.random()*9000){const tx=.15+Math.random()*.7;c.stroll={t0:now,from:sp.x,to:tx,dur:Math.abs(tx-sp.x)*9000+600};}
+  if(s.cat==="work"){c.x=sp.x;c.y=sp.y;c.pose=(c.id==="trade"?"sit":"type");c.view=(c.id==="trade"?"front":"back");c.stroll=null;return;}
+  // 閒置：偶爾散步（尊重減少動態）
+  const reduce=typeof matchMedia==="function"&&matchMedia("(prefers-reduced-motion:reduce)").matches;
+  if(!reduce&&!c.stroll&&now-c.lastStroll>9000+Math.random()*9000){const tx=(c.id==="trade"?.20+.45*Math.random():.15+Math.random()*.7);c.stroll={t0:now,from:sp.x,to:tx,dur:Math.abs(tx-sp.x)*9000+600};}
   if(c.stroll){const e=(now-c.stroll.t0);const tot=c.stroll.dur*2+2500;
     if(e>tot){c.stroll=null;c.lastStroll=now;}
     else{let x;if(e<c.stroll.dur)x=c.stroll.from+(c.stroll.to-c.stroll.from)*e/c.stroll.dur;else if(e<c.stroll.dur+2500)x=c.stroll.to;else x=c.stroll.to+(c.stroll.from-c.stroll.to)*(e-c.stroll.dur-2500)/c.stroll.dur;
@@ -231,6 +242,7 @@ function avatarURL(id,lg){return lg?`assets/avatars/avatar_${id}_lg.webp`:`asset
 function spritePose(c,now){
   if(c.wave>now)return"wave";
   if(c.pose==="walk")return Math.floor(now/220)%2?"walk":"idle";
+  // sit/type/stand/present → idle（trade idle＝sit、wave＝present）
   return"idle";
 }
 let last=0;
@@ -1021,7 +1033,7 @@ const CORE_TW = [
   {code:"2330", name:"台積電"}, {code:"2317", name:"鴻海"}, {code:"2454", name:"聯發科"},
   {code:"2303", name:"聯電"}, {code:"2382", name:"廣達"}, {code:"2308", name:"台達電"},
   {code:"2412", name:"中華電"}, {code:"2881", name:"富邦金"}, {code:"2882", name:"國泰金"},
-  {code:"2891", name:"中信金"}, {code:"2002", name:"中鋼"}, {code:"1301", name:"台塑"},
+  {code:"2891", name:"中信金"}, {code:"2002", name:"中鋼"}, {code:"1301", name:"台塑"}, {code:"00631L", name:"元大台灣50正2"},
 ];
 const CORE_CRYPTO = [
   {code:"BTC", name:"比特幣"}, {code:"ETH", name:"以太幣"},
@@ -1046,6 +1058,7 @@ function symName(code){
   const cx=CORE_CRYPTO.find(x=>x.code===code); if(cx) return cx.name;
   if(code==="TAIEX") return "加權指數";
   if(code==="0050") return "元大台灣50";
+  if(code==="00631L") return "元大台灣50正2";
   return "";
 }
 function symLabel(code){
@@ -1069,7 +1082,7 @@ function fmtPrice(v, code){
 /** 在文字中把已知代號補上中文名（避免重複加） */
 function withSymNames(text){
   let s=String(text||"");
-  const codes=["0050","2330","2317","2454","2303","2382","2308","2412","2881","2882","2891","2002","1301","BTC","ETH","SOL","XRP"];
+  const codes=["0050","00631L","2330","2317","2454","2303","2382","2308","2412","2881","2882","2891","2002","1301","BTC","ETH","SOL","XRP"];
   codes.forEach(code=>{
     const lab=symLabel(code);
     if(lab===code) return;
@@ -1159,7 +1172,7 @@ function focusCardsHTML(){
   const p=(D&&D.trade&&D.trade.perf)||{};
   const log=(p.dailyLog||[]).find(d=>d && !d.empty) || (p.dailyLog||[])[0];
   const rawLine=log?((log.tw&&log.tw[0])||(log.crypto&&log.crypto[0])||""):"";
-  let headline=p.focusTw||(log&&(log.focusTw||(log.plainTw&&log.plainTw[0])||(log.plainCrypto&&log.plainCrypto[0])))||"";
+  let headline=p.todayFocus||p.focusTw||(log&&(log.focusTw||(log.plainTw&&log.plainTw[0])||(log.plainCrypto&&log.plainCrypto[0])))||"";
   if(!headline && rawLine) headline=jargonToPlain(rawLine);
   if(!headline) headline=p.status||"今日尚無訓練紀錄";
   headline=jargonToPlain(headline);
@@ -1223,6 +1236,64 @@ function sleevesDonutHTML(sleeves){
   const legend=arr.map((s,i)=>`<div class="donut-leg"><i style="background:${colors[i%colors.length]}"></i>${esc(s.name||"")} ${esc(String(s.targetPct))}%</div>`).join("");
   return `<div class="donut-wrap"><svg class="donut" viewBox="0 0 100 100" aria-hidden="true">${arcs}<circle cx="50" cy="50" r="26" fill="#0c141e"/><text x="50" y="52" text-anchor="middle" fill="#e8eef6" font-size="11" font-weight="700">配置</text></svg><div class="donut-legs">${legend}</div></div>`;
 }
+
+function strategyBookRows(){
+  const p=(D&&D.trade&&D.trade.perf)||{};
+  const book=p.strategyBook;
+  if(book&&Array.isArray(book.all)&&book.all.length) return book.all;
+  // fallback: sleeves + virtual benches
+  const rows=(p.sleeves||[]).map(s=>({
+    id:s.id||s.name, name:s.name, status:s.status, allocPct:s.targetPct, navPct:s.navPct,
+    market:s.market==="tw"||s.market==="台股"?"台股":(s.market==="crypto"||s.market==="幣圈"?"幣圈":(s.market||"")),
+    bench:false
+  }));
+  (p.benchmarksVirtual||[]).forEach(b=>{
+    const lab=b.id==="BENCH_0050"?"對照：0050":(b.id==="BENCH_BTC"?"對照：比特幣":(b.symbol||b.id||"對照線"));
+    rows.push({id:b.id, name:lab, status:"對照線", allocPct:0, navPct:b.returnPct, market:"", bench:true, note:b.note, symbol:b.symbol});
+  });
+  return rows;
+}
+function bookCardHTML(r){
+  const bench=!!r.bench || r.status==="對照線";
+  const name=bench
+    ? (r.id==="BENCH_0050"||/0050/.test(String(r.symbol||r.name||""))?"對照：0050":(/BTC|比特幣/.test(String(r.symbol||r.name||r.id||""))?"對照：比特幣":(r.name||"對照線")))
+    : (r.name||"—");
+  const status=bench?"對照線（不占資金）":(r.status||"—");
+  const alloc=bench?"—":(r.allocPct!=null?`${r.allocPct}%`:"—");
+  const nav=r.navPct==null?"—":fmtPct(r.navPct);
+  const mkt=r.market&&!bench?`<span class="chip">${esc(r.market)}</span>`:"";
+  const cls=bench?"bench":stratStatusCls(r.status);
+  return `<div class="sbook-card${bench?" is-bench":""}">
+    <div class="sbook-hd"><span class="sbook-name">${esc(name)}</span><span class="chip ${cls}">${esc(status)}</span></div>
+    <div class="sbook-grid">
+      <div><span class="sbook-k">分到資金</span><span class="sbook-v">${esc(alloc)}</span></div>
+      <div><span class="sbook-k">淨值</span><span class="sbook-v">${esc(nav)}</span></div>
+      <div><span class="sbook-k">${bench?"對照線":"市場"}</span><span class="sbook-v">${bench?"不占資金":esc(r.market||"—")}</span></div>
+    </div>
+    ${mkt}
+  </div>`;
+}
+function strategyBookHTML(){
+  const p=(D&&D.trade&&D.trade.perf)||{};
+  const rows=strategyBookRows();
+  const disc=esc((p.strategyBook&&p.strategyBook.disclaimer)||p.disclaimer||"模擬結果，非投資建議");
+  const note=(p.strategyBook&&p.strategyBook.note)?`<div class="muted sbook-note">${esc(jargonToPlain(p.strategyBook.note))}</div>`:"";
+  if(!rows.length) return `<div class="muted">尚無策略簿</div><div class="feed-disc">${disc}</div>`;
+  const tw=rows.filter(r=>!r.bench && (r.market==="台股"||r.market==="tw"));
+  const cr=rows.filter(r=>!r.bench && (r.market==="幣圈"||r.market==="crypto"));
+  const cash=rows.filter(r=>!r.bench && /^CASH_/.test(String(r.id||"")));
+  const other=rows.filter(r=>!r.bench && !tw.includes(r) && !cr.includes(r) && !cash.includes(r));
+  const benches=rows.filter(r=>r.bench);
+  const sec=(title,list)=>list.length?`<div class="sbook-sec"><div class="feed-mhd">${esc(title)}</div><div class="sbook-grid-cards">${list.map(bookCardHTML).join("")}</div></div>`:"";
+  return `${note}
+    ${sec("台股策略", tw.concat(other.filter(r=>r.market==="台股")))}
+    ${sec("幣圈策略", cr)}
+    ${sec("現金保留", cash)}
+    ${sec("對照線（不占資金）", benches)}
+    ${sec("其他", other.filter(r=>r.market!=="台股"&&r.market!=="幣圈"))}
+    <div class="feed-disc">${disc}</div>`;
+}
+
 function bookHTML(){
   const p=(D&&D.trade&&D.trade.perf)||{};
   const pos=p.positions||[];
@@ -1231,7 +1302,12 @@ function bookHTML(){
   const availRaw=cap.availableLabel||cap.label||"";
   const avail=String(availRaw).replace(/^可用資金[：:]\s*/,"");
   const vs = p.vs0050Sentence || `模擬獲利 ${fmtPct(p.equityReturnPct)}，同期買 0050 ${fmtPct(p.benchmark0050ReturnPct)}`;
-  const posRows=pos.length?pos.map(x=>`<div class="wl-row"><div class="wl-meta"><div class="wl-name">${esc(symLabel(x.symbol)||x.symbol)}</div></div><div class="wl-px"><div class="wl-close">權重 ${esc(fmtDash(x.weightPct,1))}%</div><div class="wl-chg">未實現 ${fmtPct(x.unrealizedPct)}</div></div></div>`).join(""):emptySoon("尚無紙上持倉","紙上掛單等開盤成交後會出現；0050 為對照基準");
+  const posRows=pos.length?pos.map(x=>`<div class="wl-row"><div class="wl-meta"><div class="wl-name">${esc(symLabel(x.symbol)||x.symbol)}</div></div><div class="wl-px"><div class="wl-close">權重 ${esc(fmtDash(x.weightPct,1))}%</div><div class="wl-chg">未實現 ${fmtPct(x.unrealizedPct)}</div></div></div>`).join(""):emptySoon("尚無紙上持倉","紙上掛單等開盤成交後會出現；0050／BTC 為對照線");
+  const planned=(p.trades||[]).filter(t=>t&&t.planned);
+  const planRows=planned.length?planned.map(t=>{
+    const sym=normTradeSym(t.symbol);
+    return `<button type="button" class="wl-row wl-tap" data-sym="${esc(sym)}"><div class="wl-meta"><div class="wl-name">${esc(symLabel(sym)||sym)} <span class="chip mid">預計</span></div><div class="wl-viewline">${esc(t.strategyZh||t.label||"")} · ${esc(t.date||"")}</div></div><div class="wl-px"><div class="wl-close">${t.stopPx!=null?"停 "+fmtDash(t.stopPx,2):"—"}</div><div class="wl-chg">${t.targetPx!=null?"目標 "+fmtDash(t.targetPx,2):"—"}</div></div></button>`;
+  }).join(""):"";
   return `<div class="book-panel">
     <div class="sim-banner">紙上模擬 · 非投資建議 · 不碰真錢</div>
     ${avail?`<div class="capital-avail"><span class="ca-lab">可用資金</span><span class="ca-val">${esc(avail)}</span></div>`:""}
@@ -1242,46 +1318,36 @@ function bookHTML(){
       <div><b>${p.closedTrades==null?"—":esc(String(p.closedTrades))}</b><span>已平倉</span></div>
       <div><b>${p.maxDrawdownPct==null?"—":(Number(p.maxDrawdownPct).toFixed(1)+"%")}</b><span>最大回撤</span></div>
     </div>
+    <div class="feed-mkt" style="margin-top:10px"><div class="feed-mhd">策略簿</div>${strategyBookHTML()}</div>
     <div class="feed-mkt" style="margin-top:10px"><div class="feed-mhd">目標配置</div>${sleevesDonutHTML(sleeves)}</div>
+    ${planRows?`<div class="feed-mkt"><div class="feed-mhd">預計進場</div>${planRows}</div>`:""}
     <div class="feed-mkt"><div class="feed-mhd">持倉</div>${posRows}</div>
-    <div class="feed-disc">${esc(p.disclaimer||"模擬結果，非投資建議")}</div>
   </div>`;
+}
+function normTradeSym(sym){
+  return String(sym||"").replace(/\.TW$/,"").replace(/\.TWO$/,"").replace(/-USD$/,"").replace(/-USDT$/,"");
 }
 function stratCenterHTML(){
   const p=(D&&D.trade&&D.trade.perf)||{};
-  const list=p.strategyList||[];
   const disc=esc(p.disclaimer||"模擬結果，非投資建議");
   const vs = p.vs0050Sentence || `模擬獲利 ${fmtPct(p.equityReturnPct)}，同期買 0050 ${fmtPct(p.benchmark0050ReturnPct)}`;
-  if(!list.length) return `<div class="feed-panel"><div class="muted">尚無策略清單</div><div class="feed-disc">${disc}</div></div>`;
-  const counts={}; list.forEach(s=>{const lab=stratStatusLabel(s); counts[lab]=(counts[lab]||0)+1;});
-  const statusTabs=["全部","執行中","觀察中","待驗證","已淘汰"].map(st=>{
-    const n=st==="全部"?list.length:(counts[st]||0);
-    const on = (window.__stratStatusFilter||"全部")===st?" on":"";
-    return `<button type="button" class="chip${on}" data-st="${esc(st)}">${esc(st)} ${n}</button>`;
-  }).join("");
-  const cards=list.map(s=>{
-    const open = stratExpand===s.name;
+  const rows=strategyBookRows();
+  const hasBook=rows.length>0;
+  // 仍保留舊 strategyList 展開詳情（驗證期數字）於下方摺疊
+  const list=p.strategyList||[];
+  const legacy = list.length?`<details class="focus-raw" style="margin-top:10px"><summary>研究清單（舊版驗證數字）</summary><div class="strat-list" style="margin-top:8px">${list.map(s=>{
     const lab=stratStatusLabel(s);
     const cls=stratStatusCls(lab);
-    const body = open?`<div class="strat-body">
-      <div class="strat-plain">${esc(s.plainReason||softenInline(s.reason)||"尚無白話說明")}</div>
-      ${stratPeriodHTML("訓練期", s.is)}
-      ${stratPeriodHTML("驗證期", s.oos)}
-      <div class="muted strat-idline">內部代號 <code>${esc(s.name)}</code></div>
-      ${s.failureCondition?`<div class="strat-fail"><span class="muted">失效條件</span> ${esc(withSymNames(s.failureCondition))}</div>`:""}
-      ${s.updatedAt?`<div class="muted strat-upd">更新 ${esc(s.updatedAt)}</div>`:""}
-    </div>`:"";
-    return `<button type="button" class="strat-card strat-tap${open?" open":""}" data-market="${esc(s.market)}" data-status="${esc(lab)}" data-name="${esc(s.name)}">
-      <div class="strat-hd"><span class="strat-name">${esc(stratDisplayName(s))}</span><span class="chip ${cls}">${esc(lab)}</span></div>
-      <div class="strat-meta"><span class="chip">${esc(s.market)}</span><span class="muted strat-oneline">${esc(s.plainReason||"")}</span></div>
-      ${body}
-    </button>`;
-  }).join("");
+    return `<div class="strat-card"><div class="strat-hd"><span class="strat-name">${esc(stratDisplayName(s))}</span><span class="chip ${cls}">${esc(lab)}</span></div>
+      <div class="strat-meta"><span class="chip">${esc(s.market||"")}</span><span class="muted strat-oneline">${esc(s.plainReason||softenInline(s.reason)||"")}</span></div>
+      ${stratPeriodHTML("訓練期", s.is)}${stratPeriodHTML("驗證期", s.oos)}</div>`;
+  }).join("")}</div></details>`:"";
+  if(!hasBook && !list.length) return `<div class="feed-panel"><div class="muted">尚無策略清單</div><div class="feed-disc">${disc}</div></div>`;
   return `<div class="feed-panel" id="strat-panel">
     <div class="vs-bench">${esc(vs)}</div>
-    <div class="chips strat-st" data-role="strat-status">${statusTabs}</div>
-    <div class="strat-list" id="strat-list">${cards}</div>
-    <div class="feed-disc">${disc}</div>
+    <div class="feed-mhd">策略簿</div>
+    ${strategyBookHTML()}
+    ${legacy}
   </div>`;
 }
 function softenInline(s){
@@ -1456,13 +1522,16 @@ function drawCandleChart(canvas, candles, markers){
   const byT={};
   candles.forEach((c,i)=>{ byT[c.t]=i; });
   (markers||[]).forEach(m=>{
-    const i=byT[m.t];
+    let i=byT[m.t];
+    const planned=!!m.planned || (m.label&&String(m.label).indexOf("預計")>=0) || (m.note==="預計");
+    // 預計單若日期超出 K 線，釘在右緣
+    if(i==null && planned) i=candles.length-1;
     if(i==null) return;
-    const x=padL + slot*i + slot/2;
+    const x=padL + slot*i + slot/2 + (planned && byT[m.t]==null ? slot*0.35 : 0);
     const px=m.px!=null?Number(m.px): (candles[i].c);
     const yy=y(px);
     const sim=m.kind==="模擬";
-    ctx.fillStyle=sim?"#C9A227":"#5ab0ff";
+    ctx.fillStyle=planned?"#E8C547":(sim?"#C9A227":"#5ab0ff");
     ctx.beginPath();
     if(m.side==="buy"){
       ctx.moveTo(x, yy-7); ctx.lineTo(x-5, yy); ctx.lineTo(x+5, yy);
@@ -1470,6 +1539,13 @@ function drawCandleChart(canvas, candles, markers){
       ctx.moveTo(x, yy+7); ctx.lineTo(x-5, yy); ctx.lineTo(x+5, yy);
     }
     ctx.closePath(); ctx.fill();
+    if(planned){
+      ctx.fillStyle="#E8C547";
+      ctx.font="9px system-ui,sans-serif";
+      ctx.textAlign="center";
+      ctx.fillText("預計", x, yy-10);
+      ctx.textAlign="left";
+    }
   });
   const last=candles[candles.length-1];
   ctx.fillStyle="#9aa8b8";
