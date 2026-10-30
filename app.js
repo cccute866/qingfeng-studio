@@ -2006,13 +2006,14 @@ function openFloor(id){const f=FLOORS.find(x=>x.id===id);let h=head(f);
   }
   openSheet(h);document.querySelectorAll("#sheetbody [data-m]").forEach(b=>b.onclick=()=>openMember(b.dataset.m));bindUsageDetails($("#sheetbody"));bindStrategyFilters($("#sheetbody"));bindTradeApp($("#sheetbody"));
 }
-function openMember(id){const s=memberState(id),c=D.cards[id]||{},m=(D.office&&D.office.members[id])||{role:ROLES[id]};
+function openMember(id){let s=memberState(id);const ch=chars[id];if(ch&&ch.state)s=ch.state;const c=D.cards[id]||{},m=(D.office&&D.office.members[id])||{role:ROLES[id]};
   const desk=((typeof decisionsByFloor==="function"?decisionsByFloor():{})[SPOT[id]?SPOT[id].f:""]||[]).filter(x=>(x.mids||[]).includes(id));
   const deskHint=desk.length?`<div class="floor-brief" style="margin-top:10px">桌上決定：${esc(plainDecisionSentence(desk[0].d))}${desk.length>1?`（還有 ${desk.length-1} 項）`:""}</div>`:"";
+  const busy=noemo((ch&&ch.beh&&ch.beh.detail)||s.full||s.text);
   openSheet(`<div class="who"><img id="ava" class="ava" width="96" height="96" alt="${esc(NAMES[id])}" src="${avatarURL(id,true)}" data-id="${id}"><div><div class="nm">${esc(NAMES[id])}</div><div class="rl">${esc(m.role||"")}</div><div class="stl"><span class="dot ${s.cat}"></span>${CAT[s.cat]} · <span class="muted">${s.live?esc(agoText(s.updatedAt)):"依每日排程"}</span></div></div></div>
   <div class="thought">${esc(thoughtOf(id))}</div>
   ${deskHint}
-  <div class="rows"><div class="r"><b>正在忙</b>${esc(noemo(s.full||s.text))}</div><div class="r"><b>剛完成</b>${esc(noemo(c.recent)||"—")}</div><div class="r"><b>下一步</b>${esc(noemo(nextStep(id))||"目前沒寫下一步，有排程時會出現")}</div></div>
+  <div class="rows"><div class="r"><b>正在忙</b>${esc(busy)}</div><div class="r"><b>剛完成</b>${esc(noemo(c.recent)||"—")}</div><div class="r"><b>下一步</b>${esc(noemo(nextStep(id))||"目前沒寫下一步，有排程時會出現")}</div></div>
   <div class="mbtn"><button id="poke">打招呼</button><button id="tofloor">看這層樓</button></div>`);
   const ava=$("#ava");
   $("#poke").onclick=()=>{ava.classList.remove("hop");void ava.offsetWidth;ava.classList.add("hop");react(id);};
