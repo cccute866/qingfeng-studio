@@ -119,8 +119,9 @@ function floorState(f){
   }
   if(f.id==="mz"){
     const min=nowMin();
-    if(min>=9*60&&min<18*60) return{cat:"work",label:"值班中",text:"公關起草／財會核對 · 排程建立中"};
-    return{cat:"wait",label:"休息中",text:"公關／財會 · 排程建立中"};
+    if((min>=16*60&&min<16*60+30)||(min>=15*60&&min<15*60+30&&tpNow().getUTCDay()===0)) return{cat:"work",label:"起草中",text:"沈沐禾更新草稿（只起草不發文）"};
+    if(min>=21*60&&min<21*60+30) return{cat:"work",label:"核帳中",text:"蒲小棠核對用量與模擬帳"};
+    return{cat:"wait",label:"待命",text:"16:00 公關草稿 · 21:00 財會核帳"};
   }
   if(f.id==="director"){const a=typeof usageAlert==="function"?usageAlert():{level:""};
     if(a.level==="red")return{cat:"you",label:"額度警示",text:a.short||"可能額度用完或例行失敗"};
@@ -886,8 +887,8 @@ function floorVizHTML(id){
   }
   if(id==="mz"){
     const min=nowMin();
-    const on=min>=9*60&&min<18*60;
-    return lightHTML(on?"green":"yellow")+`<span class="fv-cap">${on?"公關／財會值班中":"公關／財會休息中"} · 排程建立中</span>`;
+    const on=(min>=16*60&&min<16*60+30)||(min>=21*60&&min<21*60+30);
+    return lightHTML(on?"green":"yellow")+`<span class="fv-cap">${on?"公關／財會工作中":"公關／財會待命"} · 16:00 草稿／21:00 核帳</span>`;
   }
   if(id==="lobby"){
     const b=D.backlog||{}; const p=b.total?Math.round(b.done/b.total*100):0;
@@ -1644,7 +1645,7 @@ function renderRoomDash(){
     el.innerHTML=`<div class="card"><h2>${id==="dev"?"開發發版":"工程修復"}</h2>${floorBriefHTML(id==="dev"?("目前版本 "+v+"。"):"修 bug 與介面打磨。")}${pipeHTML((D.dev||{}).pipeline)}</div>`; return;
   }
   if(id==="mz"){
-    el.innerHTML=`<div class="card"><h2>夾層 · 公關／財會</h2>${floorBriefHTML("沈沐禾（公關，只起草不上傳）與蒲小棠（財會核對）。排程建立中。")}${keyCardsHTML([{v:"沈沐禾",l:"公關"},{v:"蒲小棠",l:"財會"},{v:"建立中",l:"排程"}])}</div>`; return;
+    el.innerHTML=`<div class="card"><h2>夾層 · 公關／財會</h2>${floorBriefHTML("沈沐禾（公關，只起草不上傳）與蒲小棠（財會核對）。每天約 16:00 草稿、21:00 核帳。")}${keyCardsHTML([{v:"沈沐禾",l:"公關"},{v:"蒲小棠",l:"財會"},{v:"16:00／21:00",l:"排程"}])}</div>`; return;
   }
   if(id==="lobby"){
     el.innerHTML=`<div class="card"><h2>遊戲入口</h2>${floorBriefHTML("從這裡進遊戲，也可看待辦與排程。")}<div class="play"><div class="ver">目前版本 <b>${esc(D.game.version)}</b><br>${esc(D.game.subtitle)}</div><a class="btn" target="_blank" rel="noopener" href="${esc(D.game.url)}">進入遊戲</a></div></div>`; return;
@@ -1872,17 +1873,18 @@ function openFloor(id){const f=FLOORS.find(x=>x.id===id);let h=head(f);
     h+=memberBtn("eng");
   }
   if(id==="mz"){
-    h+=floorBriefHTML("這層是夾層・公關／財會。左邊沈沐禾負責遊戲公關（商店上架、IG／脆小編，只起草不上傳）；右邊蒲小棠負責財會（用量與花費、模擬帳核對）。排程建立中。");
+    h+=floorBriefHTML("這層是夾層・公關／財會。左邊沈沐禾負責遊戲公關（商店上架、IG／脆小編，只起草不上傳）；右邊蒲小棠負責財會（用量與花費、模擬帳核對）。沈沐禾每天約 16:00 更新草稿、週日約 15:00 排下週貼文；蒲小棠每天約 21:00 核帳。");
     h+=keyCardsHTML([
       {v:"沈沐禾",l:"青鋒公關",note:"只起草，不上傳"},
       {v:"蒲小棠",l:"青鋒財會",note:"用量／模擬帳"},
-      {v:"建立中",l:"今日排程",note:"時間稍後補上"},
+      {v:"16:00／21:00",l:"每日排程",note:"週日 15:00 加排貼文"},
     ]);
     h+=`<h4>兩位同事</h4><div class="plain-list">
       <div class="vcard"><b>沈沐禾 · 青鋒公關</b><div class="muted">遊戲公關：商店上架文案、IG／脆貼文——只起草，不上傳；等你拍板。</div>${memberBtn("pr")}</div>
       <div class="vcard"><b>蒲小棠 · 青鋒財會</b><div class="muted">財會：核對用量與花費、對齊模擬帳；有異常會標在桌上。</div>${memberBtn("fin")}</div>
     </div>`;
-    h+=`<h4>今日排程</h4><div class="muted">排程建立中——例行時間確定後會寫進來。</div>`;
+    {const sc=(D.schedule||[]).filter(x=>x.who==="pr"||x.who==="fin");
+    h+=`<h4>今日排程</h4><ul class="plain-list">${sc.map(x=>`<li>${esc(x.from)} ${esc(x.what)}</li>`).join("")}</ul><div class="muted">時間約略，前後 15 分鐘內開始。</div>`;}
   }
   if(id==="lobby"){
     const b=D.backlog||{}; const p=b.total?Math.round(b.done/b.total*100):0;
