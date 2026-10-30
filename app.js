@@ -16,6 +16,7 @@ function iconSVG(kind){
     qa:'<circle cx="10.5" cy="10.5" r="5.5"/><path d="M15 15l4.5 4.5"/>',
     eng:'<path d="M14.7 6.3l2 2-1.4 1.4 2.1 2.1 1.4-1.4 2 2-6.4 6.4-2-2 1.4-1.4-2.1-2.1-1.4 1.4-2-2z"/><circle cx="8" cy="16" r="1.2"/>',
     lobby:'<path d="M4 20V9.5L12 4l8 5.5V20"/><path d="M10 20v-6h4v6"/>',
+    mz:'<rect x="4" y="8" width="7" height="10" rx="1"/><rect x="13" y="8" width="7" height="10" rx="1"/><path d="M11 10h2M11 13h2M11 16h2"/>',
     schedule:'<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3.5v3M16 3.5v3M4 10h16"/>',
     roadmap:'<circle cx="6" cy="7" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="18" cy="17" r="2"/><path d="M8 8l2.5 2.5M14 13.5l2.5 2.5"/>'
   };
@@ -32,19 +33,20 @@ const FLOORS=[
  {id:"num",no:"4F",name:"數值部",who:"青鋒數值 · 遊戲事業部",icon:"ic_num",room:"room_num",member:"num",unit:"game",band:"f4"},
  {id:"qa",no:"3F",name:"品管部",who:"青鋒監管 · 遊戲事業部",icon:"ic_qa",room:"room_qa",member:"qa",unit:"game",band:"f3"},
  {id:"eng",no:"2F",name:"工程部",who:"青鋒工程 修復／介面打磨 · 遊戲事業部",icon:"ic_eng",room:"room_eng",member:"eng",unit:"game",band:"f2"},
+ {id:"mz",no:"夾層",name:"公關／財會",who:"青鋒公關 沈沐禾 · 青鋒財會 蒲小棠",icon:"ic_mz",room:"room_mz",unit:"ops",band:"mz"},
  {id:"lobby",no:"1F",name:"大廳",who:"遊戲入口 · 進度 · 路線圖",icon:"ic_lobby",room:"room_lobby",unit:"lobby",band:"lobby"}];
 /* tower.webp 900×1800 樓層 y 帶（manifest）；百分比相對整張圖 */
 /* LED 實測對齊：頂兩薄層併為 9F，其餘一層一帶；lobby 自 1439 */
-const BANDS={f9_top:[202,349],f8:[349,490],f7:[490,629],f6:[629,769],f5:[769,906],f4:[906,1042],f3:[1042,1178],f2:[1178,1439],lobby:[1439,1799]};
+const BANDS={f9_top:[202,349],f8:[349,490],f7:[490,629],f6:[629,769],f5:[769,906],f4:[906,1042],f3:[1042,1178],f2:[1178,1360],mz:[1360,1455],lobby:[1455,1799]};
 const TOWER_H=1800;
 /* 座位：room2 floor_y/520；view back=背對螢幕 */
-const SPOT={weixiang:{f:"director",x:.30,y:.70,floor:.75},zhiya:{f:"dev",x:.52,y:.68,floor:.74},art:{f:"art",x:.34,y:.66,floor:.73},num:{f:"num",x:.44,y:.70,floor:.75},qa:{f:"qa",x:.58,y:.68,floor:.74},eng:{f:"eng",x:.48,y:.74,floor:.81},trade:{f:"trade",x:.38,y:.58,floor:.72}};
+const SPOT={weixiang:{f:"director",x:.30,y:.70,floor:.75},zhiya:{f:"dev",x:.52,y:.68,floor:.74},art:{f:"art",x:.34,y:.66,floor:.73},num:{f:"num",x:.44,y:.70,floor:.75},qa:{f:"qa",x:.58,y:.68,floor:.74},eng:{f:"eng",x:.48,y:.74,floor:.81},trade:{f:"trade",x:.38,y:.58,floor:.72},pr:{f:"mz",x:.28,y:.58,floor:.70},fin:{f:"mz",x:.72,y:.58,floor:.70}};
 /* 半寫實正常比例：以房間高度比例對家具；eng 機櫃區略小、總裁室略大 */
-const ROOM_SCALE={director:.44,council:.42,trade:.34,lobby:.42,dev:.42,art:.41,num:.41,qa:.41,eng:.38};
+const ROOM_SCALE={director:.44,council:.42,trade:.34,mz:.34,lobby:.42,dev:.42,art:.41,num:.41,qa:.41,eng:.38};
 const SEAT={weixiang:.29,zhiya:.37,art:.45,num:.53,qa:.61,eng:.69}; const TABLE_TOP=.62;
-const NAMES={weixiang:"偉翔",zhiya:"智雅",art:"青鋒美術",num:"青鋒數值",qa:"青鋒監管",eng:"青鋒工程",council:"全員會議",trade:"青鋒交易"};
-const SHORT={weixiang:"偉翔",zhiya:"智雅",art:"美術",num:"數值",qa:"監管",eng:"工程",trade:"交易"};
-const ROLES={eng:"工程師（修復／QA／介面）"};
+const NAMES={weixiang:"偉翔",zhiya:"智雅",art:"青鋒美術",num:"青鋒數值",qa:"青鋒監管",eng:"青鋒工程",council:"全員會議",trade:"青鋒交易",pr:"沈沐禾",fin:"蒲小棠"};
+const SHORT={weixiang:"偉翔",zhiya:"智雅",art:"美術",num:"數值",qa:"監管",eng:"工程",trade:"交易",pr:"公關",fin:"財會"};
+const ROLES={eng:"工程師（修復／QA／介面）",pr:"青鋒公關（遊戲公關：商店上架、IG／脆小編；只起草不上傳）",fin:"青鋒財會（用量與花費、模擬帳核對）",trade:"青鋒交易（紙上模擬）"};
 const CAT={work:"工作中",meet:"開會中",done:"完成",wait:"待命",you:"等你"};
 const LIVEMAP={"工作中":"work","開會中":"meet","完成":"done","待命":"wait","等你":"you"};
 let D=null, floorsEl={}, chars={}, thinking=null, view="city", activeFloor="lobby";
@@ -68,6 +70,16 @@ function meetingNow(){
   return null;}
 function meeters(){return ["zhiya","art","num","qa","eng"].concat(D&&D.weixiangJoins?["weixiang"]:[]);}
 function memberState(id){
+  if(id==="pr"||id==="fin"){
+    const min=nowMin();
+    const role=id==="pr"
+      ?"遊戲公關：商店上架、IG／脆小編（只起草，不上傳）"
+      :"財會：用量與花費、模擬帳核對";
+    const name=id==="pr"?"沈沐禾":"蒲小棠";
+    if(min>=9*60&&min<18*60)
+      return{cat:"work",text:name+" 值班中",full:role,where:"desk",live:false};
+    return{cat:"wait",text:"下班／待命",full:role,where:"desk",live:false};
+  }
   if(id==="trade"){
     const tr=D&&D.trade||{}; const perf=tr.perf||{};
     const focus=perf.focusTw||perf.todayFocus||perf.status||"紙上模擬交易";
@@ -104,6 +116,11 @@ function floorState(f){
     const sm=tr.summary||{};
     const ok=sm.ok||0, total=sm.total||0;
     return{cat:"work",label:"模擬營運中",text:total?(`行情已連線 ${ok}/${total}`):"模擬交易 · 非投資建議"};
+  }
+  if(f.id==="mz"){
+    const min=nowMin();
+    if(min>=9*60&&min<18*60) return{cat:"work",label:"值班中",text:"公關起草／財會核對 · 排程建立中"};
+    return{cat:"wait",label:"休息中",text:"公關／財會 · 排程建立中"};
   }
   if(f.id==="director"){const a=typeof usageAlert==="function"?usageAlert():{level:""};
     if(a.level==="red")return{cat:"you",label:"額度警示",text:a.short||"可能額度用完或例行失敗"};
@@ -164,7 +181,7 @@ function renderBands(){
     b.type="button"; b.className="band"+(f.prep?" prep":""); b.setAttribute("role","listitem");
     b.style.top=top.toFixed(2)+"%"; b.style.height=h.toFixed(2)+"%";
     b.setAttribute("aria-label",f.no+" "+f.name+(f.prep?"（籌備中）":""));
-    let tag=f.prep?'<span class="tag prep">籌備中</span>':(f.unit==="trade"?'<span class="tag trade">模擬</span>':(f.unit==="game"?'<span class="tag">遊戲</span>':(f.unit==="exec"?'<span class="tag">總裁</span>':"")));
+    let tag=f.prep?'<span class="tag prep">籌備中</span>':(f.unit==="trade"?'<span class="tag trade">模擬</span>':(f.unit==="ops"?'<span class="tag ops">夾層</span>':(f.unit==="game"?'<span class="tag">遊戲</span>':(f.unit==="exec"?'<span class="tag">總裁</span>':""))));
     const decN=((typeof decisionsByFloor==="function"?decisionsByFloor():{})[f.id]||[]).length;
     if(decN) tag+=`<span class="tag dec">${decN} 決定</span>`;
     b.innerHTML=`<span class="blabel"><b>${f.no}</b>${esc(f.name)}${tag}</span>`;
@@ -178,7 +195,7 @@ function buildTower(){
   const t=$("#tower");t.innerHTML="";
   for(const f of FLOORS){
     const el=document.createElement("div");el.className="floor";el.tabIndex=0;el.hidden=true;el.setAttribute("role","button");el.setAttribute("aria-label",f.no+" "+f.name+"，打開細節");
-    el.innerHTML=`<div class="room${f.id==="trade"?" room-iso":""}" data-floor="${f.id}" style="background-image:url(assets/${f.room}.webp)"><canvas></canvas><div class="hits"></div>
+    el.innerHTML=`<div class="room${(f.id==="trade"||f.id==="mz")?" room-iso":""}${f.id==="mz"?" room-iso-mz":""}" data-floor="${f.id}" style="background-image:url(assets/${f.room}.webp)"><canvas></canvas><div class="hits"></div>
       <div class="plate"><span class="no">${f.no}</span>${iconSVG(f.id)}<span><span class="nm">${f.name}</span><span class="who">${esc(f.who)}</span></span></div>
       <div class="bubble"><span class="dot"></span><b></b><span class="t"></span></div>
       <div class="fviz" aria-hidden="true"></div>
@@ -208,7 +225,7 @@ function buildTower(){
   resize();
 }
 function resize(){const dpr=Math.min(window.devicePixelRatio||1,2.5);for(const k in floorsEl){const c=floorsEl[k].cv,r=floorsEl[k].room;c.width=Math.round(r.clientWidth*dpr);c.height=Math.round(r.clientHeight*dpr);
-    if(k==="trade"&&r){const w=r.clientWidth;const url=w<=480?"assets/room_trade_sm.webp":(w<=720?"assets/room_trade_md.webp":"assets/room_trade.webp");if(r.dataset.bg!==url){r.style.backgroundImage=`url(${url})`;r.dataset.bg=url;}}
+    if((k==="trade"||k==="mz")&&r){const w=r.clientWidth;const base=k==="mz"?"room_mz":"room_trade";const url=w<=480?`assets/${base}_sm.webp`:(w<=720?`assets/${base}_md.webp`:`assets/${base}.webp`);if(r.dataset.bg!==url){r.style.backgroundImage=`url(${url})`;r.dataset.bg=url;}}
   }}
 window.addEventListener("resize",resize);
 
@@ -224,15 +241,16 @@ function placeChar(c,now){
     else{c.floor="council";c.x=SEAT[c.id];c.y=TABLE_TOP+.08;c.pose="sit";c.view="front";c.clip=TABLE_TOP;}
     c.stroll=null;return;}
   c.floor=sp.f;
-  if(s.cat==="work"){c.x=sp.x;c.y=sp.y;c.pose=(c.id==="trade"?"sit":"type");c.view=(c.id==="trade"?"front":"back");c.stroll=null;return;}
+  if(s.cat==="work"){const iso=c.id==="trade"||c.id==="pr"||c.id==="fin";c.x=sp.x;c.y=sp.y;c.pose=(iso?"sit":"type");c.view=(iso?"front":"back");c.stroll=null;return;}
   // 閒置：偶爾散步（尊重減少動態）
   const reduce=typeof matchMedia==="function"&&matchMedia("(prefers-reduced-motion:reduce)").matches;
-  if(!reduce&&!c.stroll&&now-c.lastStroll>9000+Math.random()*9000){const tx=(c.id==="trade"?.20+.45*Math.random():.15+Math.random()*.7);c.stroll={t0:now,from:sp.x,to:tx,dur:Math.abs(tx-sp.x)*9000+600};}
+  if(!reduce&&!c.stroll&&now-c.lastStroll>9000+Math.random()*9000){const tx=(c.id==="trade"?.20+.45*Math.random():(c.id==="pr"?.12+.28*Math.random():(c.id==="fin"?.55+.28*Math.random():.15+Math.random()*.7)));c.stroll={t0:now,from:sp.x,to:tx,dur:Math.abs(tx-sp.x)*9000+600};}
   if(c.stroll){const e=(now-c.stroll.t0);const tot=c.stroll.dur*2+2500;
     if(e>tot){c.stroll=null;c.lastStroll=now;}
     else{let x;if(e<c.stroll.dur)x=c.stroll.from+(c.stroll.to-c.stroll.from)*e/c.stroll.dur;else if(e<c.stroll.dur+2500)x=c.stroll.to;else x=c.stroll.to+(c.stroll.from-c.stroll.to)*(e-c.stroll.dur-2500)/c.stroll.dur;
       c.x=x;c.y=sp.floor;c.pose=(e<c.stroll.dur||e>c.stroll.dur+2500)?"walk":"stand";c.view="front";return;}}
-  c.x=sp.x;c.y=s.cat==="you"?sp.floor:sp.y;c.pose=s.cat==="you"?"stand":"sit";c.view=s.cat==="you"?"front":"back";
+  const iso=c.id==="trade"||c.id==="pr"||c.id==="fin";
+  c.x=sp.x;c.y=s.cat==="you"?sp.floor:sp.y;c.pose=s.cat==="you"?"stand":"sit";c.view=(s.cat==="you"||iso)?"front":"back";
 }
 // ---- 半寫實立繪（assets/chars/<id>_<idle|walk|wave>.webp，128×160，腳底 y=152）＋棚拍頭像 ----
 const SPR={};
@@ -866,6 +884,19 @@ function floorVizHTML(id){
     const top=dec.slice(0,2).map(d=>`<span class="chip ok">${esc(d.item)}</span>`).join("");
     return `<div class="fv-chips">${top}</div><span class="fv-cap">${dec.length} 項決定</span>`;
   }
+  if(id==="mz"){
+    h+=floorBriefHTML("這層是夾層・公關／財會。左邊沈沐禾負責遊戲公關（商店上架、IG／脆小編，只起草不上傳）；右邊蒲小棠負責財會（用量與花費、模擬帳核對）。排程建立中。");
+    h+=keyCardsHTML([
+      {v:"沈沐禾",l:"青鋒公關",note:"只起草，不上傳"},
+      {v:"蒲小棠",l:"青鋒財會",note:"用量／模擬帳"},
+      {v:"建立中",l:"今日排程",note:"時間稍後補上"},
+    ]);
+    h+=`<h4>兩位同事</h4><div class="plain-list">
+      <div class="vcard"><b>沈沐禾 · 青鋒公關</b><div class="muted">遊戲公關：商店上架文案、IG／脆貼文——只起草，不上傳；等你拍板。</div>${memberBtn("pr")}</div>
+      <div class="vcard"><b>蒲小棠 · 青鋒財會</b><div class="muted">財會：核對用量與花費、對齊模擬帳；有異常會標在桌上。</div>${memberBtn("fin")}</div>
+    </div>`;
+    h+=`<h4>今日排程</h4><div class="muted">排程建立中——例行時間確定後會寫進來。</div>`;
+  }
   if(id==="lobby"){
     const b=D.backlog||{}; const p=b.total?Math.round(b.done/b.total*100):0;
     return gaugeSVG(p)+`<span class="fv-cap">待辦 ${b.done||0}/${b.total||0}</span>`;
@@ -881,7 +912,7 @@ function driIds(dri){
   const s=String(dri||"");
   const out=[];
   // 依出現順序收集，支援 工程＋監管／工程、智雅／工程/監管
-  const rules=[["eng",/工程/],["zhiya",/智雅/],["art",/美術/],["num",/數值/],["qa",/監管/],["weixiang",/偉翔|總監|總裁/],["trade",/交易/]];
+  const rules=[["eng",/工程/],["zhiya",/智雅/],["art",/美術/],["num",/數值/],["qa",/監管/],["weixiang",/偉翔|總監|總裁/],["trade",/交易/],["pr",/公關|沈沐禾/],["fin",/財會|蒲小棠/]];
   // 用分隔符切開再對每段匹配，保留順序
   const parts=s.split(/[＋+、／/,，&與和]+/).map(x=>x.trim()).filter(Boolean);
   const src=parts.length?parts:[s];

@@ -277,6 +277,7 @@ ul.qu{margin:6px 0}ul.qu li{margin:3px 0}
 
 /* 7F 交易室行情連線面板 */
 .band .blabel .tag.trade{background:#12324a;color:#8ec8ff;border-color:#5ab0ff55}
+.band .blabel .tag.ops{background:#3a3222;color:#e8d5b5;border-color:#D8C3A055}
 .feed-panel{display:flex;flex-direction:column;gap:10px}
 .feed-mkt{border:1px solid var(--line2);border-radius:12px;padding:8px 10px;background:#0c141eaa}
 .feed-mhd{font-size:13px;font-weight:600;color:#e8f4ff;margin-bottom:6px;display:flex;justify-content:space-between;gap:8px}
@@ -336,6 +337,8 @@ ul.qu{margin:6px 0}ul.qu li{margin:3px 0}
 
 .trade-who{display:flex;gap:10px;align-items:center;margin:0 0 10px}.ava-trade{border-radius:12px;box-shadow:0 0 0 2px #C9A227,0 0 16px #C9A22755}
 .dav[src*="avatar_trade"],.mava[src*="avatar_trade"]{box-shadow:0 0 0 2px #C9A227}
+.dav[src*="avatar_pr"],.mava[src*="avatar_pr"]{box-shadow:0 0 0 2px #D8C3A0}
+.dav[src*="avatar_fin"],.mava[src*="avatar_fin"]{box-shadow:0 0 0 2px #9AA3AD}
 
 /* ---- 7F 交易室分頁（原創版面；強調色 trade gold #C9A227） ---- */
 .trade-app{display:flex;flex-direction:column;gap:10px;position:relative;padding-bottom:64px}
@@ -497,6 +500,7 @@ button.wl-row:active{background:#ffffff08}
 
 /* 7F 斜角立體交易室：房間比例貼近 iso 底圖 1761×1069 */
 .floor .room.room-iso{aspect-ratio:1761/1069;background-size:cover;background-position:center bottom}
+.floor .room.room-iso.room-iso-mz{aspect-ratio:1630/1057}
 @media (max-width:480px){
   .floor .room.room-iso{aspect-ratio:16/10}
 }
