@@ -307,3 +307,29 @@ ul.qu{margin:6px 0}ul.qu li{margin:3px 0}
 .gate-bar i{display:block;height:100%;background:linear-gradient(90deg,#2a9f7a,#3FD8A0);border-radius:6px}
 .gate-barlbl{font-size:11px;color:var(--mute);margin:2px 0 0 22px}
 .gate-note{font-size:11.5px;color:#c8d0da;margin:2px 0 0 22px;line-height:1.35}
+
+/* 7F 策略清單／每日訓練紀錄 */
+.strat-filters{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
+.strat-filters .chip{cursor:pointer;background:#121a24;color:var(--mute);border-color:var(--line)}
+.strat-filters .chip.on{background:#1a3a55;color:#8ec8ff;border-color:#5ab0ff88}
+.strat-list{display:flex;flex-direction:column;gap:8px;max-height:520px;overflow:auto;-webkit-overflow-scrolling:touch}
+.strat-card{border:1px solid var(--line2);border-radius:12px;padding:8px 10px;background:#0c141eaa}
+.strat-hd{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:4px}
+.strat-name{font-size:13px;font-weight:600;color:#e8f4ff;word-break:break-word}
+.strat-meta{margin-bottom:4px}
+.strat-metric{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 6px;font-size:12px;padding:2px 0}
+.strat-mlab{color:var(--mute);min-width:3.5em}
+.strat-mval{font-weight:600;color:#9ff0c6;font-variant-numeric:tabular-nums}
+.strat-reason{font-size:12px;color:#c8d0da;line-height:1.4;margin-top:4px}
+.strat-fail{font-size:11.5px;color:#ffe9a8;line-height:1.35;margin-top:3px;border-top:1px dashed #f2d04b33;padding-top:4px}
+.strat-upd{font-size:11px;margin-top:3px}
+.dlog-list{display:flex;flex-direction:column;gap:8px}
+.dlog-day{border:1px solid var(--line2);border-radius:12px;padding:8px 10px;background:#0c141eaa}
+.dlog-date{font-size:13px;font-weight:600;color:#e8f4ff;margin-bottom:6px}
+.dlog-cols{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.dlog-col ul{margin:0;padding-left:1.1em;font-size:12px;line-height:1.4;color:#c8d0da}
+.dlog-col li{margin:2px 0}
+@media (max-width:420px){
+  .dlog-cols{grid-template-columns:1fr}
+  .strat-list{max-height:420px}
+}

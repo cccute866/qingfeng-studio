@@ -650,6 +650,115 @@ function tradePerfHTML(){
     <div class="feed-disc">${disc}</div>
   </div>`;
 }
+function stratStatusCls(st){
+  if(st==="執行中") return "ok";
+  if(st==="觀察") return "mid";
+  if(st==="待驗證") return "mid";
+  if(st==="已拒絕") return "no";
+  return "";
+}
+function stratPeriodHTML(label, blk){
+  const b=blk||{};
+  const ret=b.returnPct==null?"—":fmtPct(b.returnPct,2);
+  const n=b.trades==null?"—":String(b.trades);
+  const per=b.period?`<span class="muted">（${esc(b.period)}）</span>`:"";
+  return `<div class="strat-metric"><span class="strat-mlab">${esc(label)}</span><span class="strat-mval">${ret}</span><span class="muted">· ${esc(n)} 筆</span>${per}</div>`;
+}
+function strategyListHTML(){
+  const tr=D&&D.trade||{}; const p=tr.perf||{};
+  const list=p.strategyList||[];
+  const disc=esc(p.disclaimer||"模擬結果，非投資建議");
+  if(!list.length){
+    return `<div class="feed-panel" id="strat-panel"><div class="muted">尚無策略清單</div><div class="feed-disc">${disc}</div></div>`;
+  }
+  const counts={}; list.forEach(s=>{counts[s.status]=(counts[s.status]||0)+1;});
+  const countChips=["執行中","觀察","待驗證","已拒絕"].map(st=>{
+    const n=counts[st]||0;
+    return `<span class="chip ${stratStatusCls(st)}">${esc(st)} ${n}</span>`;
+  }).join("");
+  const filters=`<div class="strat-filters" data-role="strat-filters">
+    <div class="chips strat-mkt">
+      <button type="button" class="chip on" data-mkt="全部">全部</button>
+      <button type="button" class="chip" data-mkt="台股">台股</button>
+      <button type="button" class="chip" data-mkt="幣圈">幣圈</button>
+    </div>
+    <div class="chips strat-st">
+      <button type="button" class="chip on" data-st="全部">狀態全部</button>
+      <button type="button" class="chip" data-st="執行中">執行中</button>
+      <button type="button" class="chip" data-st="觀察">觀察</button>
+      <button type="button" class="chip" data-st="待驗證">待驗證</button>
+      <button type="button" class="chip" data-st="已拒絕">已拒絕</button>
+    </div>
+  </div>`;
+  const cards=list.map(s=>{
+    const cls=stratStatusCls(s.status);
+    const reason=s.reason?`<div class="strat-reason">${esc(s.reason)}</div>`:"";
+    const fail=s.failureCondition?`<div class="strat-fail"><span class="muted">失效條件</span> ${esc(s.failureCondition)}</div>`:"";
+    const upd=s.updatedAt?`<div class="muted strat-upd">更新 ${esc(s.updatedAt)}</div>`:"";
+    return `<div class="strat-card" data-market="${esc(s.market)}" data-status="${esc(s.status)}">
+      <div class="strat-hd"><span class="strat-name">${esc(s.name)}</span><span class="chip ${cls}">${esc(s.status)}</span></div>
+      <div class="strat-meta"><span class="chip">${esc(s.market)}</span></div>
+      ${stratPeriodHTML("訓練期", s.is)}
+      ${stratPeriodHTML("驗證期", s.oos)}
+      ${reason}${fail}${upd}
+    </div>`;
+  }).join("");
+  return `<div class="feed-panel" id="strat-panel">
+    <div class="chips" style="margin-bottom:6px">${countChips}</div>
+    ${filters}
+    <div class="strat-list" id="strat-list">${cards}</div>
+    <div class="feed-disc">${disc}</div>
+  </div>`;
+}
+function dailyLogHTML(){
+  const tr=D&&D.trade||{}; const p=tr.perf||{};
+  const log=p.dailyLog||[];
+  const disc=esc(p.disclaimer||"模擬結果，非投資建議");
+  if(!log.length){
+    return `<div class="feed-panel"><div class="muted">尚無每日訓練紀錄</div><div class="feed-disc">${disc}</div></div>`;
+  }
+  const days=log.map(d=>{
+    const tw=(d.tw||[]).length?`<ul>${(d.tw||[]).map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`:`<div class="muted">無</div>`;
+    const cr=(d.crypto||[]).length?`<ul>${(d.crypto||[]).map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`:`<div class="muted">無</div>`;
+    return `<div class="dlog-day">
+      <div class="dlog-date">${esc(d.date)}</div>
+      <div class="dlog-cols">
+        <div class="dlog-col"><div class="feed-mhd">台股</div>${tw}</div>
+        <div class="dlog-col"><div class="feed-mhd">幣圈</div>${cr}</div>
+      </div>
+    </div>`;
+  }).join("");
+  return `<div class="feed-panel"><div class="dlog-list">${days}</div><div class="feed-disc">${disc}</div></div>`;
+}
+function bindStrategyFilters(root){
+  const panel=(root||document).querySelector("#strat-panel");
+  if(!panel) return;
+  const list=panel.querySelector("#strat-list");
+  const filt=panel.querySelector('[data-role="strat-filters"]');
+  if(!list||!filt) return;
+  let mkt="全部", st="全部";
+  function apply(){
+    list.querySelectorAll(".strat-card").forEach(card=>{
+      const okM=mkt==="全部"||card.dataset.market===mkt;
+      const okS=st==="全部"||card.dataset.status===st;
+      card.hidden=!(okM&&okS);
+    });
+  }
+  filt.querySelectorAll("[data-mkt]").forEach(btn=>{
+    btn.onclick=()=>{
+      mkt=btn.dataset.mkt;
+      filt.querySelectorAll("[data-mkt]").forEach(b=>b.classList.toggle("on", b===btn));
+      apply();
+    };
+  });
+  filt.querySelectorAll("[data-st]").forEach(btn=>{
+    btn.onclick=()=>{
+      st=btn.dataset.st;
+      filt.querySelectorAll("[data-st]").forEach(b=>b.classList.toggle("on", b===btn));
+      apply();
+    };
+  });
+}
 function feedStatusHTML(){
   const tr=D&&D.trade||{};
   const markets=tr.markets||[];
@@ -782,7 +891,7 @@ function decisionBoardHTML(){
 function renderRoomDash(){
   const el=$("#room-dash"); if(!el||!D) return;
   const id=activeFloor;
-  if(id==="trade"){ el.innerHTML=`<div class="card"><h2>往實盤進度圖</h2>${liveGateHTML()}</div><div class="card" style="margin-top:10px"><h2>模擬績效</h2>${tradePerfHTML()}</div><div class="card" style="margin-top:10px"><h2>行情連線</h2>${feedStatusHTML()}</div>`; return; }
+  if(id==="trade"){ el.innerHTML=`<div class="card"><h2>往實盤進度圖</h2>${liveGateHTML()}</div><div class="card" style="margin-top:10px"><h2>模擬績效</h2>${tradePerfHTML()}</div><div class="card" style="margin-top:10px"><h2>策略清單</h2>${strategyListHTML()}</div><div class="card" style="margin-top:10px"><h2>每日訓練紀錄</h2>${dailyLogHTML()}</div><div class="card" style="margin-top:10px"><h2>行情連線</h2>${feedStatusHTML()}</div>`; bindStrategyFilters(el); return; }
   if(id==="council"){ el.innerHTML=`<div class="card"><h2>今日決定看板</h2>${decisionBoardHTML()}</div>`; return; }
   if(id==="art"){
     const a=D.art||{}; const n=a.todayCount||0;
@@ -911,7 +1020,7 @@ function openFloor(id){const f=FLOORS.find(x=>x.id===id);let h=head(f);
     <h4>今天修了什麼（${esc(v.version)}）</h4><ul>${v.changes.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>
     <h4>版本紀錄</h4><table>${v.releases.map(r=>`<tr><td><b>${esc(r.ver)}</b></td><td class="muted">${esc(fmtAt(r.at))}</td><td>${esc(r.msg)}</td></tr>`).join("")}</table>
     <h4>待辦進度</h4>${progressHTML()}`+memberBtn("zhiya");}
-  if(id==="trade"){h+=`<h4>往實盤進度圖</h4>${liveGateHTML()}<h4>模擬績效</h4>${tradePerfHTML()}<h4>行情資料來源</h4>${feedStatusHTML()}<h4>營運說明</h4><ul><li>青鋒交易 · 專業投資人角色（紙上模擬）</li><li>公開行情＋永豐 Shioaji 行情專用（不下單、不啟用憑證）</li><li>不碰真錢、不下單、模擬結果非投資建議</li><li>實盤須滿 90 天、勝過 0050 與 BTC、≥30 筆、回撤在限內、監管乾淨，且偉翔親口核准</li></ul>`;}
+  if(id==="trade"){h+=`<h4>往實盤進度圖</h4>${liveGateHTML()}<h4>模擬績效</h4>${tradePerfHTML()}<h4>策略清單</h4>${strategyListHTML()}<h4>每日訓練紀錄</h4>${dailyLogHTML()}<h4>行情資料來源</h4>${feedStatusHTML()}<h4>營運說明</h4><ul><li>青鋒交易 · 專業投資人角色（紙上模擬）</li><li>公開行情＋永豐 Shioaji 行情專用（不下單、不啟用憑證）</li><li>不碰真錢、不下單、模擬結果非投資建議</li><li>實盤須滿 90 天、勝過 0050 與 BTC、≥30 筆、回撤在限內、監管乾淨，且偉翔親口核准</li></ul>`;}
   if(id==="art"){const a=D.art;if(a){
     h+=`<h4>交件統計</h4><div class="chips"><span class="chip ok">今日 ${a.todayCount||0} 張</span><span class="chip">最新批次 ${a.baseCount||a.files||0} 張</span><span class="chip ${a.integrated?"ok":"mid"}">${a.integrated?"已整合":"待整合"}</span><span class="chip">交件 ${esc(fmtAt(a.at))}</span></div>
     <div class="spark-wrap" style="margin-top:10px">${artTrendSVG(a.trend)}<span class="muted">近 7 日交件量</span></div>
@@ -932,7 +1041,7 @@ function openFloor(id){const f=FLOORS.find(x=>x.id===id);let h=head(f);
     <h4>工作方式</h4><ul><li>每天約 15:00–16:30 修 QA 回報、介面打磨，發布修補版熱修</li><li>在自己的修復分支工作，時段內才併回主線；動手前先登記「誰、何時、做什麼」，做完解除</li><li>每個修正都附回歸測試，存檔保持相容</li></ul>`+memberBtn("eng");}
   if(id==="lobby"){h+=`<div class="play" style="margin-top:10px"><div class="ver">目前版本 <b>${esc(D.game.version)}</b><br>${esc(D.game.subtitle)}</div><a class="btn" target="_blank" rel="noopener" href="${esc(D.game.url)}">進入遊戲</a></div>
     <h4>待辦進度</h4>${progressHTML()}<h4>今日排程</h4>${timelineHTML()}<h4>上架路線圖</h4>${roadmapHTML()}`;}
-  openSheet(h);document.querySelectorAll("#sheetbody [data-m]").forEach(b=>b.onclick=()=>openMember(b.dataset.m));bindUsageDetails($("#sheetbody"));}
+  openSheet(h);document.querySelectorAll("#sheetbody [data-m]").forEach(b=>b.onclick=()=>openMember(b.dataset.m));bindUsageDetails($("#sheetbody"));bindStrategyFilters($("#sheetbody"));}
 function openMember(id){const s=memberState(id),c=D.cards[id]||{},m=(D.office&&D.office.members[id])||{role:ROLES[id]};
   openSheet(`<div class="who"><img id="ava" class="ava" width="96" height="96" alt="${esc(NAMES[id])}" src="${avatarURL(id,true)}" data-id="${id}"><div><div class="nm">${esc(NAMES[id])}</div><div class="rl">${esc(m.role||"")}</div><div class="stl"><span class="dot ${s.cat}"></span>${CAT[s.cat]} · <span class="muted">${s.live?esc(agoText(s.updatedAt)):"依每日排程"}</span></div></div></div>
   <div class="thought">${esc(thoughtOf(id))}</div>
