@@ -844,7 +844,7 @@ function driIds(dri){
   const s=String(dri||"");
   const out=[];
   // 依出現順序收集，支援 工程＋監管／工程、智雅／工程/監管
-  const rules=[["eng",/工程/],["zhiya",/智雅/],["art",/美術/],["num",/數值/],["qa",/監管/],["weixiang",/偉翔|總監|總裁/]];
+  const rules=[["eng",/工程/],["zhiya",/智雅/],["art",/美術/],["num",/數值/],["qa",/監管/],["weixiang",/偉翔|總監|總裁/],["trade",/交易/]];
   // 用分隔符切開再對每段匹配，保留順序
   const parts=s.split(/[＋+、／/,，&與和]+/).map(x=>x.trim()).filter(Boolean);
   const src=parts.length?parts:[s];
@@ -891,7 +891,7 @@ function decisionBoardHTML(){
 function renderRoomDash(){
   const el=$("#room-dash"); if(!el||!D) return;
   const id=activeFloor;
-  if(id==="trade"){ el.innerHTML=`<div class="card"><h2>往實盤進度圖</h2>${liveGateHTML()}</div><div class="card" style="margin-top:10px"><h2>模擬績效</h2>${tradePerfHTML()}</div><div class="card" style="margin-top:10px"><h2>策略清單</h2>${strategyListHTML()}</div><div class="card" style="margin-top:10px"><h2>每日訓練紀錄</h2>${dailyLogHTML()}</div><div class="card" style="margin-top:10px"><h2>行情連線</h2>${feedStatusHTML()}</div>`; bindStrategyFilters(el); return; }
+  if(id==="trade"){ el.innerHTML=`${tradeHead()}<div class="card"><h2>往實盤進度圖</h2>${liveGateHTML()}</div><div class="card" style="margin-top:10px"><h2>模擬績效</h2>${tradePerfHTML()}</div><div class="card" style="margin-top:10px"><h2>策略清單</h2>${strategyListHTML()}</div><div class="card" style="margin-top:10px"><h2>每日訓練紀錄</h2>${dailyLogHTML()}</div><div class="card" style="margin-top:10px"><h2>行情連線</h2>${feedStatusHTML()}</div>`; bindStrategyFilters(el); return; }
   if(id==="council"){ el.innerHTML=`<div class="card"><h2>今日決定看板</h2>${decisionBoardHTML()}</div>`; return; }
   if(id==="art"){
     const a=D.art||{}; const n=a.todayCount||0;
@@ -999,6 +999,7 @@ function openSheet(html){$("#sheetbody").innerHTML=html;$("#sheet").hidden=false
 function closeSheet(){$("#sheet").hidden=true;$("#sheetbg").hidden=true;}
 $("#close").onclick=closeSheet;$("#sheetbg").onclick=closeSheet;document.addEventListener("keydown",e=>{if(e.key==="Escape")closeSheet();});
 function sevHTML(c){const L=[["🔴","s1","致命"],["🟠","s2","重要"],["🟡","s3","次要"]];return L.map(([k,cl,n])=>`<span class="sev ${cl}"><i></i>${n} ${typeof c[k]==="object"?c[k].new+" 新 / "+c[k].old+" 舊":c[k]}</span>`).join("");}
+function tradeHead(){return `<div class="who trade-who"><img class="ava ava-trade" width="64" height="64" alt="青鋒交易" src="${avatarURL("trade",true)}"><div><div class="nm">青鋒交易</div><div class="rl">專業投資人 · 紙上模擬</div></div></div>`;}
 function memberBtn(id){return `<div class="mbtn"><button data-m="${id}" class="mbtn-ava"><img class="mava" src="${avatarURL(id)}" alt="" width="28" height="28">看 ${esc(NAMES[id])} 在想什麼</button></div>`;}
 function head(f,extra){const s=floorState(f);return `<h3>${iconSVG(f.id)}<span class="no">${f.no}</span> ${f.name}</h3><div class="muted"><span class="dot ${s.cat}"></span> ${esc(s.label)} · ${esc(noemo(s.text))}${extra||""}</div>`;}
 function openFloor(id){const f=FLOORS.find(x=>x.id===id);let h=head(f);
@@ -1020,7 +1021,7 @@ function openFloor(id){const f=FLOORS.find(x=>x.id===id);let h=head(f);
     <h4>今天修了什麼（${esc(v.version)}）</h4><ul>${v.changes.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>
     <h4>版本紀錄</h4><table>${v.releases.map(r=>`<tr><td><b>${esc(r.ver)}</b></td><td class="muted">${esc(fmtAt(r.at))}</td><td>${esc(r.msg)}</td></tr>`).join("")}</table>
     <h4>待辦進度</h4>${progressHTML()}`+memberBtn("zhiya");}
-  if(id==="trade"){h+=`<h4>往實盤進度圖</h4>${liveGateHTML()}<h4>模擬績效</h4>${tradePerfHTML()}<h4>策略清單</h4>${strategyListHTML()}<h4>每日訓練紀錄</h4>${dailyLogHTML()}<h4>行情資料來源</h4>${feedStatusHTML()}<h4>營運說明</h4><ul><li>青鋒交易 · 專業投資人角色（紙上模擬）</li><li>公開行情＋永豐 Shioaji 行情專用（不下單、不啟用憑證）</li><li>不碰真錢、不下單、模擬結果非投資建議</li><li>實盤須滿 90 天、勝過 0050 與 BTC、≥30 筆、回撤在限內、監管乾淨，且偉翔親口核准</li></ul>`;}
+  if(id==="trade"){h+=`${tradeHead()}<h4>往實盤進度圖</h4>${liveGateHTML()}<h4>模擬績效</h4>${tradePerfHTML()}<h4>策略清單</h4>${strategyListHTML()}<h4>每日訓練紀錄</h4>${dailyLogHTML()}<h4>行情資料來源</h4>${feedStatusHTML()}<h4>營運說明</h4><ul><li>青鋒交易 · 專業投資人角色（紙上模擬）</li><li>公開行情＋永豐 Shioaji 行情專用（不下單、不啟用憑證）</li><li>不碰真錢、不下單、模擬結果非投資建議</li><li>實盤須滿 90 天、勝過 0050 與 BTC、≥30 筆、回撤在限內、監管乾淨，且偉翔親口核准</li></ul>`;}
   if(id==="art"){const a=D.art;if(a){
     h+=`<h4>交件統計</h4><div class="chips"><span class="chip ok">今日 ${a.todayCount||0} 張</span><span class="chip">最新批次 ${a.baseCount||a.files||0} 張</span><span class="chip ${a.integrated?"ok":"mid"}">${a.integrated?"已整合":"待整合"}</span><span class="chip">交件 ${esc(fmtAt(a.at))}</span></div>
     <div class="spark-wrap" style="margin-top:10px">${artTrendSVG(a.trend)}<span class="muted">近 7 日交件量</span></div>

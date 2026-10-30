@@ -333,3 +333,6 @@ ul.qu{margin:6px 0}ul.qu li{margin:3px 0}
   .dlog-cols{grid-template-columns:1fr}
   .strat-list{max-height:420px}
 }
+
+.trade-who{display:flex;gap:10px;align-items:center;margin:0 0 10px}.ava-trade{border-radius:12px;box-shadow:0 0 0 2px #C9A227,0 0 16px #C9A22755}
+.dav[src*="avatar_trade"],.mava[src*="avatar_trade"]{box-shadow:0 0 0 2px #C9A227}
