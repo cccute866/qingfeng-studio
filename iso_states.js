@@ -8,23 +8,30 @@
   var ISO_IDS = { trade: 1, pr: 1, fin: 1 };
 
   /** 手點座標：相對房間 0–1；走路時用 walk，停靠用 stand→present 立繪 */
+  /** 站立點須在地板上（非桌面／欄杆外）。座標相對房間 0–1。 */
   var ISO_WANDER = {
     trade: [
-      { x: 0.48, y: 0.72, label: "圓桌" },
-      { x: 0.78, y: 0.62, label: "飲水機" },
-      { x: 0.68, y: 0.55, label: "窗邊" },
-      { x: 0.20, y: 0.70, label: "欄杆" }
+      { x: 0.50, y: 0.74, label: "圓桌旁" },
+      { x: 0.78, y: 0.64, label: "飲水機" },
+      { x: 0.66, y: 0.58, label: "窗邊地板" },
+      { x: 0.22, y: 0.72, label: "欄杆內側" }
     ],
     pr: [
-      { x: 0.18, y: 0.78, label: "懶骨頭" },
-      { x: 0.22, y: 0.50, label: "環形燈" },
-      { x: 0.42, y: 0.55, label: "窗邊" }
+      { x: 0.25, y: 0.68, label: "懶骨頭旁" },
+      { x: 0.18, y: 0.55, label: "環形燈" },
+      { x: 0.42, y: 0.58, label: "窗邊地板" }
     ],
     fin: [
-      { x: 0.88, y: 0.55, label: "金庫旁" },
-      { x: 0.60, y: 0.55, label: "窗邊" },
-      { x: 0.75, y: 0.78, label: "走道" }
+      { x: 0.86, y: 0.58, label: "金庫旁" },
+      { x: 0.62, y: 0.58, label: "窗邊地板" },
+      { x: 0.74, y: 0.72, label: "走道" }
     ]
+  };
+
+  /** 站姿高度／房間寬（源圖 242px／房間寬）；坐姿比＝179/242 */
+  var ISO_SCALE = {
+    trade: { standOverWidth: 242 / 1761, sitRatio: 179 / 242, deskPx: 110, standPx: 242 },
+    mz: { standOverWidth: 242 / 1630, sitRatio: 179 / 242, deskPx: 100, standPx: 242 }
   };
 
   var STUCK_MS = 3 * 3600 * 1000; // 3 小時
@@ -81,7 +88,7 @@
     if (force === "stuck") {
       return {
         mode: "stuck",
-        pose: "sit",
+        pose: id === "trade" ? "sit" : "present",
         tag: "好像卡住了",
         bubble: "好像卡住了",
         detail: "（預覽）從稍早之後沒有進度更新",
@@ -101,7 +108,7 @@
     if (force === "work") {
       return {
         mode: "work",
-        pose: "sit",
+        pose: id === "trade" ? "sit" : "present",
         tag: "",
         bubble: baseText || "工作中",
         detail: baseFull || baseText || "工作中",
@@ -125,7 +132,7 @@
     if (sk) {
       return {
         mode: "stuck",
-        pose: "sit",
+        pose: id === "trade" ? "sit" : "present",
         tag: "好像卡住了",
         bubble: "好像卡住了",
         detail: sk.detail,
@@ -136,7 +143,7 @@
     if (baseCat === "work" || baseCat === "meet") {
       return {
         mode: "work",
-        pose: "sit",
+        pose: id === "trade" ? "sit" : "present",
         tag: "",
         bubble: baseText || "工作中",
         detail: baseFull || baseText || "工作中",
@@ -238,6 +245,7 @@
   var api = {
     ISO_IDS: ISO_IDS,
     ISO_WANDER: ISO_WANDER,
+    ISO_SCALE: ISO_SCALE,
     STUCK_MS: STUCK_MS,
     parseForce: parseForce,
     pickIsoBehavior: pickIsoBehavior,

@@ -33,16 +33,18 @@ const FLOORS=[
  {id:"num",no:"4F",name:"數值部",who:"青鋒數值 · 遊戲事業部",icon:"ic_num",room:"room_num",member:"num",unit:"game",band:"f4"},
  {id:"qa",no:"3F",name:"品管部",who:"青鋒監管 · 遊戲事業部",icon:"ic_qa",room:"room_qa",member:"qa",unit:"game",band:"f3"},
  {id:"eng",no:"2F",name:"工程部",who:"青鋒工程 修復／介面打磨 · 遊戲事業部",icon:"ic_eng",room:"room_eng",member:"eng",unit:"game",band:"f2"},
- {id:"mz",no:"夾層",name:"公關／財會",who:"青鋒公關 沈沐禾 · 青鋒財會 蒲小棠",icon:"ic_mz",room:"room_mz",unit:"ops",band:"mz"},
+ {id:"mz",no:"夾層",name:"公關／財會",who:"青鋒公關 沈沐禾 · 青鋒財會 蒲小棠（有需要才上班）",icon:"ic_mz",room:"room_mz",unit:"ops",band:"mz"},
  {id:"lobby",no:"1F",name:"大廳",who:"遊戲入口 · 進度 · 路線圖",icon:"ic_lobby",room:"room_lobby",unit:"lobby",band:"lobby"}];
 /* tower.webp 900×1800 樓層 y 帶（manifest）；百分比相對整張圖 */
 /* LED 實測對齊：頂兩薄層併為 9F，其餘一層一帶；lobby 自 1439 */
 const BANDS={f9_top:[202,349],f8:[349,490],f7:[490,629],f6:[629,769],f5:[769,906],f4:[906,1042],f3:[1042,1178],f2:[1178,1360],mz:[1360,1455],lobby:[1455,1799]};
 const TOWER_H=1800;
 /* 座位：room2 floor_y/520；view back=背對螢幕 */
-const SPOT={weixiang:{f:"director",x:.30,y:.70,floor:.75},zhiya:{f:"dev",x:.52,y:.68,floor:.74},art:{f:"art",x:.34,y:.66,floor:.73},num:{f:"num",x:.44,y:.70,floor:.75},qa:{f:"qa",x:.58,y:.68,floor:.74},eng:{f:"eng",x:.48,y:.74,floor:.81},trade:{f:"trade",x:.38,y:.58,floor:.72},pr:{f:"mz",x:.28,y:.58,floor:.70},fin:{f:"mz",x:.72,y:.58,floor:.70}};
-/* 半寫實正常比例：以房間高度比例對家具；eng 機櫃區略小、總裁室略大 */
-const ROOM_SCALE={director:.44,council:.42,trade:.34,mz:.34,lobby:.42,dev:.42,art:.41,num:.41,qa:.41,eng:.38};
+const SPOT={weixiang:{f:"director",x:.30,y:.70,floor:.75},zhiya:{f:"dev",x:.52,y:.68,floor:.74},art:{f:"art",x:.34,y:.66,floor:.73},num:{f:"num",x:.44,y:.70,floor:.75},qa:{f:"qa",x:.58,y:.68,floor:.74},eng:{f:"eng",x:.48,y:.74,floor:.81},trade:{f:"trade",x:.46,y:.71,floor:.74},pr:{f:"mz",x:.32,y:.52,floor:.52,sitX:.25,sitY:.68},fin:{f:"mz",x:.72,y:.52,floor:.55}};
+/* 半寫實比例：一般樓層＝房間高度比；等角 7F／夾層＝房間寬度比（站姿≈2.2×桌高＝242/源圖寬） */
+const ROOM_SCALE={director:.44,council:.42,trade:242/1761,mz:242/1630,lobby:.42,dev:.42,art:.41,num:.41,qa:.41,eng:.38};
+const ISO_SIT_RATIO=179/242; /* 坐姿／站姿（源圖 179px／242px） */
+const ISO_SCALE_BY_WIDTH={trade:1,mz:1}; /* 等角用寬度當基準 */
 const SEAT={weixiang:.29,zhiya:.37,art:.45,num:.53,qa:.61,eng:.69}; const TABLE_TOP=.62;
 const NAMES={weixiang:"偉翔",zhiya:"智雅",art:"青鋒美術",num:"青鋒數值",qa:"青鋒監管",eng:"青鋒工程",council:"全員會議",trade:"青鋒交易",pr:"沈沐禾",fin:"蒲小棠"};
 const SHORT={weixiang:"偉翔",zhiya:"智雅",art:"美術",num:"數值",qa:"監管",eng:"工程",trade:"交易",pr:"公關",fin:"財會"};
@@ -71,23 +73,16 @@ function meetingNow(){
 function meeters(){return ["zhiya","art","num","qa","eng"].concat(D&&D.weixiangJoins?["weixiang"]:[]);}
 function memberState(id){
   if(id==="pr"||id==="fin"){
-    const min=nowMin();
     const role=id==="pr"
       ?"遊戲公關：商店上架、IG／脆小編（只起草，不上傳）"
       :"財會：用量與花費、模擬帳核對";
-    const name=id==="pr"?"沈沐禾":"蒲小棠";
-    // 即時狀態優先（含「等你」）
+    // 例行已暫停：有需要才上班。即時「等你／工作中」才算在班，其餘閒晃
     const lv=D&&D.live&&D.live[id];
     if(lv&&lv.status&&LIVEMAP[lv.status]){
       const age=(Date.now()-parseTP(lv.updatedAt))/60000;
       if(age>=0&&age<180) return{cat:LIVEMAP[lv.status],text:lv.task||lv.status,full:lv.task||role,where:"desk",live:true,updatedAt:lv.updatedAt,since:parseTP(lv.updatedAt)};
     }
-    // 只在排程時段算工作中，其餘可閒晃
-    const sc=(D&&D.schedule||[]).filter(x=>x.who===id);
-    const cur=sc.find(x=>min>=mm(x.from)&&min<mm(x.to));
-    if(cur) return{cat:"work",text:cur.what,full:cur.what+"（"+cur.from+"–"+cur.to+"）",where:"desk",live:false};
-    const nx=sc.find(x=>min<mm(x.from));
-    return{cat:"wait",text:nx?(nx.from+" 開工"):"下班／待命",full:role,where:"desk",live:false};
+    return{cat:"wait",text:"有需要才上班",full:role+"（例行已暫停，有需要才上班）",where:"desk",live:false};
   }
   if(id==="trade"){
     const tr=D&&D.trade||{}; const perf=tr.perf||{};
@@ -127,10 +122,10 @@ function floorState(f){
     return{cat:"work",label:"模擬營運中",text:total?(`行情已連線 ${ok}/${total}`):"模擬交易 · 非投資建議"};
   }
   if(f.id==="mz"){
-    const min=nowMin();
-    if((min>=16*60&&min<16*60+30)||(min>=15*60&&min<15*60+30&&tpNow().getUTCDay()===0)) return{cat:"work",label:"起草中",text:"沈沐禾更新草稿（只起草不發文）"};
-    if(min>=21*60&&min<21*60+30) return{cat:"work",label:"核帳中",text:"蒲小棠核對用量與模擬帳"};
-    return{cat:"wait",label:"待命",text:"16:00 公關草稿 · 21:00 財會核帳"};
+    const pr=memberState("pr"), fin=memberState("fin");
+    if(pr.cat==="you"||fin.cat==="you") return{cat:"you",label:"等你",text:pr.cat==="you"?pr.text:fin.text};
+    if(pr.cat==="work"||fin.cat==="work") return{cat:"work",label:"處理中",text:pr.cat==="work"?pr.text:fin.text};
+    return{cat:"wait",label:"有需要才上班",text:"公關／財會例行已暫停"};
   }
   if(f.id==="director"){const a=typeof usageAlert==="function"?usageAlert():{level:""};
     if(a.level==="red")return{cat:"you",label:"額度警示",text:a.short||"可能額度用完或例行失敗"};
@@ -327,7 +322,14 @@ function placeChar(c,now){
       c.x=sp.x; c.y=sp.floor; c.pose="present"; c.view="front"; c.stroll=null; c.bobNeed=true; return;
     }
     if(beh.mode==="stuck"||beh.mode==="work"){
-      c.x=sp.x; c.y=sp.y; c.pose="sit"; c.view="front"; c.stroll=null; c.bobNeed=false; return;
+      // 7F：坐圓桌椅（坐姿圖不含椅子）。夾層無辦公椅：站／present 在桌邊；公關可改坐懶骨頭
+      if(c.id==="trade"){
+        c.x=sp.x; c.y=sp.y; c.pose="sit"; c.view="front"; c.stroll=null; c.bobNeed=false; return;
+      }
+      if(c.id==="pr"&&beh.mode==="stuck"&&sp.sitX!=null){
+        c.x=sp.sitX; c.y=sp.sitY; c.pose="sit"; c.view="front"; c.stroll=null; c.bobNeed=false; return;
+      }
+      c.x=sp.x; c.y=sp.floor!=null?sp.floor:sp.y; c.pose="present"; c.view="front"; c.stroll=null; c.bobNeed=false; return;
     }
     // wander
     placeIsoWander(c,now,beh); return;
@@ -380,7 +382,7 @@ function loop(now){
       ctx.save();if(c.clip){ctx.beginPath();ctx.rect(0,0,cv.width,c.clip*cv.height);ctx.clip();}
       if(c.x<1.02&&c.x>-.02){ctx.fillStyle="rgba(0,0,0,.35)";if(!c.clip){ctx.beginPath();ctx.ellipse(x,y+u*.3,5*u,1.4*u,0,0,7);ctx.fill();}
         const im=sprite(c.id,spritePose(c,now));
-        if(im.complete&&im.naturalWidth){const sc=ROOM_SCALE[k]||.42,dh=(c.pose==="sit"||c.pose==="type"?sc*.78:sc)*cv.height,dw=dh*.8,top=y+b-dh*.95;
+        if(im.complete&&im.naturalWidth){const sc=ROOM_SCALE[k]||.42,iso=!!ISO_SCALE_BY_WIDTH[k],base=iso?sc*cv.width:sc*cv.height,sitMul=iso?ISO_SIT_RATIO:.78,dh=(c.pose==="sit"||c.pose==="type"?base*sitMul:base),dw=dh*(im.naturalWidth/im.naturalHeight),top=y+b-dh*.95;
           ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality="high";
           if(c.dir===-1&&c.pose==="walk"){ctx.translate(x,0);ctx.scale(-1,1);ctx.drawImage(im,-dw/2,top,dw,dh);}
           else ctx.drawImage(im,x-dw/2,top,dw,dh);}}
@@ -991,9 +993,8 @@ function floorVizHTML(id){
     return `<div class="fv-chips">${top}</div><span class="fv-cap">${dec.length} 項決定</span>`;
   }
   if(id==="mz"){
-    const min=nowMin();
-    const on=(min>=16*60&&min<16*60+30)||(min>=21*60&&min<21*60+30);
-    return lightHTML(on?"green":"yellow")+`<span class="fv-cap">${on?"公關／財會工作中":"公關／財會待命"} · 16:00 草稿／21:00 核帳</span>`;
+    const prS=memberState("pr"),finS=memberState("fin"); const busy=prS.cat==="work"||finS.cat==="work"||prS.cat==="you"||finS.cat==="you";
+    return lightHTML(busy?"green":"yellow")+`<span class="fv-cap">${busy?"公關／財會處理中":"有需要才上班"}</span>`;
   }
   if(id==="lobby"){
     const b=D.backlog||{}; const p=b.total?Math.round(b.done/b.total*100):0;
@@ -1750,7 +1751,7 @@ function renderRoomDash(){
     el.innerHTML=`<div class="card"><h2>${id==="dev"?"開發發版":"工程修復"}</h2>${floorBriefHTML(id==="dev"?("目前版本 "+v+"。"):"修 bug 與介面打磨。")}${pipeHTML((D.dev||{}).pipeline)}</div>`; return;
   }
   if(id==="mz"){
-    el.innerHTML=`<div class="card"><h2>夾層 · 公關／財會</h2>${floorBriefHTML("沈沐禾（公關，只起草不上傳）與蒲小棠（財會核對）。每天約 16:00 草稿、21:00 核帳。")}${keyCardsHTML([{v:"沈沐禾",l:"公關"},{v:"蒲小棠",l:"財會"},{v:"16:00／21:00",l:"排程"}])}</div>`; return;
+    el.innerHTML=`<div class="card"><h2>夾層 · 公關／財會</h2>${floorBriefHTML("沈沐禾（公關，只起草不上傳）與蒲小棠（財會核對）。例行已暫停，有需要才上班。")}${keyCardsHTML([{v:"沈沐禾",l:"公關"},{v:"蒲小棠",l:"財會"},{v:"有需要才上班",l:"狀態"}])}</div>`; return;
   }
   if(id==="lobby"){
     el.innerHTML=`<div class="card"><h2>遊戲入口</h2>${floorBriefHTML("從這裡進遊戲，也可看待辦與排程。")}<div class="play"><div class="ver">目前版本 <b>${esc(D.game.version)}</b><br>${esc(D.game.subtitle)}</div><a class="btn" target="_blank" rel="noopener" href="${esc(D.game.url)}">進入遊戲</a></div></div>`; return;
@@ -1978,11 +1979,11 @@ function openFloor(id){const f=FLOORS.find(x=>x.id===id);let h=head(f);
     h+=memberBtn("eng");
   }
   if(id==="mz"){
-    h+=floorBriefHTML("這層是夾層・公關／財會。左邊沈沐禾負責遊戲公關（商店上架、IG／脆小編，只起草不上傳）；右邊蒲小棠負責財會（用量與花費、模擬帳核對）。沈沐禾每天約 16:00 更新草稿、週日約 15:00 排下週貼文；蒲小棠每天約 21:00 核帳。");
+    h+=floorBriefHTML("這層是夾層・公關／財會。左邊沈沐禾負責遊戲公關（商店上架、IG／脆小編，只起草不上傳）；右邊蒲小棠負責財會（用量與花費、模擬帳核對）。例行已暫停，有需要才上班。");
     h+=keyCardsHTML([
       {v:"沈沐禾",l:"青鋒公關",note:"只起草，不上傳"},
       {v:"蒲小棠",l:"青鋒財會",note:"用量／模擬帳"},
-      {v:"16:00／21:00",l:"每日排程",note:"週日 15:00 加排貼文"},
+      {v:"有需要才上班",l:"狀態",note:"例行已暫停"},
     ]);
     h+=`<h4>兩位同事</h4><div class="plain-list">
       <div class="vcard"><b>沈沐禾 · 青鋒公關</b><div class="muted">遊戲公關：商店上架文案、IG／脆貼文——只起草，不上傳；等你拍板。</div>${memberBtn("pr")}</div>
