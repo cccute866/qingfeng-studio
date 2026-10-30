@@ -499,10 +499,13 @@ button.wl-row:active{background:#ffffff08}
 }
 
 /* 7F 斜角立體交易室：房間比例貼近 iso 底圖 1761×1069 */
-.floor .room.room-iso{aspect-ratio:1761/1069;background-size:cover;background-position:center bottom}
+/* 等角底圖與 canvas 必須同比例、同一對齊，否則腳點會偏到桌面／欄杆 */
+.floor .room.room-iso{aspect-ratio:1761/1069;background-size:100% 100%;background-position:center}
 .floor .room.room-iso.room-iso-mz{aspect-ratio:1630/1057}
 @media (max-width:480px){
-  .floor .room.room-iso{aspect-ratio:16/10}
+  /* 手機勿改成 16/10：夾層 1630/1057 會被 cover 裁頂，人物腳點對不準地板 */
+  .floor .room.room-iso{aspect-ratio:1761/1069}
+  .floor .room.room-iso.room-iso-mz{aspect-ratio:1630/1057}
 }
 @media (prefers-reduced-motion:reduce){
   .floor .room.room-iso{/* 小人散步已在 JS 關閉 */}

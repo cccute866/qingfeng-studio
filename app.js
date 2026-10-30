@@ -43,8 +43,8 @@ const TOWER_H=1800;
 const SPOT={weixiang:{f:"director",x:.30,y:.70,floor:.75},zhiya:{f:"dev",x:.52,y:.68,floor:.74},art:{f:"art",x:.34,y:.66,floor:.73},num:{f:"num",x:.44,y:.70,floor:.75},qa:{f:"qa",x:.58,y:.68,floor:.74},eng:{f:"eng",x:.48,y:.74,floor:.81},
   /* 7F：坐近側圓桌椅（BR 椅墊）；站／需要你在椅旁地板。夾層：站桌前地板；公關卡住可坐懶骨頭 */
   trade:{f:"trade",x:.548,y:.662,floor:.78,seatFrac:.52},
-  pr:{f:"mz",x:.42,y:.50,floor:.50,sitX:.290,sitY:.610,seatFrac:.52},
-  fin:{f:"mz",x:.64,y:.56,floor:.56}};
+  pr:{f:"mz",x:.57,y:.60,floor:.60,sitX:.290,sitY:.610,seatFrac:.52},
+  fin:{f:"mz",x:.64,y:.63,floor:.63}};
 /* 半寫實比例：一般樓層＝房間高度比；等角 7F／夾層＝房間寬度比（站姿≈2.2×桌高＝242/源圖寬） */
 const ROOM_SCALE={director:.44,council:.42,trade:242/1761,mz:242/1630,lobby:.42,dev:.42,art:.41,num:.41,qa:.41,eng:.38};
 const ISO_SIT_RATIO=179/242; /* 坐姿／站姿（源圖 179px／242px） */
