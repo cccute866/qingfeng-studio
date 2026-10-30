@@ -336,3 +336,52 @@ ul.qu{margin:6px 0}ul.qu li{margin:3px 0}
 
 .trade-who{display:flex;gap:10px;align-items:center;margin:0 0 10px}.ava-trade{border-radius:12px;box-shadow:0 0 0 2px #C9A227,0 0 16px #C9A22755}
 .dav[src*="avatar_trade"],.mava[src*="avatar_trade"]{box-shadow:0 0 0 2px #C9A227}
+
+/* ---- 7F 交易室分頁（原創版面；強調色 trade gold #C9A227） ---- */
+.trade-app{display:flex;flex-direction:column;gap:10px;position:relative;padding-bottom:64px}
+.trade-app .sim-banner{font-size:11.5px;color:#C9A227;border:1px dashed #C9A22766;background:#C9A22714;border-radius:10px;padding:6px 10px;text-align:center;font-weight:600}
+.trade-body{min-height:200px}
+.trade-tabs{position:sticky;bottom:0;z-index:5;display:grid;grid-template-columns:repeat(5,1fr);gap:2px;margin:8px -4px -4px;padding:6px 4px calc(6px + env(safe-area-inset-bottom,0));background:linear-gradient(180deg,#0c141ef2,#0a1018f8);border-top:1px solid #C9A22744;border-radius:14px 14px 0 0;backdrop-filter:blur(10px)}
+.ttab{appearance:none;border:0;background:transparent;color:var(--mute);font:600 11px/1.2 var(--font);padding:8px 2px;border-radius:10px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px}
+.ttab .ttab-ic{width:18px;height:3px;border-radius:2px;background:#2a3a4e}
+.ttab.on{color:#C9A227}.ttab.on .ttab-ic{background:#C9A227;box-shadow:0 0 8px #C9A22788}
+.idx-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;overflow:auto}
+.idx-item{background:#0c141eaa;border:1px solid #C9A22733;border-radius:10px;padding:8px 6px;text-align:center;min-width:0}
+.idx-name{font-size:11px;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.idx-close{font-size:14px;font-weight:700;font-variant-numeric:tabular-nums;color:#e8eef6;margin-top:2px}
+.idx-chg{font-size:11.5px;font-variant-numeric:tabular-nums;margin-top:2px;color:var(--mute)}
+.idx-chg.up{color:#9ff0c6}.idx-chg.down{color:#ffc6c6}
+.focus-grid{display:grid;grid-template-columns:1fr;gap:8px;margin-top:8px}
+@media(min-width:520px){.focus-grid{grid-template-columns:1fr 1fr}}
+.focus-card{border:1px solid var(--line2);border-radius:12px;padding:10px;background:#0c141eaa}
+.focus-k{font-size:11px;color:#C9A227;font-weight:700;margin-bottom:4px}
+.focus-v{font-size:13px;line-height:1.4;color:#e8eef6;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.wl-panel{display:flex;flex-direction:column;gap:12px}
+.wl-group{border:1px solid var(--line2);border-radius:12px;background:#0c141eaa;overflow:hidden}
+.wl-ghd{font-size:13px;font-weight:700;color:#C9A227;padding:8px 10px;border-bottom:1px solid #ffffff0d;background:#C9A22712}
+.wl-row{display:grid;grid-template-columns:44px 1fr auto auto;gap:8px;align-items:center;padding:8px 10px;border-top:1px solid #ffffff0d;font-size:12.5px}
+.wl-row:first-of-type{border-top:none}
+.wl-wx{display:flex;flex-direction:column;align-items:center;gap:2px}
+.wl-wx .wx{width:22px;height:22px}
+.wl-wxlab{font-size:10px;color:var(--mute)}
+.wl-name{font-weight:600;color:#e8eef6}
+.wl-code{font-size:11px;color:var(--mute)}
+.wl-px{text-align:right;font-variant-numeric:tabular-nums}
+.wl-close{font-weight:600}
+.wl-view{font-size:11px;min-width:3em;text-align:right}
+.strat-tap{width:100%;text-align:left;cursor:pointer;appearance:none;color:inherit;font:inherit}
+.strat-tap.open{border-color:#C9A22788;box-shadow:0 0 0 1px #C9A22733}
+.strat-body{margin-top:6px;padding-top:6px;border-top:1px dashed #C9A22744}
+.book-panel .sim-banner{margin-bottom:4px}
+.donut-wrap{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.donut{width:110px;height:110px;flex:0 0 auto}
+.donut-legs{display:flex;flex-direction:column;gap:6px;font-size:12px}
+.donut-leg{display:flex;align-items:center;gap:6px}
+.donut-leg i{width:10px;height:10px;border-radius:3px;display:inline-block}
+.sched-note{opacity:.9}
+@media (max-width:420px){
+  .idx-strip{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .wl-row{grid-template-columns:40px 1fr auto;grid-template-areas:"wx meta px";}
+  .wl-view{display:none}
+  .trade-tabs{font-size:10px}
+}
