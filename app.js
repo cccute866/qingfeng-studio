@@ -525,6 +525,35 @@ function tradePerfHTML(){
   const st=p.strategies;
   const stHtml=st?`<div class="chips" style="margin-top:8px"><span class="chip">已測 ${st.tested||0}</span><span class="chip no">失敗 ${st.failed||0}</span><span class="chip ok">通過 ${st.passed||0}</span>${st.weak?`<span class="chip mid">偏弱 ${st.weak}</span>`:""}</div>`:"";
   const wait=p.waitingFirstFill?`<div class="chips" style="margin-bottom:8px"><span class="chip mid">${esc(p.status||"等待首筆模擬單成交")}</span></div>`:"";
+  const loop=p.scanLoop||null;
+  let trainHtml="";
+  if(loop){
+    const tr=loop.training||{};
+    const tod=loop.today||{};
+    const layers=tod.layers||{};
+    const layerChips=["L1","L3","L2L3","ALL3"].filter(k=>layers[k]!=null)
+      .map(k=>`<span class="chip">${esc(k)} ${esc(String(layers[k]))}</span>`).join("");
+    const nL1=tod.nL1Total!=null?` · L1 全部 ${tod.nL1Total}`:"";
+    const pendingNote=tr.pending?`<div class="muted" style="margin-top:4px">${esc(tr.note||"尚未結算，不下假勝率")}</div>`:"";
+    const dimRows=(loop.dimensions||[]).filter(d=>!d.pending).map(d=>{
+      const ic=d.rankIc==null?"—":Number(d.rankIc).toFixed(3);
+      const wr=d.winRatePct==null?"—":(Number(d.winRatePct).toFixed(0)+"%");
+      const ax=d.avgExcessPct==null?"—":fmtPct(d.avgExcessPct);
+      const flag=d.overfit?` <span class="chip mid">overfit</span>`:"";
+      return `<div class="feed-row"><span class="feed-src">${esc(d.name)}${flag}</span><span class="feed-st ok">n=${esc(String(d.n||0))} · IC ${esc(ic)} · 勝 ${esc(wr)} · 超額 ${ax}</span></div>`;
+    }).join("");
+    const dimBlock=dimRows||`<div class="muted">維度勝率／IC 待 20 交易日結算後顯示</div>`;
+    const gaps=(loop.gaps||[]).slice(0,2).map(g=>`<li class="muted">${esc(g)}</li>`).join("");
+    trainHtml=`<div class="feed-mkt"><div class="feed-mhd">每日訓練結果</div>
+      <div class="muted">掃描日 ${esc(tod.asOf||"—")}${esc(nL1)} · 持有 ${esc(String(loop.holdDays||20))} 日</div>
+      <div class="chips" style="margin:6px 0">${layerChips||""}</div>
+      <div class="chips"><span class="chip">記錄 ${esc(String(tr.recorded??"—"))}</span><span class="chip mid">未結算 ${esc(String(tr.open??"—"))}</span><span class="chip ok">已結算 ${esc(String(tr.settled??"—"))}</span><span class="chip">下次結算 ${esc(tr.nextSettleDate||"—")}</span></div>
+      ${pendingNote}
+      <div class="feed-mhd" style="margin-top:8px">AgentX 維度</div>
+      ${dimBlock}
+      ${gaps?`<ul style="margin-top:6px">${gaps}</ul>`:""}
+    </div>`;
+  }
   return `<div class="feed-panel">${wait}
     <div class="big" style="margin-top:4px">
       <div><b>${fmtPct(p.equityReturnPct)}</b><span>模擬報酬</span></div>
@@ -537,6 +566,7 @@ function tradePerfHTML(){
     </div>
     <div class="feed-mkt"><div class="feed-mhd">部位配置</div>${sleeves||'<div class="muted">—</div>'}</div>
     <div class="feed-mkt"><div class="feed-mhd">持倉（權重）</div>${pos}</div>
+    ${trainHtml}
     <div class="feed-mkt"><div class="feed-mhd">近期事件</div>${ev}</div>
     ${st?`<div class="feed-mkt"><div class="feed-mhd">策略研究紀錄</div>${stHtml}</div>`:""}
     <div class="feed-meta muted">${asof}</div>
