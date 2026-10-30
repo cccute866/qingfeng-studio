@@ -289,3 +289,21 @@ ul.qu{margin:6px 0}ul.qu li{margin:3px 0}
 .feed-why{grid-column:2 / -1;color:#c8d0da;font-size:11.5px;line-height:1.35;margin-top:-2px}
 .feed-meta{font-size:11.5px}
 .feed-disc{font-size:11.5px;color:#8ec8ff;border:1px dashed #5ab0ff55;border-radius:10px;padding:8px 10px;background:#5ab0ff10}
+
+/* 7F 往實盤進度圖 */
+.tl .seg.trade{background:#5ab0ff}
+.eq-chart{margin-top:4px}
+.eq-legend{display:flex;flex-wrap:wrap;gap:10px;margin-top:6px;font-size:11.5px;color:var(--mute)}
+.eq-lg{display:inline-flex;align-items:center;gap:5px}
+.eq-lg i{width:12px;height:3px;border-radius:2px;display:inline-block;background:#3FD8A0}
+.eq-lg.b50 i{background:#7ab6ee}
+.eq-lg.btc i{background:#e6c56d}
+.gate-row{padding:8px 0;border-top:1px solid #ffffff0d}
+.gate-row:first-of-type{border-top:none;padding-top:2px}
+.gate-hd{display:grid;grid-template-columns:14px 1fr auto;gap:6px 8px;align-items:center;font-size:12.5px}
+.gate-lab{color:var(--text);font-weight:600}
+.gate-vals{display:flex;justify-content:space-between;gap:8px;font-size:11.5px;color:var(--mute);margin:4px 0 2px 22px}
+.gate-bar{height:8px;background:#0b111a;border-radius:6px;overflow:hidden;border:1px solid var(--line);margin:2px 0 0 22px}
+.gate-bar i{display:block;height:100%;background:linear-gradient(90deg,#2a9f7a,#3FD8A0);border-radius:6px}
+.gate-barlbl{font-size:11px;color:var(--mute);margin:2px 0 0 22px}
+.gate-note{font-size:11.5px;color:#c8d0da;margin:2px 0 0 22px;line-height:1.35}

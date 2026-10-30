@@ -42,8 +42,8 @@ const SPOT={weixiang:{f:"director",x:.30,y:.70,floor:.75},zhiya:{f:"dev",x:.52,y
 /* 半寫實正常比例：以房間高度比例對家具；eng 機櫃區略小、總裁室略大 */
 const ROOM_SCALE={director:.44,council:.42,trade:.42,lobby:.42,dev:.42,art:.41,num:.41,qa:.41,eng:.38};
 const SEAT={weixiang:.29,zhiya:.37,art:.45,num:.53,qa:.61,eng:.69}; const TABLE_TOP=.62;
-const NAMES={weixiang:"偉翔",zhiya:"智雅",art:"青鋒美術",num:"青鋒數值",qa:"青鋒監管",eng:"青鋒工程",council:"全員會議"};
-const SHORT={weixiang:"偉翔",zhiya:"智雅",art:"美術",num:"數值",qa:"監管",eng:"工程"};
+const NAMES={weixiang:"偉翔",zhiya:"智雅",art:"青鋒美術",num:"青鋒數值",qa:"青鋒監管",eng:"青鋒工程",council:"全員會議",trade:"青鋒交易"};
+const SHORT={weixiang:"偉翔",zhiya:"智雅",art:"美術",num:"數值",qa:"監管",eng:"工程",trade:"交易"};
 const ROLES={eng:"工程師（修復／QA／介面）"};
 const CAT={work:"工作中",meet:"開會中",done:"完成",wait:"待命",you:"等你"};
 const LIVEMAP={"工作中":"work","開會中":"meet","完成":"done","待命":"wait","等你":"you"};
@@ -508,6 +508,83 @@ function fmtPct(v, digits=1){
   const n=Number(v); if(!Number.isFinite(n)) return "—";
   return (n>=0?"+":"")+n.toFixed(digits)+"%";
 }
+function equityCurveSVG(curve){
+  const pts=(curve||[]).filter(p=>p&&p.date);
+  if(pts.length<2){
+    const n=pts.length;
+    return `<div class="muted">權益曲線資料累積中（目前 ${n} 點；滿 2 點後顯示對照圖）</div>`;
+  }
+  const W=320,H=120,padL=36,padR=10,padT=12,padB=22;
+  const keys=["equityReturnPct","bench0050ReturnPct","benchBtcReturnPct"];
+  const vals=[];
+  pts.forEach(p=>keys.forEach(k=>{const v=p[k]; if(typeof v==="number"&&!isNaN(v)) vals.push(v);}));
+  if(!vals.length) return `<div class="muted">尚無資料</div>`;
+  const min=Math.min(...vals), max=Math.max(...vals);
+  const span=Math.max(0.01, max-min);
+  const xOf=i=>padL+i*(W-padL-padR)/Math.max(1,pts.length-1);
+  const yOf=v=>padT+(1-(v-min)/span)*(H-padT-padB);
+  function poly(key){
+    const xy=[];
+    pts.forEach((p,i)=>{const v=p[key]; if(typeof v!=="number"||isNaN(v)) return; xy.push(xOf(i).toFixed(1)+","+yOf(v).toFixed(1));});
+    return xy.length>=2?xy.join(" "):"";
+  }
+  const cEq=poly("equityReturnPct"), c50=poly("bench0050ReturnPct"), cB=poly("benchBtcReturnPct");
+  const y0=yOf(0);
+  const zero=(min<0&&max>0)?`<line x1="${padL}" y1="${y0.toFixed(1)}" x2="${W-padR}" y2="${y0.toFixed(1)}" stroke="#ffffff22" stroke-width="1" stroke-dasharray="3 3"/>`:"";
+  const labMin=`${min>=0?"+":""}${min.toFixed(1)}%`, labMax=`${max>=0?"+":""}${max.toFixed(1)}%`;
+  const d0=esc(pts[0].date||""), d1=esc(pts[pts.length-1].date||"");
+  return `<div class="eq-chart"><svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" role="img" aria-label="模擬權益對照 0050 與 BTC">
+    ${zero}
+    <text x="4" y="${padT+4}" fill="#8a9bb0" font-size="9">${labMax}</text>
+    <text x="4" y="${H-padB+4}" fill="#8a9bb0" font-size="9">${labMin}</text>
+    ${c50?`<polyline fill="none" stroke="#7ab6ee" stroke-width="1.8" points="${c50}"/>`:""}
+    ${cB?`<polyline fill="none" stroke="#e6c56d" stroke-width="1.8" points="${cB}"/>`:""}
+    ${cEq?`<polyline fill="none" stroke="#3FD8A0" stroke-width="2.4" points="${cEq}"/>`:""}
+    <text x="${padL}" y="${H-4}" fill="#8a9bb0" font-size="9">${d0}</text>
+    <text x="${W-padR}" y="${H-4}" fill="#8a9bb0" font-size="9" text-anchor="end">${d1}</text>
+  </svg>
+  <div class="eq-legend"><span class="eq-lg eq"><i></i>模擬組合</span><span class="eq-lg b50"><i></i>0050</span><span class="eq-lg btc"><i></i>BTC</span></div>
+  </div>`;
+}
+function liveGateHTML(){
+  const tr=D&&D.trade||{}; const p=tr.perf||{}; const g=p.liveGate;
+  const disc=esc((g&&g.disclaimer)||p.disclaimer||"模擬結果，非投資建議");
+  if(!g||!(g.items||[]).length){
+    return `<div class="feed-panel"><div class="muted">尚無往實盤進度資料</div><div class="feed-disc">${disc}</div></div>`;
+  }
+  const days=g.daysElapsed||0, tgt=g.targetDays||90;
+  const head=`<div class="chips" style="margin-bottom:8px"><span class="chip mid">第一階段 · 模擬</span><span class="chip">第 ${esc(String(days))}/${esc(String(tgt))} 天</span>${g.allMet?`<span class="chip ok">門檻已齊（仍須偉翔核准）</span>`:`<span class="chip">門檻未齊</span>`}</div>`;
+  const chart=equityCurveSVG(p.equityCurve||[]);
+  const rows=(g.items||[]).map(it=>{
+    const ok=it.ok;
+    const lite=ok===true?"green":(ok===false?"red":"yellow");
+    const st=ok===true?"達標":(ok===false?"未達":"尚無");
+    const stCls=ok===true?"ok":"no";
+    let curTxt="—", tgtTxt="—";
+    if(it.id==="days"||it.id==="samples"){
+      curTxt=it.current==null?"—":String(Math.round(Number(it.current)));
+      tgtTxt=it.target==null?"—":String(Math.round(Number(it.target)));
+    } else if(it.id==="drawdown"){
+      curTxt=it.current==null?"—":(Number(it.current).toFixed(1)+"%");
+      tgtTxt=it.target==null?"—":("≥ "+Number(it.target).toFixed(0)+"%");
+    } else if(it.id==="beat0050"||it.id==="beatBtc"){
+      curTxt=it.current==null?"—":fmtPct(it.current,2);
+      tgtTxt=it.target==null?"尚無資料":("基準 "+fmtPct(it.target,2));
+    } else if(it.id==="audit"||it.id==="approval"){
+      curTxt=ok===true?"是":(ok===false?"否":"尚無");
+      tgtTxt="需要";
+    } else {
+      curTxt=it.current==null?"—":String(it.current);
+      tgtTxt=it.target==null?"—":String(it.target);
+    }
+    const prog=it.progressPct==null?null:Math.max(0,Math.min(100,Number(it.progressPct)));
+    const bar=prog==null?`<div class="muted" style="font-size:11px">尚無進度</div>`:`<div class="gate-bar"><i style="width:${prog}%"></i></div><div class="gate-barlbl">${prog.toFixed(0)}%</div>`;
+    const note=it.note?`<div class="gate-note">${esc(it.note)}</div>`:"";
+    return `<div class="gate-row"><div class="gate-hd"><span class="slite ${lite}"></span><span class="gate-lab">${esc(it.label)}</span><span class="feed-st ${stCls}">${st}</span></div><div class="gate-vals"><span>目前 ${esc(curTxt)}</span><span>目標 ${esc(tgtTxt)}</span></div>${bar}${note}</div>`;
+  }).join("");
+  const asof=p.asOf?`更新 ${esc(p.asOf)}（台北）`:"";
+  return `<div class="feed-panel">${head}<div class="feed-mkt"><div class="feed-mhd">權益曲線（報酬%，對照 0050／BTC）</div>${chart}</div><div class="feed-mkt"><div class="feed-mhd">實盤門檻清單</div>${rows}</div><div class="feed-meta muted">${asof}</div><div class="feed-disc">${disc} · 達標後仍須偉翔在青鋒交易對話親口核准，先小額</div></div>`;
+}
 function tradePerfHTML(){
   const tr=D&&D.trade||{}; const p=tr.perf||{};
   const disc=esc(p.disclaimer||tr.disclaimer||"模擬結果，非投資建議");
@@ -558,7 +635,7 @@ function tradePerfHTML(){
     <div class="big" style="margin-top:4px">
       <div><b>${fmtPct(p.equityReturnPct)}</b><span>模擬報酬</span></div>
       <div><b>${fmtPct(p.benchmark0050ReturnPct)}</b><span>0050 同期</span></div>
-      <div><b>${fmtPct(p.dailyChangePct)}</b><span>今日變動</span></div>
+      <div><b>${fmtPct(p.benchmarkBtcReturnPct)}</b><span>BTC 同期</span></div>
       <div><b>${p.maxDrawdownPct==null?"—":(Number(p.maxDrawdownPct).toFixed(1)+"%")}</b><span>最大回撤</span></div>
     </div>
     <div class="feed-mkt" style="margin-top:8px"><div class="feed-mhd">市場狀態 · 0050 <span class="muted">${esc(vs)}${esc(dist.trim()?dist:"")}</span></div>
@@ -597,6 +674,12 @@ function floorVizHTML(id){
   if(!D)return"";
   if(id==="trade"){
     const tr=D.trade||{}; const perf=tr.perf||{}; const sm=tr.summary||{};
+    const g=perf.liveGate||{};
+    if(g.daysElapsed!=null){
+      const d=g.daysElapsed, t=g.targetDays||90;
+      const lite=g.allMet?"green":(d>=1?"yellow":"red");
+      return lightHTML(lite)+`<span class="fv-cap">往實盤 ${d}/${t} 天 · 模擬</span>`;
+    }
     if(perf.waitingFirstFill) return lightHTML("yellow")+`<span class="fv-cap">等待開盤成交 · 模擬</span>`;
     if(perf.equityReturnPct!=null){
       const eq=Number(perf.equityReturnPct), bh=perf.benchmark0050ReturnPct;
@@ -699,7 +782,7 @@ function decisionBoardHTML(){
 function renderRoomDash(){
   const el=$("#room-dash"); if(!el||!D) return;
   const id=activeFloor;
-  if(id==="trade"){ el.innerHTML=`<div class="card"><h2>模擬績效</h2>${tradePerfHTML()}</div><div class="card" style="margin-top:10px"><h2>行情連線</h2>${feedStatusHTML()}</div>`; return; }
+  if(id==="trade"){ el.innerHTML=`<div class="card"><h2>往實盤進度圖</h2>${liveGateHTML()}</div><div class="card" style="margin-top:10px"><h2>模擬績效</h2>${tradePerfHTML()}</div><div class="card" style="margin-top:10px"><h2>行情連線</h2>${feedStatusHTML()}</div>`; return; }
   if(id==="council"){ el.innerHTML=`<div class="card"><h2>今日決定看板</h2>${decisionBoardHTML()}</div>`; return; }
   if(id==="art"){
     const a=D.art||{}; const n=a.todayCount||0;
@@ -828,7 +911,7 @@ function openFloor(id){const f=FLOORS.find(x=>x.id===id);let h=head(f);
     <h4>今天修了什麼（${esc(v.version)}）</h4><ul>${v.changes.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>
     <h4>版本紀錄</h4><table>${v.releases.map(r=>`<tr><td><b>${esc(r.ver)}</b></td><td class="muted">${esc(fmtAt(r.at))}</td><td>${esc(r.msg)}</td></tr>`).join("")}</table>
     <h4>待辦進度</h4>${progressHTML()}`+memberBtn("zhiya");}
-  if(id==="trade"){h+=`<h4>模擬績效</h4>${tradePerfHTML()}<h4>行情資料來源</h4>${feedStatusHTML()}<h4>營運說明</h4><ul><li>青鋒交易 · 專業投資人角色（紙上模擬）</li><li>只用公開行情、不串券商、不使用金鑰</li><li>不碰真錢、不下單、模擬結果非投資建議</li></ul>`;}
+  if(id==="trade"){h+=`<h4>往實盤進度圖</h4>${liveGateHTML()}<h4>模擬績效</h4>${tradePerfHTML()}<h4>行情資料來源</h4>${feedStatusHTML()}<h4>營運說明</h4><ul><li>青鋒交易 · 專業投資人角色（紙上模擬）</li><li>只用公開行情、不串券商、不使用金鑰</li><li>不碰真錢、不下單、模擬結果非投資建議</li><li>實盤須滿 90 天、勝過 0050 與 BTC、≥30 筆、回撤在限內、監管乾淨，且偉翔親口核准</li></ul>`;}
   if(id==="art"){const a=D.art;if(a){
     h+=`<h4>交件統計</h4><div class="chips"><span class="chip ok">今日 ${a.todayCount||0} 張</span><span class="chip">最新批次 ${a.baseCount||a.files||0} 張</span><span class="chip ${a.integrated?"ok":"mid"}">${a.integrated?"已整合":"待整合"}</span><span class="chip">交件 ${esc(fmtAt(a.at))}</span></div>
     <div class="spark-wrap" style="margin-top:10px">${artTrendSVG(a.trend)}<span class="muted">近 7 日交件量</span></div>
