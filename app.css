@@ -395,3 +395,43 @@ ul.qu{margin:6px 0}ul.qu li{margin:3px 0}
 .idx-cached{font-size:10px;margin-left:4px;color:#C9A227;font-weight:600}
 .wl-chg.up{color:#9ff0c6}.wl-chg.down{color:#ffc6c6}
 .wl-code{font-size:10.5px}
+
+/* ---- 7F plain-Chinese / symbol sheet (2026-10-30) ---- */
+.wl-explain{font-size:12.5px;line-height:1.45;color:#d5deea;background:#1a3a5518;border:1px solid #5ab0ff44;border-radius:10px;padding:8px 10px;margin-bottom:4px}
+.wl-asof{font-size:11px;padding:0 10px 6px;color:var(--mute)}
+button.wl-row{width:100%;appearance:none;background:transparent;border:0;border-top:1px solid #ffffff0d;color:inherit;font:inherit;text-align:left;cursor:pointer;padding:10px;grid-template-columns:40px 1fr auto;gap:8px}
+button.wl-row:first-of-type{border-top:none}
+button.wl-row:active{background:#ffffff08}
+.wl-codeinline{font-weight:500;color:var(--mute);font-size:12px;margin-left:4px}
+.wl-viewline{font-size:11.5px;color:#a8b4c0;line-height:1.35;margin-top:2px}
+.wl-row{grid-template-columns:40px 1fr auto}
+.wl-view{display:none}
+.vs-bench{font-size:13.5px;font-weight:600;color:#e8eef6;background:#C9A22714;border:1px solid #C9A22755;border-radius:10px;padding:8px 10px;margin:6px 0 8px;line-height:1.4}
+.strat-name{font-size:14px}
+.strat-oneline{font-size:11.5px;line-height:1.35;flex:1;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.strat-plain{font-size:13px;color:#e8eef6;line-height:1.45;margin:4px 0 8px}
+.strat-idline{font-size:11px;margin-top:6px}
+.strat-idline code{font-size:10.5px;color:#8a96a4;background:#0b121a;padding:1px 5px;border-radius:4px}
+.dlog-summary{padding:0 2px 4px}
+.dlog-plain{margin:0 0 6px;font-size:13.5px;line-height:1.45;color:#e8eef6}
+.dlog-detail{margin-top:4px;border-top:1px dashed #ffffff18;padding-top:4px}
+.dlog-detail summary{cursor:pointer;font-size:12px;color:#8ec8ff;padding:6px 0;min-height:36px}
+.sym-quote{display:flex;align-items:baseline;gap:10px;margin:6px 0 10px;flex-wrap:wrap}
+.sym-px{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+.sym-chg{font-size:14px;font-weight:600}
+.sym-chg.up{color:#9ff0c6}.sym-chg.down{color:#ffc6c6}
+.sym-chart-wrap{background:#0b121a;border:1px solid var(--line2);border-radius:12px;padding:6px;margin-bottom:10px}
+.sym-chart-wrap canvas{width:100%;height:200px;display:block}
+.sym-chart-leg{font-size:11px;margin-top:4px}
+.leg-buy{color:#3FD8A0}.leg-sell{color:#ff8a8a}
+.sym-levels{font-size:13px;line-height:1.45;margin-bottom:10px}
+.sym-levels ul{margin:4px 0 0;padding-left:18px}
+.sym-trades{display:flex;flex-direction:column;gap:8px}
+.sym-tr{border:1px solid var(--line2);border-radius:10px;padding:8px 10px;background:#0c141eaa;font-size:12.5px}
+.sym-tr-hd{display:flex;gap:8px;align-items:center;margin-bottom:4px}
+.sym-tr-row{font-variant-numeric:tabular-nums;line-height:1.4}
+@media(max-width:420px){
+  .strat-meta{flex-direction:column;align-items:flex-start;gap:4px}
+  .wl-viewline{font-size:11px}
+  .dlog-cols{flex-direction:column}
+}

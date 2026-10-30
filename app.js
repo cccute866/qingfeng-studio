@@ -707,7 +707,7 @@ function strategyListHTML(){
     const fail=s.failureCondition?`<div class="strat-fail"><span class="muted">失效條件</span> ${esc(withSymNames(s.failureCondition))}</div>`:"";
     const upd=s.updatedAt?`<div class="muted strat-upd">更新 ${esc(s.updatedAt)}</div>`:"";
     return `<div class="strat-card" data-market="${esc(s.market)}" data-status="${esc(s.status)}">
-      <div class="strat-hd"><span class="strat-name">${esc(s.name)}</span><span class="chip ${cls}">${esc(s.status)}</span></div>
+      <div class="strat-hd"><span class="strat-name">${esc(stratDisplayName(s))}</span><span class="chip ${cls}">${esc(stratStatusLabel(s))}</span></div>
       <div class="strat-meta"><span class="chip">${esc(s.market)}</span></div>
       ${stratPeriodHTML("訓練期", s.is)}
       ${stratPeriodHTML("驗證期", s.oos)}
@@ -1008,16 +1008,26 @@ function weatherFor(code){
   const p=(D&&D.trade&&D.trade.perf)||{};
   const regime=p.regime||{};
   if(code==="0050" || code==="0050.TW"){
-    if(regime.vsSma200==="above") return {wx:"晴", view:"看多", note:"站上 SMA200"};
-    if(regime.vsSma200==="below") return {wx:"雨", view:"看空", note:"跌破 SMA200"};
-    return {wx:"陰", view:"無訊號", note:""};
+    if(regime.vsSma200==="above") return {wx:"晴", view:"看多", label:"看多", note:"站上 200 日均線，核心策略可抱"};
+    if(regime.vsSma200==="below") return {wx:"雨", view:"看空", label:"看空", note:"跌破 200 日均線，核心策略空手"};
+    return {wx:"陰", view:"觀望", label:"觀望", note:"目前沒有策略建議進場"};
   }
   const list=p.strategyList||[];
-  const hit=list.find(s=>s.status==="執行中" && ((s.name||"").includes(code) || (s.reason||"").includes(code)));
-  if(hit) return {wx:"晴", view:"看多", note:hit.name};
-  const obs=list.find(s=>s.status==="觀察" && ((s.name||"").includes(code) || (s.reason||"").includes(code)));
-  if(obs) return {wx:"陰", view:"中立", note:obs.name};
-  return {wx:"陰", view:"無訊號", note:""};
+  const hit=list.find(s=>s.status==="執行中" && ((s.name||"").includes(code) || (s.displayName||"").includes(code) || (s.reason||"").includes(code)));
+  if(hit) return {wx:"晴", view:"看多", label:"看多", note:stratDisplayName(hit)};
+  const obs=list.find(s=>(s.status==="觀察"||s.statusLabel==="觀察中") && ((s.name||"").includes(code) || (s.reason||"").includes(code)));
+  if(obs) return {wx:"陰", view:"觀望", label:"觀望", note:stratDisplayName(obs)};
+  return {wx:"陰", view:"觀望", label:"觀望", note:"目前沒有策略建議進場"};
+}
+function groupAsOf(items){
+  let asOf="", src="", cached=false;
+  (items||[]).forEach(it=>{
+    const q=quoteOf(it.code);
+    if(q&&q.asOf&&!asOf) asOf=q.asOf;
+    if(q&&q.source&&!src) src=q.source;
+    if(q&&q.cached) cached=true;
+  });
+  return {asOf, src, cached};
 }
 function indexStripHTML(){
   const items=[
@@ -1041,10 +1051,10 @@ function indexStripHTML(){
 }
 function focusCardsHTML(){
   const p=(D&&D.trade&&D.trade.perf)||{};
-  const log=(p.dailyLog||[])[0];
+  const log=(p.dailyLog||[]).find(d=>d && !d.empty) || (p.dailyLog||[])[0];
   let headline="今日尚無訓練紀錄";
   if(log){
-    const line=(log.tw&&log.tw[0])||(log.crypto&&log.crypto[0])||"";
+    const line=(log.plainTw&&log.plainTw[0])||(log.tw&&log.tw[0])||(log.plainCrypto&&log.plainCrypto[0])||(log.crypto&&log.crypto[0])||"";
     headline = log.date + (line?(" · "+line):"");
   }
   const sm=(D.trade&&D.trade.summary)||{};
@@ -1062,20 +1072,23 @@ function watchRowHTML(it){
   const close=q&&q.close!=null?q.close:null;
   const chg=q&&q.changePct!=null?q.changePct:null;
   const chgCls=chg==null?"muted":(Number(chg)>0?"up":(Number(chg)<0?"down":"muted"));
-  const asof=q&&q.asOf?q.asOf:"";
-  const miss=(!q||close==null);
-  return `<div class="wl-row">
-    <div class="wl-wx" title="${esc(w.view+(w.note?(" · "+w.note):""))}">${wxSVG(w.wx)}<span class="wl-wxlab">${esc(w.wx)}</span></div>
-    <div class="wl-meta"><div class="wl-name">${esc(symLabel(it.code))}</div><div class="wl-code">${esc(asof?(asof+" 台北"):(miss?"無報價":""))}${q&&q.cached?" · 快取":""}</div></div>
+  const name=symName(it.code)||it.name||it.code;
+  return `<button type="button" class="wl-row wl-tap" data-sym="${esc(it.code)}">
+    <div class="wl-wx" title="${esc(w.label+(w.note?(" · "+w.note):""))}">${wxSVG(w.wx)}<span class="wl-wxlab">${esc(w.wx)}</span></div>
+    <div class="wl-meta"><div class="wl-name">${esc(name)} <span class="wl-codeinline">${esc(it.code)}</span></div><div class="wl-viewline">${esc(w.label)}：${esc(w.note||"目前沒有策略建議進場")}</div></div>
     <div class="wl-px"><div class="wl-close">${esc(fmtPrice(close, it.code))}</div><div class="wl-chg ${chgCls}">${esc(fmtChg(chg))}</div></div>
-    <div class="wl-view muted">${esc(w.view)}</div>
-  </div>`;
+  </button>`;
 }
 function watchHTML(){
+  const twMeta=groupAsOf(CORE_TW.concat([{code:"0050"}]));
+  const crMeta=groupAsOf(CORE_CRYPTO);
+  const asOfTw=twMeta.asOf?`資料時間 ${esc(twMeta.asOf)} 台北${twMeta.cached?" · 快取":""}`:`資料時間 —`;
+  const asOfCr=crMeta.asOf?`資料時間 ${esc(crMeta.asOf)} 台北${crMeta.cached?" · 快取":""}`:`資料時間 —`;
   return `<div class="wl-panel">
-    <div class="wl-group"><div class="wl-ghd">台股核心</div>${CORE_TW.map(watchRowHTML).join("")}</div>
-    <div class="wl-group"><div class="wl-ghd">幣圈</div>${CORE_CRYPTO.map(watchRowHTML).join("")}</div>
-    <div class="feed-disc">收盤／漲跌取自 TWSE／幣圈公開中位數（或摘要 quotes）；缺值顯示 —，不捏造。天氣＝策略觀點（晴看多／陰中立或無訊號／雨看空）。紙上模擬，非投資建議。</div>
+    <div class="wl-explain">為什麼大多是「觀望」？目前只有「核心：抱緊 0050」在執行中；其餘策略驗證沒過或已淘汰，所以個股／幣圈先不建議進場。</div>
+    <div class="wl-group"><div class="wl-ghd">台股核心</div><div class="wl-asof muted">${asOfTw}</div>${CORE_TW.map(watchRowHTML).join("")}</div>
+    <div class="wl-group"><div class="wl-ghd">幣圈</div><div class="wl-asof muted">${asOfCr}</div>${CORE_CRYPTO.map(watchRowHTML).join("")}</div>
+    <div class="feed-disc">天氣＝策略觀點（晴看多／陰觀望／雨看空）。報價缺值顯示 —，不捏造。點進可看日 K 與模擬／回測標記。紙上模擬，非投資建議。</div>
   </div>`;
 }
 function sleevesDonutHTML(sleeves){
@@ -1099,9 +1112,11 @@ function bookHTML(){
   const p=(D&&D.trade&&D.trade.perf)||{};
   const pos=p.positions||[];
   const sleeves=p.sleeves||[];
-  const posRows=pos.length?pos.map(x=>`<div class="wl-row"><div class="wl-meta"><div class="wl-name">${esc(symLabel(x.symbol)||x.symbol)}</div></div><div class="wl-px"><div class="wl-close">權重 ${esc(fmtDash(x.weightPct,1))}%</div><div class="wl-chg">未實現 ${fmtPct(x.unrealizedPct)}</div></div></div>`).join(""):`<div class="muted">尚無紙上持倉</div>`;
+  const vs = p.vs0050Sentence || `模擬獲利 ${fmtPct(p.equityReturnPct)}，同期買 0050 ${fmtPct(p.benchmark0050ReturnPct)}`;
+  const posRows=pos.length?pos.map(x=>`<div class="wl-row"><div class="wl-meta"><div class="wl-name">${esc(symLabel(x.symbol)||x.symbol)}</div></div><div class="wl-px"><div class="wl-close">權重 ${esc(fmtDash(x.weightPct,1))}%</div><div class="wl-chg">未實現 ${fmtPct(x.unrealizedPct)}</div></div></div>`).join(""):`<div class="muted">尚無紙上持倉（核心 0050 掛單待開盤）</div>`;
   return `<div class="book-panel">
     <div class="sim-banner">紙上模擬 · 非投資建議 · 不碰真錢</div>
+    <div class="vs-bench">${esc(vs)}</div>
     <div class="big" style="margin-top:8px">
       <div><b>${fmtPct(p.equityReturnPct)}</b><span>模擬報酬</span></div>
       <div><b>${fmtPct(p.dailyChangePct)}</b><span>日變動</span></div>
@@ -1117,35 +1132,41 @@ function stratCenterHTML(){
   const p=(D&&D.trade&&D.trade.perf)||{};
   const list=p.strategyList||[];
   const disc=esc(p.disclaimer||"模擬結果，非投資建議");
+  const vs = p.vs0050Sentence || `模擬獲利 ${fmtPct(p.equityReturnPct)}，同期買 0050 ${fmtPct(p.benchmark0050ReturnPct)}`;
   if(!list.length) return `<div class="feed-panel"><div class="muted">尚無策略清單</div><div class="feed-disc">${disc}</div></div>`;
-  const counts={}; list.forEach(s=>{counts[s.status]=(counts[s.status]||0)+1;});
-  const statusTabs=["全部","執行中","觀察","待驗證","已拒絕"].map(st=>{
+  const counts={}; list.forEach(s=>{const lab=stratStatusLabel(s); counts[lab]=(counts[lab]||0)+1;});
+  const statusTabs=["全部","執行中","觀察中","待驗證","已淘汰"].map(st=>{
     const n=st==="全部"?list.length:(counts[st]||0);
     const on = (window.__stratStatusFilter||"全部")===st?" on":"";
     return `<button type="button" class="chip${on}" data-st="${esc(st)}">${esc(st)} ${n}</button>`;
   }).join("");
   const cards=list.map(s=>{
     const open = stratExpand===s.name;
-    const cls=stratStatusCls(s.status);
+    const lab=stratStatusLabel(s);
+    const cls=stratStatusCls(lab);
     const body = open?`<div class="strat-body">
-      ${stratPeriodHTML("訓練期 IS", s.is)}
-      ${stratPeriodHTML("驗證期 OOS", s.oos)}
-      <div class="muted" style="font-size:11.5px;margin:4px 0">同曝險對照見各期報酬；${esc(symLabel("0050"))}／${esc(symLabel("BTC"))} 基準見績效卡（不另捏造）</div>
-      ${s.failureCondition?`<div class="strat-fail"><span class="muted">條件／失效</span> ${esc(withSymNames(s.failureCondition))}</div>`:""}
-      ${s.reason?`<div class="strat-reason">${esc(s.status==="已拒絕"?"拒絕理由：":"說明：")}${esc(withSymNames(s.reason))}</div>`:""}
+      <div class="strat-plain">${esc(s.plainReason||softenInline(s.reason)||"尚無白話說明")}</div>
+      ${stratPeriodHTML("訓練期", s.is)}
+      ${stratPeriodHTML("驗證期", s.oos)}
+      <div class="muted strat-idline">內部代號 <code>${esc(s.name)}</code></div>
+      ${s.failureCondition?`<div class="strat-fail"><span class="muted">失效條件</span> ${esc(withSymNames(s.failureCondition))}</div>`:""}
       ${s.updatedAt?`<div class="muted strat-upd">更新 ${esc(s.updatedAt)}</div>`:""}
     </div>`:"";
-    return `<button type="button" class="strat-card strat-tap${open?" open":""}" data-market="${esc(s.market)}" data-status="${esc(s.status)}" data-name="${esc(s.name)}">
-      <div class="strat-hd"><span class="strat-name">${esc(s.name)}</span><span class="chip ${cls}">${esc(s.status)}</span></div>
-      <div class="strat-meta"><span class="chip">${esc(s.market)}</span><span class="muted" style="font-size:11px">${open?"收合":"點開詳情"}</span></div>
+    return `<button type="button" class="strat-card strat-tap${open?" open":""}" data-market="${esc(s.market)}" data-status="${esc(lab)}" data-name="${esc(s.name)}">
+      <div class="strat-hd"><span class="strat-name">${esc(stratDisplayName(s))}</span><span class="chip ${cls}">${esc(lab)}</span></div>
+      <div class="strat-meta"><span class="chip">${esc(s.market)}</span><span class="muted strat-oneline">${esc(s.plainReason||"")}</span></div>
       ${body}
     </button>`;
   }).join("");
   return `<div class="feed-panel" id="strat-panel">
+    <div class="vs-bench">${esc(vs)}</div>
     <div class="chips strat-st" data-role="strat-status">${statusTabs}</div>
     <div class="strat-list" id="strat-list">${cards}</div>
     <div class="feed-disc">${disc}</div>
   </div>`;
+}
+function softenInline(s){
+  return String(s||"").replace(/\bOOS\b/g,"樣本外").replace(/\bIS\b/g,"訓練期").replace(/\bFAIL\b/g,"沒過關").replace(/\bWEAK\b/g,"偏弱");
 }
 function bindTradeApp(root){
   const app=(root||document).querySelector(".trade-app");
@@ -1177,7 +1198,6 @@ function bindTradeApp(root){
         });
       };
     });
-    // apply current
     const st=window.__stratStatusFilter||"全部";
     stFilt.querySelectorAll("[data-st]").forEach(b=>b.classList.toggle("on", b.dataset.st===st));
     app.querySelectorAll("#strat-list .strat-card").forEach(card=>{
@@ -1192,14 +1212,164 @@ function bindTradeApp(root){
       refresh();
     };
   });
+  app.querySelectorAll(".wl-tap").forEach(row=>{
+    row.onclick=(e)=>{
+      e.preventDefault();
+      const code=row.dataset.sym;
+      if(code) openSymbolSheet(code);
+    };
+  });
 }
+
+/* ---- 個股／幣詳情：自架 canvas 日K + 模擬／回測標記 ---- */
+const _chartCache = {};
+async function openSymbolSheet(code){
+  const name=symName(code)||code;
+  openSheet(`<h3>${esc(name)} <span class="muted">${esc(code)}</span></h3>
+    <div class="sym-loading muted">載入日 K…</div>`);
+  try{
+    let pack=_chartCache[code];
+    if(!pack){
+      const url=`assets/charts/${encodeURIComponent(code)}.json?t=${Date.now()}`;
+      const res=await fetch(url, {cache:"no-store"});
+      if(!res.ok) throw new Error("no chart");
+      pack=await res.json();
+      _chartCache[code]=pack;
+    }
+    renderSymbolSheet(code, pack);
+  }catch(err){
+    openSheet(`<h3>${esc(name)} <span class="muted">${esc(code)}</span></h3>
+      <div class="muted">目前沒有這檔的日 K 資料（不捏造）。</div>
+      <div class="feed-disc">紙上模擬，非投資建議</div>`);
+  }
+}
+function renderSymbolSheet(code, pack){
+  const name=symName(code)||code;
+  const q=quoteOf(code);
+  const close=q&&q.close!=null?q.close:null;
+  const chg=q&&q.changePct!=null?q.changePct:null;
+  const chgCls=chg==null?"":(Number(chg)>0?"up":(Number(chg)<0?"down":""));
+  const w=weatherFor(code);
+  const levels=pack.levels;
+  let levelsHtml="";
+  if(levels && (levels.entry!=null || levels.rule)){
+    levelsHtml=`<div class="sym-levels">
+      <div class="feed-mhd">目前策略看法 · ${esc(levels.strategyName||"")}</div>
+      <p>${esc(levels.rule||"")}</p>
+      <ul>
+        ${levels.entry!=null?`<li>進場參考 ${esc(fmtPrice(levels.entry, code))}</li>`:""}
+        ${levels.stop?`<li>停損／出場 ${esc(String(levels.stop))}</li>`:""}
+        ${levels.target?`<li>目標 ${esc(String(levels.target))}</li>`:""}
+        ${levels.note?`<li class="muted">${esc(levels.note)}</li>`:""}
+      </ul>
+    </div>`;
+  }else{
+    levelsHtml=`<div class="sym-levels"><div class="feed-mhd">目前策略看法</div><p>${esc(w.label)}：${esc(w.note||"目前沒有策略建議進場")}</p><p class="muted">沒有執行中的策略掛在這檔上。</p></div>`;
+  }
+  const trades=pack.trades||[];
+  let tradesHtml="";
+  if(!trades.length){
+    tradesHtml=`<div class="muted">尚未有模擬交易</div>`;
+  }else{
+    tradesHtml=`<div class="sym-trades">${trades.slice().reverse().slice(0,20).map(t=>{
+      const kind=t.kind==="模擬"?"模擬":"回測";
+      const pnl=t.pnlPct==null?"—":((Number(t.pnlPct)>0?"+":"")+Number(t.pnlPct).toFixed(2)+"%");
+      const pnlCls=t.pnlPct==null?"":(Number(t.pnlPct)>=0?"up":"down");
+      return `<div class="sym-tr">
+        <div class="sym-tr-hd"><span class="chip ${kind==="模擬"?"ok":"mid"}">${esc(kind)}</span><span class="muted">${esc(t.strategyName||"")}</span></div>
+        <div class="sym-tr-row">買 ${esc(t.entryDate||"—")} @ ${esc(t.entryPx!=null?fmtPrice(t.entryPx,code):"—")}</div>
+        <div class="sym-tr-row">賣 ${esc(t.exitDate||"—")} @ ${esc(t.exitPx!=null?fmtPrice(t.exitPx,code):"—")}</div>
+        <div class="sym-tr-row ${pnlCls}">獲利 ${esc(pnl)}${t.note?` · ${esc(t.note)}`:""}</div>
+      </div>`;
+    }).join("")}</div>`;
+  }
+  openSheet(`<h3>${esc(name)} <span class="muted">${esc(code)}</span></h3>
+    <div class="sym-quote"><span class="sym-px">${esc(fmtPrice(close, code))}</span><span class="sym-chg ${chgCls}">${esc(fmtChg(chg))}</span>
+      <span class="chip">${esc(w.wx)} ${esc(w.label)}</span></div>
+    <div class="sym-chart-wrap"><canvas id="sym-k" width="360" height="200" aria-label="日K線"></canvas>
+      <div class="sym-chart-leg muted"><span class="leg-buy">▲ 買</span> <span class="leg-sell">▼ 賣</span> · 黃＝模擬／藍＝回測 · 近約半年</div>
+    </div>
+    ${levelsHtml}
+    <div class="feed-mkt"><div class="feed-mhd">交易紀錄</div>${tradesHtml}</div>
+    <div class="feed-disc">${esc(pack.disclaimer||"模擬結果，非投資建議")}${pack.source?` · 來源 ${esc(String(pack.source).replace(/^cache:/,""))}`:""}${pack.asOf?` · 截至 ${esc(pack.asOf)}`:""}</div>`);
+  requestAnimationFrame(()=>drawCandleChart(document.getElementById("sym-k"), pack.candles||[], pack.markers||[]));
+}
+function drawCandleChart(canvas, candles, markers){
+  if(!canvas || !candles.length) return;
+  const dpr=Math.min(window.devicePixelRatio||1, 2);
+  const cssW=canvas.clientWidth||360;
+  const cssH=200;
+  canvas.width=Math.floor(cssW*dpr);
+  canvas.height=Math.floor(cssH*dpr);
+  const ctx=canvas.getContext("2d");
+  ctx.scale(dpr, dpr);
+  const padL=2, padR=2, padT=10, padB=18;
+  const W=cssW-padL-padR, H=cssH-padT-padB;
+  let lo=Infinity, hi=-Infinity;
+  candles.forEach(c=>{ lo=Math.min(lo,c.l); hi=Math.max(hi,c.h); });
+  if(!(hi>lo)) { hi=lo+1; }
+  const y=v=> padT + (1-(v-lo)/(hi-lo))*H;
+  const n=candles.length;
+  const slot=W/Math.max(n,1);
+  const bodyW=Math.max(1, Math.min(6, slot*0.6));
+  ctx.clearRect(0,0,cssW,cssH);
+  ctx.fillStyle="#0b121a";
+  ctx.fillRect(0,0,cssW,cssH);
+  ctx.strokeStyle="#ffffff12";
+  ctx.lineWidth=1;
+  for(let i=0;i<4;i++){
+    const gy=padT + (H*i)/3;
+    ctx.beginPath(); ctx.moveTo(padL,gy); ctx.lineTo(padL+W,gy); ctx.stroke();
+  }
+  candles.forEach((c,i)=>{
+    const x=padL + slot*i + slot/2;
+    const up=c.c>=c.o;
+    ctx.strokeStyle=up?"#3FD8A0":"#ff8a8a";
+    ctx.fillStyle=up?"#3FD8A0":"#ff8a8a";
+    ctx.beginPath();
+    ctx.moveTo(x, y(c.h));
+    ctx.lineTo(x, y(c.l));
+    ctx.stroke();
+    const top=y(Math.max(c.o,c.c)), bot=y(Math.min(c.o,c.c));
+    const bh=Math.max(1, bot-top);
+    ctx.fillRect(x-bodyW/2, top, bodyW, bh);
+  });
+  const byT={};
+  candles.forEach((c,i)=>{ byT[c.t]=i; });
+  (markers||[]).forEach(m=>{
+    const i=byT[m.t];
+    if(i==null) return;
+    const x=padL + slot*i + slot/2;
+    const px=m.px!=null?Number(m.px): (candles[i].c);
+    const yy=y(px);
+    const sim=m.kind==="模擬";
+    ctx.fillStyle=sim?"#C9A227":"#5ab0ff";
+    ctx.beginPath();
+    if(m.side==="buy"){
+      ctx.moveTo(x, yy-7); ctx.lineTo(x-5, yy); ctx.lineTo(x+5, yy);
+    }else{
+      ctx.moveTo(x, yy+7); ctx.lineTo(x-5, yy); ctx.lineTo(x+5, yy);
+    }
+    ctx.closePath(); ctx.fill();
+  });
+  const last=candles[candles.length-1];
+  ctx.fillStyle="#9aa8b8";
+  ctx.font="10px system-ui,sans-serif";
+  ctx.fillText(String(last.t), padL, cssH-4);
+  ctx.textAlign="right";
+  ctx.fillText(String(last.c), cssW-padR, cssH-4);
+  ctx.textAlign="left";
+}
+
 function tradeHomeHTML(){
   const p=(D&&D.trade&&D.trade.perf)||{};
+  const vs=p.vs0050Sentence||`模擬獲利 ${fmtPct(p.equityReturnPct)}，同期買 0050 ${fmtPct(p.benchmark0050ReturnPct)}`;
   return `<div class="trade-home">
     ${indexStripHTML()}
     ${focusCardsHTML()}
     <div class="card" style="margin-top:10px"><h2>往實盤進度圖</h2>${liveGateHTML()}</div>
     <div class="card" style="margin-top:10px"><h2>模擬績效摘要</h2>
+      <div class="vs-bench">${esc(vs)}</div>
       <div class="big">
         <div><b>${fmtPct(p.equityReturnPct)}</b><span>模擬報酬</span></div>
         <div><b>${fmtPct(p.benchmark0050ReturnPct)}</b><span>0050 同期</span></div>
