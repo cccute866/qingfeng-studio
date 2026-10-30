@@ -68,7 +68,7 @@ function meetingNow(){
   return null;}
 function meeters(){return ["zhiya","art","num","qa","eng"].concat(D&&D.weixiangJoins?["weixiang"]:[]);}
 function memberState(id){
-  {const mt=meetingNow();if(mt&&meeters().includes(id))return{cat:"meet",text:id==="zhiya"?"主持全員會議":"全員會議中",full:"全員會議：智雅主持，美術、數值、監管、工程帶提案，ChatGPT、Claude、Gemini 一起辯論"+(D.weixiangJoins?"；偉翔今天也給了意見":"")+"。",where:"meeting",live:true,since:mt.since};}
+  {const mt=meetingNow();if(mt&&meeters().includes(id))return{cat:"meet",text:id==="zhiya"?"主持全員會議":"全員會議中",full:"全員會議：智雅主持，美術、數值、監管、工程帶提案，ChatGPT、Claude、Gemini 一起辯論"+(D&&D.weixiangJoins?"；偉翔今天也給了意見":"")+"。",where:"meeting",live:true,since:mt.since};}
   const lv=D&&D.live&&D.live[id];
   if(lv&&lv.status&&LIVEMAP[lv.status]){const age=(Date.now()-parseTP(lv.updatedAt))/60000;
     if(age>=0&&age<180)return{cat:LIVEMAP[lv.status],text:lv.task||lv.status,full:lv.task,live:true,updatedAt:lv.updatedAt,where:LIVEMAP[lv.status]==="meet"?"meeting":"desk",since:parseTP(lv.updatedAt)};}
@@ -79,11 +79,12 @@ function memberState(id){
   const min=nowMin(); const r=oStateAt(o,m,min); const st=r.st||{};
   let cat=st.tone||"wait";
   let text=st.short||CAT[cat],full=st.full;
-  if(id==="weixiang"){const n=(D.director&&D.director.needYou||[]).length;if(n&&cat!=="work")cat="you";text="試玩 "+D.game.version+"，"+n+" 件等你決定";full="新版 "+D.game.version+" 已上線，等你試玩回饋手感；上架路線圖有 "+n+" 件需要你本人決定或開通（細節在總監室）。";}
+  if(id==="weixiang"&&D){const n=(D.director&&D.director.needYou||[]).length;if(n&&cat!=="work")cat="you";text="試玩 "+((D.game&&D.game.version)||"")+"，"+n+" 件等你決定";full="新版 "+((D.game&&D.game.version)||"")+" 已上線，等你試玩回饋手感；上架路線圖有 "+n+" 件需要你本人決定或開通（細節在總監室）。";}
   let since=NaN; if(r.where==="meeting"){const d=tpNow();since=Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate(),0,0)-8*3600e3+mm(o.meeting.from)*60000;}
   return{cat,text,full,where:r.where,live:false,since};
 }
 function floorState(f){
+  if(!D) return{cat:"wait",label:"載入中",text:"資料讀取中"};
   if(f.id==="trade"){
     const tr=D&&D.trade||{}; const perf=tr.perf||{};
     if(perf.waitingFirstFill) return{cat:"work",label:"模擬營運中",text:perf.status||"等待首筆模擬單成交"};
@@ -108,6 +109,7 @@ function floorState(f){
   return{cat:"done",label:"營業中",text:D.game.version+" 可玩"};
 }
 function nextStep(id){
+  if(!D) return "";
   const o=D.office,m=o&&o.members[id],min=nowMin();
   if(m){if(m.joinsMeeting&&min<mm(o.meeting.from))return o.meeting.from+" 開會："+(o.meeting.status.short||"");
     for(const s of m.slots)if(min<mm(s.from))return s.from+" "+(s.during.short||"");}
@@ -1234,9 +1236,9 @@ function renderRoomDash(){
 }
 function renderFloors(){for(const f of FLOORS){const F=floorsEl[f.id],s=floorState(f);const b=F.el.querySelector(".bubble");
   b.querySelector(".dot").className="dot "+s.cat;b.querySelector("b").textContent=s.label;b.querySelector(".t").textContent=noemo(s.text);
-  const fv=F.el.querySelector(".fviz"); if(fv) fv.innerHTML=floorVizHTML(f.id);
-  if(f.id==="director"){const a=usageAlert();F.el.classList.toggle("usage-alert",a.level==="red");F.el.classList.toggle("usage-warn",a.level==="yellow");}}
-  document.querySelectorAll(".play-link").forEach(a=>{a.href=D.game.url;a.textContent="進入遊戲 "+D.game.version;});}
+  const fv=F.el.querySelector(".fviz"); if(fv) fv.innerHTML=D?floorVizHTML(f.id):"";
+  if(f.id==="director"&&D){const a=usageAlert();F.el.classList.toggle("usage-alert",a.level==="red");F.el.classList.toggle("usage-warn",a.level==="yellow");}}
+  if(D&&D.game) document.querySelectorAll(".play-link").forEach(a=>{a.href=D.game.url;a.textContent="進入遊戲 "+D.game.version;});}
 function chipOf(s){
   if(s.chip)return s.chip;
   if(s.who==="council")return"會議";
