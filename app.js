@@ -885,17 +885,9 @@ function floorVizHTML(id){
     return `<div class="fv-chips">${top}</div><span class="fv-cap">${dec.length} 項決定</span>`;
   }
   if(id==="mz"){
-    h+=floorBriefHTML("這層是夾層・公關／財會。左邊沈沐禾負責遊戲公關（商店上架、IG／脆小編，只起草不上傳）；右邊蒲小棠負責財會（用量與花費、模擬帳核對）。排程建立中。");
-    h+=keyCardsHTML([
-      {v:"沈沐禾",l:"青鋒公關",note:"只起草，不上傳"},
-      {v:"蒲小棠",l:"青鋒財會",note:"用量／模擬帳"},
-      {v:"建立中",l:"今日排程",note:"時間稍後補上"},
-    ]);
-    h+=`<h4>兩位同事</h4><div class="plain-list">
-      <div class="vcard"><b>沈沐禾 · 青鋒公關</b><div class="muted">遊戲公關：商店上架文案、IG／脆貼文——只起草，不上傳；等你拍板。</div>${memberBtn("pr")}</div>
-      <div class="vcard"><b>蒲小棠 · 青鋒財會</b><div class="muted">財會：核對用量與花費、對齊模擬帳；有異常會標在桌上。</div>${memberBtn("fin")}</div>
-    </div>`;
-    h+=`<h4>今日排程</h4><div class="muted">排程建立中——例行時間確定後會寫進來。</div>`;
+    const min=nowMin();
+    const on=min>=9*60&&min<18*60;
+    return lightHTML(on?"green":"yellow")+`<span class="fv-cap">${on?"公關／財會值班中":"公關／財會休息中"} · 排程建立中</span>`;
   }
   if(id==="lobby"){
     const b=D.backlog||{}; const p=b.total?Math.round(b.done/b.total*100):0;
@@ -1651,6 +1643,9 @@ function renderRoomDash(){
     const v=(D.dev||{}).version||"";
     el.innerHTML=`<div class="card"><h2>${id==="dev"?"開發發版":"工程修復"}</h2>${floorBriefHTML(id==="dev"?("目前版本 "+v+"。"):"修 bug 與介面打磨。")}${pipeHTML((D.dev||{}).pipeline)}</div>`; return;
   }
+  if(id==="mz"){
+    el.innerHTML=`<div class="card"><h2>夾層 · 公關／財會</h2>${floorBriefHTML("沈沐禾（公關，只起草不上傳）與蒲小棠（財會核對）。排程建立中。")}${keyCardsHTML([{v:"沈沐禾",l:"公關"},{v:"蒲小棠",l:"財會"},{v:"建立中",l:"排程"}])}</div>`; return;
+  }
   if(id==="lobby"){
     el.innerHTML=`<div class="card"><h2>遊戲入口</h2>${floorBriefHTML("從這裡進遊戲，也可看待辦與排程。")}<div class="play"><div class="ver">目前版本 <b>${esc(D.game.version)}</b><br>${esc(D.game.subtitle)}</div><a class="btn" target="_blank" rel="noopener" href="${esc(D.game.url)}">進入遊戲</a></div></div>`; return;
   }
@@ -1875,6 +1870,19 @@ function openFloor(id){const f=FLOORS.find(x=>x.id===id);let h=head(f);
     h+=`<h4>本週負責</h4>${weekHTML("工程")}`;
     h+=detailFoldHTML("排隊中（工程）與工作方式", `${queueHTML("工程")}<h4>工作方式</h4><ul class="plain-list"><li>每天約 15:00–16:30 修 QA 回報、介面打磨，發布修補版熱修</li><li>在自己的修復分支工作，時段內才併回主線；動手前先登記「誰、何時、做什麼」，做完解除</li><li>每個修正都附回歸測試，存檔保持相容</li></ul>`);
     h+=memberBtn("eng");
+  }
+  if(id==="mz"){
+    h+=floorBriefHTML("這層是夾層・公關／財會。左邊沈沐禾負責遊戲公關（商店上架、IG／脆小編，只起草不上傳）；右邊蒲小棠負責財會（用量與花費、模擬帳核對）。排程建立中。");
+    h+=keyCardsHTML([
+      {v:"沈沐禾",l:"青鋒公關",note:"只起草，不上傳"},
+      {v:"蒲小棠",l:"青鋒財會",note:"用量／模擬帳"},
+      {v:"建立中",l:"今日排程",note:"時間稍後補上"},
+    ]);
+    h+=`<h4>兩位同事</h4><div class="plain-list">
+      <div class="vcard"><b>沈沐禾 · 青鋒公關</b><div class="muted">遊戲公關：商店上架文案、IG／脆貼文——只起草，不上傳；等你拍板。</div>${memberBtn("pr")}</div>
+      <div class="vcard"><b>蒲小棠 · 青鋒財會</b><div class="muted">財會：核對用量與花費、對齊模擬帳；有異常會標在桌上。</div>${memberBtn("fin")}</div>
+    </div>`;
+    h+=`<h4>今日排程</h4><div class="muted">排程建立中——例行時間確定後會寫進來。</div>`;
   }
   if(id==="lobby"){
     const b=D.backlog||{}; const p=b.total?Math.round(b.done/b.total*100):0;
