@@ -1,0 +1,102 @@
+{
+  "_meta": {
+    "note": "策略中文顯示名／白話狀態理由；由 registry＋RULES／proposals 整理，供 7F AgentX+ 手機版",
+    "updatedAt": "2026-10-30"
+  },
+  "statusMap": {
+    "執行中": "執行中",
+    "觀察": "觀察中",
+    "待驗證": "待驗證",
+    "已拒絕": "已淘汰"
+  },
+  "strategies": {
+    "FALLBACK_0050_S1": {
+      "displayName": "核心：抱緊 0050",
+      "plainReason": "過去幾年總報酬還是贏不了直接買 0050，但仍作核心底倉"
+    },
+    "SCREEN3_L2L3_practice": {
+      "displayName": "三層掃描練習",
+      "plainReason": "驗證期贏不了 0050，只拿來每天練習掃股"
+    },
+    "VOL_BREAKOUT_GAP_v1": {
+      "displayName": "量增突破＋跳空",
+      "plainReason": "樣本外不夠穩，還沒達到啟用門檻"
+    },
+    "CHIPREV_v1.1": {
+      "displayName": "籌碼反轉",
+      "plainReason": "樣本外幾乎沒賺，遠輸直接買 0050"
+    },
+    "TW_SMA_20_60": {
+      "displayName": "均線交叉 20/60",
+      "plainReason": "參數一改結果差很多，不採用"
+    },
+    "TW_DONCH_20_10": {
+      "displayName": "通道突破 20/10",
+      "plainReason": "參數敏感，不採用"
+    },
+    "S1_TW0050_MA_v1": {
+      "displayName": "0050 均線試作",
+      "plainReason": "進出太少且輸給抱著不賣，已由核心策略接手"
+    },
+    "S3_TW_EXDIV_v1": {
+      "displayName": "除息前佈局",
+      "plainReason": "除息前買入平均虧損"
+    },
+    "S4_TW_SEASON_v1": {
+      "displayName": "季節性窗口",
+      "plainReason": "季末／年末效應站不住腳"
+    },
+    "S5_TW_CHIPSTREAK_v1": {
+      "displayName": "籌碼連續流向",
+      "plainReason": "樣本外變成虧損"
+    },
+    "FIVE_00631L_S1": {
+      "displayName": "槓桿 ETF 趨勢",
+      "plainReason": "回撤太大，路徑依賴強"
+    },
+    "FIVE_dualmom": {
+      "displayName": "雙動能輪動",
+      "plainReason": "風險與基準門檻沒過"
+    },
+    "FIVE_pullback_rsi": {
+      "displayName": "RSI 拉回買進",
+      "plainReason": "訓練／驗證期都虧"
+    },
+    "AGENTX_DIMS_v1": {
+      "displayName": "選股維度測試",
+      "plainReason": "不是可交易策略，只供特徵參考"
+    },
+    "CRYPTO_SMA_20_60": {
+      "displayName": "幣圈均線 20/60",
+      "plainReason": "成交筆數太少，驗證不夠"
+    },
+    "CRYPTO_DONCH_20_10": {
+      "displayName": "幣圈通道突破",
+      "plainReason": "訓練賺、驗證虧，過擬合風險"
+    },
+    "S2_CRYPTO_TREND_FUND_v1": {
+      "displayName": "幣圈趨勢＋資金費",
+      "plainReason": "樣本外變虧且參數敏感"
+    },
+    "S6_CRYPTO_FUND_OI_REV_v1": {
+      "displayName": "資金費＋持倉反轉",
+      "plainReason": "訊號太少"
+    },
+    "S7_CRYPTO_SESSION_v1": {
+      "displayName": "台北時段效應",
+      "plainReason": "樣本外站不住"
+    },
+    "FIVE_BTC_spot_SMA_vol": {
+      "displayName": "BTC 均線量能",
+      "plainReason": "沒過啟用門檻"
+    },
+    "FIVE_fundcarry": {
+      "displayName": "資金費套利",
+      "plainReason": "成交太少"
+    },
+    "AGENTX_DIMS_crypto_v1": {
+      "displayName": "幣圈維度測試",
+      "plainReason": "還在驗證價格維度，尚未完成"
+    }
+  }
+}

@@ -654,10 +654,19 @@ function tradePerfHTML(){
 }
 function stratStatusCls(st){
   if(st==="執行中") return "ok";
-  if(st==="觀察") return "mid";
+  if(st==="觀察"||st==="觀察中") return "mid";
   if(st==="待驗證") return "mid";
-  if(st==="已拒絕") return "no";
+  if(st==="已拒絕"||st==="已淘汰") return "no";
   return "";
+}
+function stratDisplayName(s){
+  return (s&& (s.displayName||s.name)) || "—";
+}
+function stratStatusLabel(s){
+  if(!s) return "—";
+  if(s.statusLabel) return s.statusLabel;
+  const m={"觀察":"觀察中","已拒絕":"已淘汰"};
+  return m[s.status]||s.status||"—";
 }
 function stratPeriodHTML(label, blk){
   const b=blk||{};
@@ -714,23 +723,35 @@ function strategyListHTML(){
 }
 function dailyLogHTML(){
   const tr=D&&D.trade||{}; const p=tr.perf||{};
-  const log=p.dailyLog||[];
+  const log=(p.dailyLog||[]).filter(d=>d && !d.empty);
   const disc=esc(p.disclaimer||"模擬結果，非投資建議");
   if(!log.length){
     return `<div class="feed-panel"><div class="muted">尚無每日訓練紀錄</div><div class="feed-disc">${disc}</div></div>`;
   }
   const days=log.map(d=>{
-    const tw=(d.tw||[]).length?`<ul>${(d.tw||[]).map(x=>`<li>${esc(withSymNames(x))}</li>`).join("")}</ul>`:`<div class="muted">無</div>`;
-    const cr=(d.crypto||[]).length?`<ul>${(d.crypto||[]).map(x=>`<li>${esc(withSymNames(x))}</li>`).join("")}</ul>`:`<div class="muted">無</div>`;
+    const pTw=d.plainTw&&d.plainTw.length?d.plainTw:(d.tw||[]);
+    const pCr=d.plainCrypto&&d.plainCrypto.length?d.plainCrypto:(d.crypto||[]);
+    const hasPlain=(pTw&&pTw.length)||(pCr&&pCr.length);
+    if(!hasPlain && !(d.tw||[]).length && !(d.crypto||[]).length) return "";
+    const sentences=[];
+    (pTw||[]).slice(0,3).forEach(x=>sentences.push(withSymNames(x)));
+    (pCr||[]).slice(0,3).forEach(x=>sentences.push(withSymNames(x)));
+    const plain=sentences.slice(0,3).map(x=>`<p class="dlog-plain">${esc(x)}</p>`).join("")||`<p class="muted">這天沒有特別紀錄</p>`;
+    const rawTw=(d.tw||[]).map(x=>`<li>${esc(withSymNames(x))}</li>`).join("");
+    const rawCr=(d.crypto||[]).map(x=>`<li>${esc(withSymNames(x))}</li>`).join("");
+    const detail=(rawTw||rawCr)?`<details class="dlog-detail"><summary>詳細</summary>
+      <div class="dlog-cols">
+        <div class="dlog-col"><div class="feed-mhd">台股</div>${rawTw?`<ul>${rawTw}</ul>`:`<div class="muted">無</div>`}</div>
+        <div class="dlog-col"><div class="feed-mhd">幣圈</div>${rawCr?`<ul>${rawCr}</ul>`:`<div class="muted">無</div>`}</div>
+      </div>
+    </details>`:"";
     return `<div class="dlog-day">
       <div class="dlog-date">${esc(d.date)}</div>
-      <div class="dlog-cols">
-        <div class="dlog-col"><div class="feed-mhd">台股</div>${tw}</div>
-        <div class="dlog-col"><div class="feed-mhd">幣圈</div>${cr}</div>
-      </div>
+      <div class="dlog-summary">${plain}</div>
+      ${detail}
     </div>`;
-  }).join("");
-  return `<div class="feed-panel"><div class="dlog-list">${days}</div><div class="feed-disc">${disc}</div></div>`;
+  }).filter(Boolean).join("");
+  return `<div class="feed-panel"><div class="dlog-list">${days||`<div class="muted">尚無每日訓練紀錄</div>`}</div><div class="feed-disc">${disc}</div></div>`;
 }
 function bindStrategyFilters(root){
   const panel=(root||document).querySelector("#strat-panel");
