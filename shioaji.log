@@ -1,0 +1,2 @@
+[pid:854136] 2026-10-30T08:52:16.210699Z  INFO shioaji::api::api_v1::auth::token_login: No cached token available, performing new login
+[pid:854136] 2026-10-30T08:52:19.223646Z  INFO shioaji::api: msg receiver error: Closed

@@ -1264,7 +1264,7 @@ function openSheet(html){$("#sheetbody").innerHTML=html;$("#sheet").hidden=false
 function closeSheet(){$("#sheet").hidden=true;$("#sheetbg").hidden=true;}
 $("#close").onclick=closeSheet;$("#sheetbg").onclick=closeSheet;document.addEventListener("keydown",e=>{if(e.key==="Escape")closeSheet();});
 function sevHTML(c){const L=[["🔴","s1","致命"],["🟠","s2","重要"],["🟡","s3","次要"]];return L.map(([k,cl,n])=>`<span class="sev ${cl}"><i></i>${n} ${typeof c[k]==="object"?c[k].new+" 新 / "+c[k].old+" 舊":c[k]}</span>`).join("");}
-function tradeHead(){return `<div class="who trade-who"><img class="ava ava-trade" width="64" height="64" alt="青鋒交易" src="${avatarURL("trade",true)}"><div><div class="nm">青鋒交易</div><div class="rl">專業投資人 · 紙上模擬</div></div></div>`;}
+function tradeHead(){return `<div class="who trade-who trade-brand"><img class="ava ava-trade" width="56" height="56" alt="AgentX+" src="${avatarURL("trade",true)}"><div class="trade-brand-txt"><div class="trade-wm" aria-label="AgentX+">AgentX+</div><div class="trade-sub">青鋒交易 · 紙上模擬</div></div></div>`;}
 function memberBtn(id){return `<div class="mbtn"><button data-m="${id}" class="mbtn-ava"><img class="mava" src="${avatarURL(id)}" alt="" width="28" height="28">看 ${esc(NAMES[id])} 在想什麼</button></div>`;}
 function head(f,extra){const s=floorState(f);return `<h3>${iconSVG(f.id)}<span class="no">${f.no}</span> ${f.name}</h3><div class="muted"><span class="dot ${s.cat}"></span> ${esc(s.label)} · ${esc(noemo(s.text))}${extra||""}</div>`;}
 function openFloor(id){const f=FLOORS.find(x=>x.id===id);let h=head(f);

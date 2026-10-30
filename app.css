@@ -340,6 +340,11 @@ ul.qu{margin:6px 0}ul.qu li{margin:3px 0}
 /* ---- 7F 交易室分頁（原創版面；強調色 trade gold #C9A227） ---- */
 .trade-app{display:flex;flex-direction:column;gap:10px;position:relative;padding-bottom:64px}
 .trade-app .sim-banner{font-size:11.5px;color:#C9A227;border:1px dashed #C9A22766;background:#C9A22714;border-radius:10px;padding:6px 10px;text-align:center;font-weight:600}
+.trade-brand{gap:12px;margin:0 0 6px}
+.trade-brand-txt{display:flex;flex-direction:column;gap:2px;min-width:0}
+.trade-wm{font:800 22px/1.1 var(--font);letter-spacing:.02em;color:#C9A227;text-shadow:0 0 18px #C9A22755;font-variant-ligatures:none}
+.trade-sub{font-size:12px;color:var(--mute);font-weight:600}
+
 .trade-body{min-height:200px}
 .trade-tabs{position:sticky;bottom:0;z-index:5;display:grid;grid-template-columns:repeat(5,1fr);gap:2px;margin:8px -4px -4px;padding:6px 4px calc(6px + env(safe-area-inset-bottom,0));background:linear-gradient(180deg,#0c141ef2,#0a1018f8);border-top:1px solid #C9A22744;border-radius:14px 14px 0 0;backdrop-filter:blur(10px)}
 .ttab{appearance:none;border:0;background:transparent;color:var(--mute);font:600 11px/1.2 var(--font);padding:8px 2px;border-radius:10px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px}
