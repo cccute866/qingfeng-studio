@@ -390,3 +390,8 @@ ul.qu{margin:6px 0}ul.qu li{margin:3px 0}
   .wl-view{display:none}
   .trade-tabs{font-size:10px}
 }
+
+.idx-meta{font-size:11px;margin-top:6px;line-height:1.35}
+.idx-cached{font-size:10px;margin-left:4px;color:#C9A227;font-weight:600}
+.wl-chg.up{color:#9ff0c6}.wl-chg.down{color:#ffc6c6}
+.wl-code{font-size:10.5px}

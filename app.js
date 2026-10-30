@@ -594,7 +594,7 @@ function tradePerfHTML(){
   const dist=regime.distancePct!=null?` ${fmtPct(regime.distancePct)}`:" ";
   const sleeves=(p.sleeves||[]).map(s=>`<div class="feed-row"><span class="slite green"></span><span class="feed-src">${esc(s.name)}（目標 ${esc(String(s.targetPct))}%）</span><span class="feed-st ok">${esc(s.status||"")}</span></div>`).join("");
   const pos=(p.positions||[]).length
-    ? (p.positions||[]).map(x=>`<div class="feed-row"><span class="slite green"></span><span class="feed-src">${esc(x.symbol)}</span><span class="feed-st ok">權重 ${esc(String(x.weightPct))}%，未實現 ${fmtPct(x.unrealizedPct)}</span></div>`).join("")
+    ? (p.positions||[]).map(x=>`<div class="feed-row"><span class="slite green"></span><span class="feed-src">${esc(symLabel(x.symbol)||x.symbol)}</span><span class="feed-st ok">權重 ${esc(String(x.weightPct))}%，未實現 ${fmtPct(x.unrealizedPct)}</span></div>`).join("")
     : `<div class="muted">尚無持倉</div>`;
   const ev=(p.recentEvents||[]).length
     ? `<ul>${(p.recentEvents||[]).map(e=>`<li><span class="muted">${esc(e.date)}</span> ${esc(e.text)}</li>`).join("")}</ul>`
@@ -692,8 +692,8 @@ function strategyListHTML(){
   </div>`;
   const cards=list.map(s=>{
     const cls=stratStatusCls(s.status);
-    const reason=s.reason?`<div class="strat-reason">${esc(s.reason)}</div>`:"";
-    const fail=s.failureCondition?`<div class="strat-fail"><span class="muted">失效條件</span> ${esc(s.failureCondition)}</div>`:"";
+    const reason=s.reason?`<div class="strat-reason">${esc(withSymNames(s.reason))}</div>`:"";
+    const fail=s.failureCondition?`<div class="strat-fail"><span class="muted">失效條件</span> ${esc(withSymNames(s.failureCondition))}</div>`:"";
     const upd=s.updatedAt?`<div class="muted strat-upd">更新 ${esc(s.updatedAt)}</div>`:"";
     return `<div class="strat-card" data-market="${esc(s.market)}" data-status="${esc(s.status)}">
       <div class="strat-hd"><span class="strat-name">${esc(s.name)}</span><span class="chip ${cls}">${esc(s.status)}</span></div>
@@ -718,8 +718,8 @@ function dailyLogHTML(){
     return `<div class="feed-panel"><div class="muted">尚無每日訓練紀錄</div><div class="feed-disc">${disc}</div></div>`;
   }
   const days=log.map(d=>{
-    const tw=(d.tw||[]).length?`<ul>${(d.tw||[]).map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`:`<div class="muted">無</div>`;
-    const cr=(d.crypto||[]).length?`<ul>${(d.crypto||[]).map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`:`<div class="muted">無</div>`;
+    const tw=(d.tw||[]).length?`<ul>${(d.tw||[]).map(x=>`<li>${esc(withSymNames(x))}</li>`).join("")}</ul>`:`<div class="muted">無</div>`;
+    const cr=(d.crypto||[]).length?`<ul>${(d.crypto||[]).map(x=>`<li>${esc(withSymNames(x))}</li>`).join("")}</ul>`:`<div class="muted">無</div>`;
     return `<div class="dlog-day">
       <div class="dlog-date">${esc(d.date)}</div>
       <div class="dlog-cols">
@@ -905,8 +905,61 @@ const CORE_TW = [
 ];
 const CORE_CRYPTO = [
   {code:"BTC", name:"比特幣"}, {code:"ETH", name:"以太幣"},
-  {code:"SOL", name:"Solana"}, {code:"XRP", name:"XRP"},
+  {code:"SOL", name:"Solana"}, {code:"XRP", name:"瑞波幣"},
 ];
+
+function quotesMap(){
+  const p=(D&&D.trade&&D.trade.perf)||{};
+  const q=p.quotes;
+  if(!q) return {};
+  if(Array.isArray(q)){
+    const m={};
+    q.forEach(it=>{ const c=(it.code||it.symbol||""); if(c) m[c]=it; });
+    return m;
+  }
+  return q;
+}
+function symName(code){
+  const q=quotesMap()[code];
+  if(q&&q.name) return q.name;
+  const tw=CORE_TW.find(x=>x.code===code); if(tw) return tw.name;
+  const cx=CORE_CRYPTO.find(x=>x.code===code); if(cx) return cx.name;
+  if(code==="TAIEX") return "加權指數";
+  if(code==="0050") return "元大台灣50";
+  return "";
+}
+function symLabel(code){
+  const n=symName(code);
+  if(!code) return "—";
+  if(code==="TAIEX") return n||"加權指數";
+  return n?`${code} ${n}`:`${code}`;
+}
+function quoteOf(code){
+  return quotesMap()[code]||null;
+}
+function fmtPrice(v, code){
+  if(v==null || v==="" || Number.isNaN(Number(v))) return "—";
+  const n=Number(v);
+  if(code==="XRP") return n.toFixed(4);
+  if(code==="BTC"||code==="ETH") return n.toLocaleString("en-US",{maximumFractionDigits:2});
+  if(code==="TAIEX") return n.toLocaleString("en-US",{maximumFractionDigits:2});
+  if(n>=1000) return n.toLocaleString("en-US",{maximumFractionDigits:1});
+  return n.toFixed(2);
+}
+/** 在文字中把已知代號補上中文名（避免重複加） */
+function withSymNames(text){
+  let s=String(text||"");
+  const codes=["0050","2330","2317","2454","2303","2382","2308","2412","2881","2882","2891","2002","1301","BTC","ETH","SOL","XRP"];
+  codes.forEach(code=>{
+    const lab=symLabel(code);
+    if(lab===code) return;
+    // skip if already "code name"
+    const re=new RegExp(code+"(?!\\s*"+symName(code).replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+")","g");
+    s=s.replace(re, lab);
+  });
+  return s;
+}
+
 let tradeTab = "home";
 let stratExpand = "";
 
@@ -944,28 +997,24 @@ function weatherFor(code){
   return {wx:"陰", view:"無訊號", note:""};
 }
 function indexStripHTML(){
-  // 僅用 site_summary 既有欄位；無報價則 '—'，绝不捏造
-  const p=(D&&D.trade&&D.trade.perf)||{};
   const items=[
-    {code:"TAIEX", name:"加權指數", close:null, chg:null},
-    {code:"0050", name:"0050", close:null, chg:null},
-    {code:"BTC", name:"BTC", close:null, chg:null},
-    {code:"ETH", name:"ETH", close:null, chg:null},
+    {code:"TAIEX", name:"加權指數"},
+    {code:"0050", name:symLabel("0050")},
+    {code:"BTC", name:symLabel("BTC")},
+    {code:"ETH", name:symLabel("ETH")},
   ];
-  // 若未來 site_summary 出現 indexStrip／quotes 再填；目前保持 —
-  const raw=p.indexStrip||p.quotes||null;
-  if(Array.isArray(raw)){
-    raw.forEach(q=>{
-      const it=items.find(x=>x.code===(q.code||q.symbol));
-      if(!it) return;
-      if(q.close!=null) it.close=q.close;
-      if(q.changePct!=null) it.chg=q.changePct;
-    });
-  }
+  let asOf="", src="";
   return `<div class="idx-strip" role="list">${items.map(it=>{
-    const chgCls = it.chg==null?"":(Number(it.chg)>0?"up":(Number(it.chg)<0?"down":""));
-    return `<div class="idx-item" role="listitem"><div class="idx-name">${esc(it.name)}</div><div class="idx-close">${esc(fmtDash(it.close,2))}</div><div class="idx-chg ${chgCls}">${esc(fmtChg(it.chg))}</div></div>`;
-  }).join("")}</div>`;
+    const q=quoteOf(it.code);
+    const close=q&&q.close!=null?q.close:null;
+    const chg=q&&q.changePct!=null?q.changePct:null;
+    if(q&&q.asOf&&!asOf) asOf=q.asOf;
+    if(q&&q.source&&!src) src=q.source;
+    const chgCls = chg==null?"":(Number(chg)>0?"up":(Number(chg)<0?"down":""));
+    const cached=q&&q.cached?`<span class="idx-cached" title="沿用快取">快取</span>`:"";
+    return `<div class="idx-item" role="listitem"><div class="idx-name">${esc(it.code==="TAIEX"?"加權指數":symLabel(it.code))}</div><div class="idx-close">${esc(fmtPrice(close, it.code))}${cached}</div><div class="idx-chg ${chgCls}">${esc(fmtChg(chg))}</div></div>`;
+  }).join("")}</div>
+  <div class="idx-meta muted">${asOf?`截至 ${esc(asOf)} 台北`:"報價截至 —"}${src?` · ${esc(src)}`:""} · 缺值顯示 —，不捏造</div>`;
 }
 function focusCardsHTML(){
   const p=(D&&D.trade&&D.trade.perf)||{};
@@ -986,10 +1035,16 @@ function focusCardsHTML(){
 }
 function watchRowHTML(it){
   const w=weatherFor(it.code);
+  const q=quoteOf(it.code);
+  const close=q&&q.close!=null?q.close:null;
+  const chg=q&&q.changePct!=null?q.changePct:null;
+  const chgCls=chg==null?"muted":(Number(chg)>0?"up":(Number(chg)<0?"down":"muted"));
+  const asof=q&&q.asOf?q.asOf:"";
+  const miss=(!q||close==null);
   return `<div class="wl-row">
     <div class="wl-wx" title="${esc(w.view+(w.note?(" · "+w.note):""))}">${wxSVG(w.wx)}<span class="wl-wxlab">${esc(w.wx)}</span></div>
-    <div class="wl-meta"><div class="wl-name">${esc(it.name)}</div><div class="wl-code">${esc(it.code)}</div></div>
-    <div class="wl-px"><div class="wl-close">—</div><div class="wl-chg muted">—</div></div>
+    <div class="wl-meta"><div class="wl-name">${esc(symLabel(it.code))}</div><div class="wl-code">${esc(asof?(asof+" 台北"):(miss?"無報價":""))}${q&&q.cached?" · 快取":""}</div></div>
+    <div class="wl-px"><div class="wl-close">${esc(fmtPrice(close, it.code))}</div><div class="wl-chg ${chgCls}">${esc(fmtChg(chg))}</div></div>
     <div class="wl-view muted">${esc(w.view)}</div>
   </div>`;
 }
@@ -997,7 +1052,7 @@ function watchHTML(){
   return `<div class="wl-panel">
     <div class="wl-group"><div class="wl-ghd">台股核心</div>${CORE_TW.map(watchRowHTML).join("")}</div>
     <div class="wl-group"><div class="wl-ghd">幣圈</div>${CORE_CRYPTO.map(watchRowHTML).join("")}</div>
-    <div class="feed-disc">收盤／漲跌取自既有摘要欄位；缺值顯示 —，不捏造。天氣＝策略觀點（晴看多／陰中立或無訊號／雨看空）。紙上模擬，非投資建議。</div>
+    <div class="feed-disc">收盤／漲跌取自 TWSE／幣圈公開中位數（或摘要 quotes）；缺值顯示 —，不捏造。天氣＝策略觀點（晴看多／陰中立或無訊號／雨看空）。紙上模擬，非投資建議。</div>
   </div>`;
 }
 function sleevesDonutHTML(sleeves){
@@ -1021,7 +1076,7 @@ function bookHTML(){
   const p=(D&&D.trade&&D.trade.perf)||{};
   const pos=p.positions||[];
   const sleeves=p.sleeves||[];
-  const posRows=pos.length?pos.map(x=>`<div class="wl-row"><div class="wl-meta"><div class="wl-name">${esc(x.symbol)}</div></div><div class="wl-px"><div class="wl-close">權重 ${esc(fmtDash(x.weightPct,1))}%</div><div class="wl-chg">未實現 ${fmtPct(x.unrealizedPct)}</div></div></div>`).join(""):`<div class="muted">尚無紙上持倉</div>`;
+  const posRows=pos.length?pos.map(x=>`<div class="wl-row"><div class="wl-meta"><div class="wl-name">${esc(symLabel(x.symbol)||x.symbol)}</div></div><div class="wl-px"><div class="wl-close">權重 ${esc(fmtDash(x.weightPct,1))}%</div><div class="wl-chg">未實現 ${fmtPct(x.unrealizedPct)}</div></div></div>`).join(""):`<div class="muted">尚無紙上持倉</div>`;
   return `<div class="book-panel">
     <div class="sim-banner">紙上模擬 · 非投資建議 · 不碰真錢</div>
     <div class="big" style="margin-top:8px">
@@ -1052,9 +1107,9 @@ function stratCenterHTML(){
     const body = open?`<div class="strat-body">
       ${stratPeriodHTML("訓練期 IS", s.is)}
       ${stratPeriodHTML("驗證期 OOS", s.oos)}
-      <div class="muted" style="font-size:11.5px;margin:4px 0">同曝險對照見各期報酬；0050／BTC 基準見績效卡（不另捏造）</div>
-      ${s.failureCondition?`<div class="strat-fail"><span class="muted">條件／失效</span> ${esc(s.failureCondition)}</div>`:""}
-      ${s.reason?`<div class="strat-reason">${esc(s.status==="已拒絕"?"拒絕理由：":"說明：")}${esc(s.reason)}</div>`:""}
+      <div class="muted" style="font-size:11.5px;margin:4px 0">同曝險對照見各期報酬；${esc(symLabel("0050"))}／${esc(symLabel("BTC"))} 基準見績效卡（不另捏造）</div>
+      ${s.failureCondition?`<div class="strat-fail"><span class="muted">條件／失效</span> ${esc(withSymNames(s.failureCondition))}</div>`:""}
+      ${s.reason?`<div class="strat-reason">${esc(s.status==="已拒絕"?"拒絕理由：":"說明：")}${esc(withSymNames(s.reason))}</div>`:""}
       ${s.updatedAt?`<div class="muted strat-upd">更新 ${esc(s.updatedAt)}</div>`:""}
     </div>`:"";
     return `<button type="button" class="strat-card strat-tap${open?" open":""}" data-market="${esc(s.market)}" data-status="${esc(s.status)}" data-name="${esc(s.name)}">
