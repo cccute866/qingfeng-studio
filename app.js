@@ -76,9 +76,18 @@ function memberState(id){
       ?"遊戲公關：商店上架、IG／脆小編（只起草，不上傳）"
       :"財會：用量與花費、模擬帳核對";
     const name=id==="pr"?"沈沐禾":"蒲小棠";
-    if(min>=9*60&&min<18*60)
-      return{cat:"work",text:name+" 值班中",full:role,where:"desk",live:false};
-    return{cat:"wait",text:"下班／待命",full:role,where:"desk",live:false};
+    // 即時狀態優先（含「等你」）
+    const lv=D&&D.live&&D.live[id];
+    if(lv&&lv.status&&LIVEMAP[lv.status]){
+      const age=(Date.now()-parseTP(lv.updatedAt))/60000;
+      if(age>=0&&age<180) return{cat:LIVEMAP[lv.status],text:lv.task||lv.status,full:lv.task||role,where:"desk",live:true,updatedAt:lv.updatedAt,since:parseTP(lv.updatedAt)};
+    }
+    // 只在排程時段算工作中，其餘可閒晃
+    const sc=(D&&D.schedule||[]).filter(x=>x.who===id);
+    const cur=sc.find(x=>min>=mm(x.from)&&min<mm(x.to));
+    if(cur) return{cat:"work",text:cur.what,full:cur.what+"（"+cur.from+"–"+cur.to+"）",where:"desk",live:false};
+    const nx=sc.find(x=>min<mm(x.from));
+    return{cat:"wait",text:nx?(nx.from+" 開工"):"下班／待命",full:role,where:"desk",live:false};
   }
   if(id==="trade"){
     const tr=D&&D.trade||{}; const perf=tr.perf||{};
@@ -231,27 +240,108 @@ function resize(){const dpr=Math.min(window.devicePixelRatio||1,2.5);for(const k
 window.addEventListener("resize",resize);
 
 // ---- 角色位置 ----
+function isoForceFromUrl(){
+  if(typeof IsoStates==="undefined") return "";
+  try{return IsoStates.parseForce(location.search||"");}catch(e){return "";}
+}
+function isoBehFor(id,s){
+  if(typeof IsoStates==="undefined"||!IsoStates.ISO_IDS[id]) return null;
+  const force=isoForceFromUrl();
+  const lv=D&&D.live&&D.live[id];
+  const reduce=typeof matchMedia==="function"&&matchMedia("(prefers-reduced-motion:reduce)").matches;
+  return IsoStates.pickIsoBehavior({
+    id, baseCat:s.cat, baseText:s.text, baseFull:s.full,
+    live:lv||null,
+    decisions:typeof decisionsList==="function"?decisionsList():((D&&D.council&&D.council.decisions)||[]),
+    driIds:typeof driIds==="function"?driIds:function(){return[];},
+    today:todayStr(), nowMs:Date.now(), force,
+    tradePerf:(D&&D.trade&&D.trade.perf)||null,
+    reducedMotion:reduce,
+    parseTP:parseTP,
+    plainDecision:typeof plainDecisionSentence==="function"?plainDecisionSentence:function(d){return (d&&d.item)||"";}
+  });
+}
+function syncIsoFlag(c,beh){
+  if(!c||!c.btn) return;
+  let flag=c.btn.querySelector(".iso-flag");
+  const tag=beh&&beh.tag||"";
+  if(!tag){ if(flag) flag.remove(); c.btn.classList.remove("need-you","stuck"); return; }
+  if(!flag){ flag=document.createElement("span"); flag.className="iso-flag"; c.btn.appendChild(flag); }
+  flag.textContent=tag;
+  flag.className="iso-flag "+(beh.mode||"");
+  c.btn.classList.toggle("need-you", beh.mode==="needYou");
+  c.btn.classList.toggle("stuck", beh.mode==="stuck");
+}
+function placeIsoWander(c,now,beh){
+  const sp=SPOT[c.id];
+  const spots=(typeof IsoStates!=="undefined"&&IsoStates.ISO_WANDER[c.id])||[];
+  const reduce=!!(beh&&beh.reducedMotion);
+  c.bobNeed=false;
+  if(reduce||!spots.length){
+    const p=spots[0]||{x:sp.x,y:sp.floor};
+    c.x=p.x; c.y=p.y; c.pose="stand"; c.view="front"; c.stroll=null; return;
+  }
+  if(!c.stroll&&now-(c.lastStroll||0)>5000){
+    const idx=(c.wanderIdx||0)%spots.length;
+    const next=spots[idx];
+    c.wanderIdx=idx+1;
+    const fromX=c.x, fromY=c.y;
+    const dist=Math.hypot(next.x-fromX, next.y-fromY)||0.2;
+    c.stroll={t0:now,fromX,fromY,toX:next.x,toY:next.y,dur:Math.max(2800,dist*14000),pause:2600};
+  }
+  if(c.stroll){
+    const e=now-c.stroll.t0, tot=c.stroll.dur+c.stroll.pause;
+    if(e>tot){ c.x=c.stroll.toX; c.y=c.stroll.toY; c.stroll=null; c.lastStroll=now; c.pose="stand"; c.view="front"; return; }
+    if(e<c.stroll.dur){
+      const k=e/c.stroll.dur;
+      c.x=c.stroll.fromX+(c.stroll.toX-c.stroll.fromX)*k;
+      c.y=c.stroll.fromY+(c.stroll.toY-c.stroll.fromY)*k;
+      c.pose="walk"; c.view="front";
+      c.dir=c.stroll.toX>=c.stroll.fromX?1:-1;
+      return;
+    }
+    c.x=c.stroll.toX; c.y=c.stroll.toY; c.pose="stand"; c.view="front"; return;
+  }
+  c.x=sp.x; c.y=sp.floor; c.pose="stand"; c.view="front";
+}
 function placeChar(c,now){
   const s=memberState(c.id),sp=SPOT[c.id];c.state=s;
   c.clip=null;
   if(s.where==="meeting"){
     const el=(isNaN(s.since)?1e9:(Date.now()-s.since)/1000)-meeters().indexOf(c.id)*6; // 秒，錯開出發
-    if(el<0){c.floor=sp.f;c.x=sp.x;c.y=sp.floor;c.pose="stand";c.view="front";c.stroll=null;return;}
+    if(el<0){c.floor=sp.f;c.x=sp.x;c.y=sp.floor;c.pose="stand";c.view="front";c.stroll=null;c.beh=null;syncIsoFlag(c,null);return;}
     if(el<70){c.floor=sp.f;const k=el/70;c.x=sp.x+(1.08-sp.x)*k;c.y=sp.floor;c.pose="walk";c.view="front";c.flip=1;}
     else if(el<120){c.floor="council";const k=(el-70)/50;c.x=1.06+(SEAT[c.id]-1.06)*k;c.y=.9;c.pose="walk";c.view="front";}
     else{c.floor="council";c.x=SEAT[c.id];c.y=TABLE_TOP+.08;c.pose="sit";c.view="front";c.clip=TABLE_TOP;}
-    c.stroll=null;return;}
+    c.stroll=null;c.beh=null;syncIsoFlag(c,null);return;}
   c.floor=sp.f;
-  if(s.cat==="work"){const iso=c.id==="trade"||c.id==="pr"||c.id==="fin";c.x=sp.x;c.y=sp.y;c.pose=(iso?"sit":"type");c.view=(iso?"front":"back");c.stroll=null;return;}
-  // 閒置：偶爾散步（尊重減少動態）
+  // 7F／夾層等角：需要你 > 卡住了 > 工作中 > 閒晃
+  const beh=isoBehFor(c.id,s);
+  if(beh){
+    c.beh=beh;
+    // 需要你時對外狀態改為「等你」，方便氣泡／明細
+    if(beh.mode==="needYou"){ c.state={...s,cat:"you",text:beh.bubble,full:beh.detail}; }
+    else if(beh.mode==="stuck"){ c.state={...s,cat:"work",text:beh.bubble,full:beh.detail}; }
+    syncIsoFlag(c,beh);
+    if(beh.mode==="needYou"){
+      c.x=sp.x; c.y=sp.floor; c.pose="present"; c.view="front"; c.stroll=null; c.bobNeed=true; return;
+    }
+    if(beh.mode==="stuck"||beh.mode==="work"){
+      c.x=sp.x; c.y=sp.y; c.pose="sit"; c.view="front"; c.stroll=null; c.bobNeed=false; return;
+    }
+    // wander
+    placeIsoWander(c,now,beh); return;
+  }
+  c.beh=null; syncIsoFlag(c,null);
+  if(s.cat==="work"){c.x=sp.x;c.y=sp.y;c.pose="type";c.view="back";c.stroll=null;return;}
+  // 其他樓層閒置：偶爾散步（尊重減少動態）
   const reduce=typeof matchMedia==="function"&&matchMedia("(prefers-reduced-motion:reduce)").matches;
-  if(!reduce&&!c.stroll&&now-c.lastStroll>9000+Math.random()*9000){const tx=(c.id==="trade"?.20+.45*Math.random():(c.id==="pr"?.12+.28*Math.random():(c.id==="fin"?.55+.28*Math.random():.15+Math.random()*.7)));c.stroll={t0:now,from:sp.x,to:tx,dur:Math.abs(tx-sp.x)*9000+600};}
+  if(!reduce&&!c.stroll&&now-c.lastStroll>9000+Math.random()*9000){const tx=.15+Math.random()*.7;c.stroll={t0:now,from:sp.x,to:tx,dur:Math.abs(tx-sp.x)*9000+600};}
   if(c.stroll){const e=(now-c.stroll.t0);const tot=c.stroll.dur*2+2500;
     if(e>tot){c.stroll=null;c.lastStroll=now;}
     else{let x;if(e<c.stroll.dur)x=c.stroll.from+(c.stroll.to-c.stroll.from)*e/c.stroll.dur;else if(e<c.stroll.dur+2500)x=c.stroll.to;else x=c.stroll.to+(c.stroll.from-c.stroll.to)*(e-c.stroll.dur-2500)/c.stroll.dur;
       c.x=x;c.y=sp.floor;c.pose=(e<c.stroll.dur||e>c.stroll.dur+2500)?"walk":"stand";c.view="front";return;}}
-  const iso=c.id==="trade"||c.id==="pr"||c.id==="fin";
-  c.x=sp.x;c.y=s.cat==="you"?sp.floor:sp.y;c.pose=s.cat==="you"?"stand":"sit";c.view=(s.cat==="you"||iso)?"front":"back";
+  c.x=sp.x;c.y=s.cat==="you"?sp.floor:sp.y;c.pose=s.cat==="you"?"stand":"sit";c.view=s.cat==="you"?"front":"back";
 }
 // ---- 半寫實立繪（assets/chars/<id>_<idle|walk|wave>.webp，128×160，腳底 y=152）＋棚拍頭像 ----
 const SPR={};
@@ -259,9 +349,15 @@ function sprite(id,pose){const k=id+"_"+pose;let im=SPR[k];if(!im){im=new Image(
 function preloadSprites(){for(const id of Object.keys(SPOT))for(const p of ["idle","walk","wave"])sprite(id,p);}
 function avatarURL(id,lg){return lg?`assets/avatars/avatar_${id}_lg.webp`:`assets/avatars/avatar_${id}.webp`;}
 function spritePose(c,now){
-  if(c.wave>now)return"wave";
-  if(c.pose==="walk")return Math.floor(now/220)%2?"walk":"idle";
-  // sit/type/stand/present → idle（trade idle＝sit、wave＝present）
+  const iso=typeof IsoStates!=="undefined"&&IsoStates.ISO_IDS[c.id];
+  if(c.pose==="present"||c.wave>now)return"wave"; // present 立繪
+  if(c.pose==="stand")return iso?"wave":"idle"; // 等角站姿用 present
+  if(c.pose==="walk"){
+    // 等角 idle＝坐下，走路時不要切回 sit
+    if(iso) return"walk";
+    return Math.floor(now/220)%2?"walk":"idle";
+  }
+  // sit/type → idle（等角 idle＝sit）
   return"idle";
 }
 let last=0;
@@ -277,6 +373,7 @@ function loop(now){
     list.sort((a,b)=>a.y-b.y);
     for(const c of list){const x=c.x*cv.width,y=c.y*cv.height;let b=0;
       if(c.bounce>now){const p=1-(c.bounce-now)/700;b=-Math.abs(Math.sin(p*Math.PI*2))*5*u;}
+      else if(c.pose==="present"&&c.bobNeed){const reduce=typeof matchMedia==="function"&&matchMedia("(prefers-reduced-motion:reduce)").matches;if(!reduce)b=-Math.abs(Math.sin(now/700*Math.PI))*2.4*u;}
       else if(c.pose==="walk")b=-Math.abs(Math.sin(now/220*Math.PI))*1.2*u;
       else if(c.pose==="type")b=-(frame%2)*.6*u;
       if(c.px!=null&&Math.abs(c.x-c.px)>1e-4)c.dir=c.x<c.px?-1:1;c.px=c.x;
@@ -295,7 +392,15 @@ function loop(now){
     thinking.el.style.left=Math.min(80,Math.max(20,c.x*100))+"%";thinking.el.style.top=((c.clip?c.clip:c.y)*100-30)+"%";
     if(now>thinking.until){thinking.el.remove();thinking=null;}}
 }
-function thoughtOf(id){const lv=D.live&&D.live[id];const s=memberState(id);if(s.live&&lv&&lv.thought)return lv.thought;return noemo((D.cards[id]||{}).thought)||"先把手上的事做好。";}
+function thoughtOf(id){
+  const c=chars[id];
+  if(c&&c.beh){
+    if(c.beh.mode==="needYou") return noemo(c.beh.detail)||"有件事等你拍板。";
+    if(c.beh.mode==="stuck") return noemo(c.beh.detail)||"好像卡住了，很久沒進度。";
+    if(c.beh.mode==="wander") return"現在沒事，到處走走。";
+  }
+  const lv=D.live&&D.live[id];const s=memberState(id);if(s.live&&lv&&lv.thought)return lv.thought;return noemo((D.cards[id]||{}).thought)||"先把手上的事做好。";
+}
 function showThought(id,ms){if(thinking)thinking.el.remove();const el=document.createElement("div");el.className="think";el.textContent=thoughtOf(id);thinking={id,el,until:performance.now()+(ms||4500)};}
 function react(id){const c=chars[id];const now=performance.now();if(c.view==="front"&&Math.random()<.6)c.wave=now+1400;else c.bounce=now+700;showThought(id,4000);}
 setInterval(()=>{if(!D||document.hidden||!$("#sheet").hidden)return;const ids=Object.keys(chars).filter(i=>{const c=chars[i];return c.x<1&&c.x>0&&floorsEl[c.floor].visible;});if(ids.length)showThought(ids[Math.floor(Math.random()*ids.length)]);},9000);

@@ -523,3 +523,15 @@ button.wl-row:active{background:#ffffff08}
 .sbook-k{display:block;font-size:10px;color:#9aa8b8}
 .sbook-v{display:block;font-size:13px;font-weight:650;color:var(--text);margin-top:2px}
 .chip.bench{background:#C9A22722;color:#E8C547;border-color:#C9A22755}
+
+
+/* 等角行為標籤：等你決定／好像卡住了 */
+.hit .iso-flag{position:absolute;left:50%;top:-4px;transform:translate(-50%,-100%);font-size:10px;font-weight:700;white-space:nowrap;padding:1px 7px;border-radius:8px;pointer-events:none;box-shadow:0 2px 8px #0008;z-index:2}
+.hit .iso-flag.needYou{background:#3a2a0ecc;color:#ffd27a;border:1px solid #ffb54788;animation:isoPulse 1.4s ease-in-out infinite}
+.hit .iso-flag.stuck{background:#3a1212ee;color:#ffb3b3;border:1px solid #ff5d5d88}
+.hit.need-you .tag{border-color:#ffb54766;color:#ffd27a}
+.hit.stuck .tag{border-color:#ff5d5d66;color:#ffb3b3}
+@keyframes isoPulse{0%,100%{box-shadow:0 0 0 0 #ffb54755}50%{box-shadow:0 0 0 6px transparent}}
+@media (prefers-reduced-motion:reduce){
+  .hit .iso-flag.needYou{animation:none}
+}
