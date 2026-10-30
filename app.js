@@ -85,7 +85,14 @@ function memberState(id){
 }
 function floorState(f){
   if(f.id==="trade"){
-    const tr=D&&D.trade; const sm=tr&&tr.summary||{};
+    const tr=D&&D.trade||{}; const perf=tr.perf||{};
+    if(perf.waitingFirstFill) return{cat:"work",label:"模擬營運中",text:perf.status||"等待首筆模擬單成交"};
+    const eq=perf.equityReturnPct, bh=perf.benchmark0050ReturnPct;
+    if(eq!=null && bh!=null){
+      const sign=eq>=0?"+":"";
+      return{cat:"work",label:"模擬營運中",text:`報酬 ${sign}${Number(eq).toFixed(1)}% · 0050 ${bh>=0?"+":""}${Number(bh).toFixed(1)}%`};
+    }
+    const sm=tr.summary||{};
     const ok=sm.ok||0, total=sm.total||0;
     return{cat:"work",label:"模擬營運中",text:total?(`行情已連線 ${ok}/${total}`):"模擬交易 · 非投資建議"};
   }
@@ -496,6 +503,46 @@ function gaugeSVG(pct,color){
   return `<span class="fv-gauge"><svg width="36" height="36" viewBox="0 0 36 36" aria-hidden="true"><circle cx="18" cy="18" r="${r}" fill="none" stroke="#1a2433" stroke-width="4"/><circle cx="18" cy="18" r="${r}" fill="none" stroke="${color||"#3FD8A0"}" stroke-width="4" stroke-linecap="round" stroke-dasharray="${dash.toFixed(1)} ${c.toFixed(1)}" transform="rotate(-90 18 18)"/></svg><b>${p}%</b></span>`;
 }
 
+function fmtPct(v, digits=1){
+  if(v==null||v==="") return "—";
+  const n=Number(v); if(!Number.isFinite(n)) return "—";
+  return (n>=0?"+":"")+n.toFixed(digits)+"%";
+}
+function tradePerfHTML(){
+  const tr=D&&D.trade||{}; const p=tr.perf||{};
+  const disc=esc(p.disclaimer||tr.disclaimer||"模擬結果，非投資建議");
+  const asof=p.asOf?`更新 ${esc(p.asOf)}（台北）`:"";
+  const regime=p.regime||{};
+  const vs=regime.vsSma200==="above"?"站上 SMA200":(regime.vsSma200==="below"?"跌破 SMA200":"均線未知");
+  const dist=regime.distancePct!=null?` ${fmtPct(regime.distancePct)}`:" ";
+  const sleeves=(p.sleeves||[]).map(s=>`<div class="feed-row"><span class="slite green"></span><span class="feed-src">${esc(s.name)}（目標 ${esc(String(s.targetPct))}%）</span><span class="feed-st ok">${esc(s.status||"")}</span></div>`).join("");
+  const pos=(p.positions||[]).length
+    ? (p.positions||[]).map(x=>`<div class="feed-row"><span class="slite green"></span><span class="feed-src">${esc(x.symbol)}</span><span class="feed-st ok">權重 ${esc(String(x.weightPct))}%，未實現 ${fmtPct(x.unrealizedPct)}</span></div>`).join("")
+    : `<div class="muted">尚無持倉</div>`;
+  const ev=(p.recentEvents||[]).length
+    ? `<ul>${(p.recentEvents||[]).map(e=>`<li><span class="muted">${esc(e.date)}</span> ${esc(e.text)}</li>`).join("")}</ul>`
+    : `<div class="muted">尚無日誌</div>`;
+  const st=p.strategies;
+  const stHtml=st?`<div class="chips" style="margin-top:8px"><span class="chip">已測 ${st.tested||0}</span><span class="chip no">失敗 ${st.failed||0}</span><span class="chip ok">通過 ${st.passed||0}</span>${st.weak?`<span class="chip mid">偏弱 ${st.weak}</span>`:""}</div>`:"";
+  const wait=p.waitingFirstFill?`<div class="chips" style="margin-bottom:8px"><span class="chip mid">${esc(p.status||"等待首筆模擬單成交")}</span></div>`:"";
+  return `<div class="feed-panel">${wait}
+    <div class="big" style="margin-top:4px">
+      <div><b>${fmtPct(p.equityReturnPct)}</b><span>模擬報酬</span></div>
+      <div><b>${fmtPct(p.benchmark0050ReturnPct)}</b><span>0050 同期</span></div>
+      <div><b>${fmtPct(p.dailyChangePct)}</b><span>今日變動</span></div>
+      <div><b>${p.maxDrawdownPct==null?"—":(Number(p.maxDrawdownPct).toFixed(1)+"%")}</b><span>最大回撤</span></div>
+    </div>
+    <div class="feed-mkt" style="margin-top:8px"><div class="feed-mhd">市場狀態 · 0050 <span class="muted">${esc(vs)}${esc(dist.trim()?dist:"")}</span></div>
+      <div class="muted">資料日 ${esc(regime.asOfDate||"—")} · 待成交單 ${esc(String(p.pendingOrderCount||0))} · 下次檢討 ${esc(p.nextReview||"—")}</div>
+    </div>
+    <div class="feed-mkt"><div class="feed-mhd">部位配置</div>${sleeves||'<div class="muted">—</div>'}</div>
+    <div class="feed-mkt"><div class="feed-mhd">持倉（權重）</div>${pos}</div>
+    <div class="feed-mkt"><div class="feed-mhd">近期事件</div>${ev}</div>
+    ${st?`<div class="feed-mkt"><div class="feed-mhd">策略研究紀錄</div>${stHtml}</div>`:""}
+    <div class="feed-meta muted">${asof}</div>
+    <div class="feed-disc">${disc}</div>
+  </div>`;
+}
 function feedStatusHTML(){
   const tr=D&&D.trade||{};
   const markets=tr.markets||[];
@@ -519,7 +566,14 @@ function feedStatusHTML(){
 function floorVizHTML(id){
   if(!D)return"";
   if(id==="trade"){
-    const tr=D.trade||{}; const sm=tr.summary||{};
+    const tr=D.trade||{}; const perf=tr.perf||{}; const sm=tr.summary||{};
+    if(perf.waitingFirstFill) return lightHTML("yellow")+`<span class="fv-cap">等待開盤成交 · 模擬</span>`;
+    if(perf.equityReturnPct!=null){
+      const eq=Number(perf.equityReturnPct), bh=perf.benchmark0050ReturnPct;
+      const lite=eq>=0?"green":"yellow";
+      const bhTxt=bh==null?"":` · vs0050 ${bh>=0?"+":""}${Number(bh).toFixed(1)}%`;
+      return lightHTML(lite)+`<span class="fv-cap">${eq>=0?"+":""}${eq.toFixed(1)}%${bhTxt}</span>`;
+    }
     const ok=sm.ok||0, total=sm.total||0;
     const lite=total&&ok===total?"green":(ok?"yellow":"red");
     return lightHTML(lite)+`<span class="fv-cap">行情 ${ok}/${total} · 模擬</span>`;
@@ -615,7 +669,7 @@ function decisionBoardHTML(){
 function renderRoomDash(){
   const el=$("#room-dash"); if(!el||!D) return;
   const id=activeFloor;
-  if(id==="trade"){ el.innerHTML=`<div class="card"><h2>行情連線</h2>${feedStatusHTML()}</div>`; return; }
+  if(id==="trade"){ el.innerHTML=`<div class="card"><h2>模擬績效</h2>${tradePerfHTML()}</div><div class="card" style="margin-top:10px"><h2>行情連線</h2>${feedStatusHTML()}</div>`; return; }
   if(id==="council"){ el.innerHTML=`<div class="card"><h2>今日決定看板</h2>${decisionBoardHTML()}</div>`; return; }
   if(id==="art"){
     const a=D.art||{}; const n=a.todayCount||0;
@@ -744,7 +798,7 @@ function openFloor(id){const f=FLOORS.find(x=>x.id===id);let h=head(f);
     <h4>今天修了什麼（${esc(v.version)}）</h4><ul>${v.changes.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>
     <h4>版本紀錄</h4><table>${v.releases.map(r=>`<tr><td><b>${esc(r.ver)}</b></td><td class="muted">${esc(fmtAt(r.at))}</td><td>${esc(r.msg)}</td></tr>`).join("")}</table>
     <h4>待辦進度</h4>${progressHTML()}`+memberBtn("zhiya");}
-  if(id==="trade"){h+=`<h4>行情資料來源</h4>${feedStatusHTML()}<h4>營運說明</h4><ul><li>青鋒交易 · 專業投資人角色（紙上模擬）</li><li>只用不需金鑰的公開行情；Alpaca／永豐／OKX 模擬盤待偉翔申請</li><li>不碰真錢、不下單、非投資建議</li></ul>`;}
+  if(id==="trade"){h+=`<h4>模擬績效</h4>${tradePerfHTML()}<h4>行情資料來源</h4>${feedStatusHTML()}<h4>營運說明</h4><ul><li>青鋒交易 · 專業投資人角色（紙上模擬）</li><li>只用公開行情、不串券商、不使用金鑰</li><li>不碰真錢、不下單、模擬結果非投資建議</li></ul>`;}
   if(id==="art"){const a=D.art;if(a){
     h+=`<h4>交件統計</h4><div class="chips"><span class="chip ok">今日 ${a.todayCount||0} 張</span><span class="chip">最新批次 ${a.baseCount||a.files||0} 張</span><span class="chip ${a.integrated?"ok":"mid"}">${a.integrated?"已整合":"待整合"}</span><span class="chip">交件 ${esc(fmtAt(a.at))}</span></div>
     <div class="spark-wrap" style="margin-top:10px">${artTrendSVG(a.trend)}<span class="muted">近 7 日交件量</span></div>
