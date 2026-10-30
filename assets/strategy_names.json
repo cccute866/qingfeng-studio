@@ -12,7 +12,7 @@
   "strategies": {
     "FALLBACK_0050_S1": {
       "displayName": "退回方案（對照 0050）",
-      "plainReason": "0050 只作對照基準，不再當「抱緊不賣」的主策略；舊回測留作參考"
+      "plainReason": "0050 只作對照基準，不再當主策略；舊回測留作參考"
     },
     "SCREEN3_L2L3_practice": {
       "displayName": "三層掃描練習",
