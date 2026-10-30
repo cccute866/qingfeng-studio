@@ -40,10 +40,26 @@ const FLOORS=[
 const BANDS={f9_top:[202,349],f8:[349,490],f7:[490,629],f6:[629,769],f5:[769,906],f4:[906,1042],f3:[1042,1178],f2:[1178,1360],mz:[1360,1455],lobby:[1455,1799]};
 const TOWER_H=1800;
 /* 座位：room2 floor_y/520；view back=背對螢幕 */
-const SPOT={weixiang:{f:"director",x:.30,y:.70,floor:.75},zhiya:{f:"dev",x:.52,y:.68,floor:.74},art:{f:"art",x:.34,y:.66,floor:.73},num:{f:"num",x:.44,y:.70,floor:.75},qa:{f:"qa",x:.58,y:.68,floor:.74},eng:{f:"eng",x:.48,y:.74,floor:.81},trade:{f:"trade",x:.46,y:.71,floor:.74},pr:{f:"mz",x:.32,y:.52,floor:.52,sitX:.25,sitY:.68},fin:{f:"mz",x:.72,y:.52,floor:.55}};
+const SPOT={weixiang:{f:"director",x:.30,y:.70,floor:.75},zhiya:{f:"dev",x:.52,y:.68,floor:.74},art:{f:"art",x:.34,y:.66,floor:.73},num:{f:"num",x:.44,y:.70,floor:.75},qa:{f:"qa",x:.58,y:.68,floor:.74},eng:{f:"eng",x:.48,y:.74,floor:.81},
+  /* 7F：坐近側圓桌椅（BR 椅墊）；站／需要你在椅旁地板。夾層：站桌前地板；公關卡住可坐懶骨頭 */
+  trade:{f:"trade",x:.548,y:.662,floor:.70,seatFrac:.52},
+  pr:{f:"mz",x:.36,y:.54,floor:.54,sitX:.290,sitY:.610,seatFrac:.52},
+  fin:{f:"mz",x:.68,y:.62,floor:.62}};
 /* 半寫實比例：一般樓層＝房間高度比；等角 7F／夾層＝房間寬度比（站姿≈2.2×桌高＝242/源圖寬） */
 const ROOM_SCALE={director:.44,council:.42,trade:242/1761,mz:242/1630,lobby:.42,dev:.42,art:.41,num:.41,qa:.41,eng:.38};
 const ISO_SIT_RATIO=179/242; /* 坐姿／站姿（源圖 179px／242px） */
+/* 錨點＝不透明像素：站／走／present 用腳底中心；坐姿用椅墊接觸列（seatFrac）水平中心 */
+const ISO_ANCHOR={
+  trade:{walk:{fx:.323,fy:.998},wave:{fx:.693,fy:.998},idle:{sx:.618,sf:.52}},
+  pr:{walk:{fx:.187,fy:.998},wave:{fx:.632,fy:.998},idle:{sx:.590,sf:.52}},
+  fin:{walk:{fx:.374,fy:.998},wave:{fx:.687,fy:.998},idle:{sx:.607,sf:.50}}
+};
+function isoAnchor(id, pose){
+  const a=ISO_ANCHOR[id]; if(!a) return null;
+  if(pose==="sit"||pose==="type"||pose==="idle") return a.idle;
+  if(pose==="walk") return a.walk;
+  return a.wave; /* present／stand → wave 立繪 */
+}
 const ISO_SCALE_BY_WIDTH={trade:1,mz:1}; /* 等角用寬度當基準 */
 const SEAT={weixiang:.29,zhiya:.37,art:.45,num:.53,qa:.61,eng:.69}; const TABLE_TOP=.62;
 const NAMES={weixiang:"偉翔",zhiya:"智雅",art:"青鋒美術",num:"青鋒數值",qa:"青鋒監管",eng:"青鋒工程",council:"全員會議",trade:"青鋒交易",pr:"沈沐禾",fin:"蒲小棠"};
@@ -382,10 +398,16 @@ function loop(now){
       ctx.save();if(c.clip){ctx.beginPath();ctx.rect(0,0,cv.width,c.clip*cv.height);ctx.clip();}
       if(c.x<1.02&&c.x>-.02){ctx.fillStyle="rgba(0,0,0,.35)";if(!c.clip){ctx.beginPath();ctx.ellipse(x,y+u*.3,5*u,1.4*u,0,0,7);ctx.fill();}
         const im=sprite(c.id,spritePose(c,now));
-        if(im.complete&&im.naturalWidth){const sc=ROOM_SCALE[k]||.42,iso=!!ISO_SCALE_BY_WIDTH[k],base=iso?sc*cv.width:sc*cv.height,sitMul=iso?ISO_SIT_RATIO:.78,dh=(c.pose==="sit"||c.pose==="type"?base*sitMul:base),dw=dh*(im.naturalWidth/im.naturalHeight),top=y+b-dh*.95;
+        if(im.complete&&im.naturalWidth){const sc=ROOM_SCALE[k]||.42,iso=!!ISO_SCALE_BY_WIDTH[k],base=iso?sc*cv.width:sc*cv.height,sitMul=iso?ISO_SIT_RATIO:.78,dh=(c.pose==="sit"||c.pose==="type"?base*sitMul:base),dw=dh*(im.naturalWidth/im.naturalHeight);
+          /* 等角：腳底／椅墊錨；其餘樓層維持圖框中心略上 */
+          let ax=.5, ay=.95;
+          if(iso){const spA=SPOT[c.id]||{};const anc=isoAnchor(c.id, spritePose(c,now));
+            if(c.pose==="sit"||c.pose==="type"){ay=(spA.seatFrac!=null?spA.seatFrac:(anc&&anc.sf)||.55);ax=(anc&&anc.sx!=null)?anc.sx:.5;}
+            else if(anc){ax=anc.fx;ay=anc.fy;}}
+          const top=y+b-dh*ay;
           ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality="high";
-          if(c.dir===-1&&c.pose==="walk"){ctx.translate(x,0);ctx.scale(-1,1);ctx.drawImage(im,-dw/2,top,dw,dh);}
-          else ctx.drawImage(im,x-dw/2,top,dw,dh);}}
+          if(c.dir===-1&&c.pose==="walk"){ctx.translate(x,0);ctx.scale(-1,1);ctx.drawImage(im,-ax*dw,top,dw,dh);}
+          else ctx.drawImage(im,x-ax*dw,top,dw,dh);}}
       ctx.restore();
       const px=c.x*100,py=(c.clip?c.clip:c.y)*100;c.btn.style.left=Math.min(96,Math.max(4,px))+"%";c.btn.style.top=py+"%";c.btn.style.display=(c.x>1.02||c.x<-.02)?"none":"";
     }

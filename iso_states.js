@@ -9,24 +9,56 @@
 
   /** 手點座標：相對房間 0–1；走路時用 walk，停靠用 stand→present 立繪 */
   /** 站立點須在地板上（非桌面／欄杆外）。座標相對房間 0–1。 */
+  /** 閒晃點：開闊地板磁磚（非桌面／懶骨頭／玻璃欄杆）。對照 preview_iso_scale 與房間圖校正。 */
   var ISO_WANDER = {
     trade: [
-      { x: 0.50, y: 0.74, label: "圓桌旁" },
-      { x: 0.78, y: 0.64, label: "飲水機" },
-      { x: 0.66, y: 0.58, label: "窗邊地板" },
-      { x: 0.22, y: 0.72, label: "欄杆內側" }
+      { x: 0.50, y: 0.76, label: "圓桌前地板" },
+      { x: 0.65, y: 0.70, label: "右側走道" },
+      { x: 0.42, y: 0.78, label: "近景地板" },
+      { x: 0.32, y: 0.70, label: "左側走道" }
     ],
     pr: [
-      { x: 0.25, y: 0.68, label: "懶骨頭旁" },
-      { x: 0.18, y: 0.55, label: "環形燈" },
-      { x: 0.42, y: 0.58, label: "窗邊地板" }
+      { x: 0.36, y: 0.54, label: "公關桌前" },
+      { x: 0.45, y: 0.50, label: "中央走道" },
+      { x: 0.50, y: 0.52, label: "中間地板" }
     ],
     fin: [
-      { x: 0.86, y: 0.58, label: "金庫旁" },
-      { x: 0.62, y: 0.58, label: "窗邊地板" },
-      { x: 0.74, y: 0.72, label: "走道" }
+      { x: 0.62, y: 0.60, label: "財會桌前" },
+      { x: 0.68, y: 0.60, label: "桌右地板" },
+      { x: 0.55, y: 0.58, label: "中央走道" }
     ]
   };
+
+  /** 可行走地板多邊形（房間圖分數座標，順時針）。坐點可在椅／懶骨頭上，不強制在此內。 */
+  var ISO_FLOOR = {
+    trade: [
+      [0.10, 0.60], [0.30, 0.50], [0.55, 0.46], [0.82, 0.50], [0.92, 0.60],
+      [0.88, 0.78], [0.60, 0.88], [0.35, 0.86], [0.15, 0.78]
+    ],
+    /* 夾層：欄杆內側走道（y 不宜超過 ≈0.62，否則踩到玻璃欄杆） */
+    mz: [
+      [0.10, 0.48], [0.32, 0.40], [0.55, 0.40], [0.82, 0.44], [0.90, 0.55],
+      [0.88, 0.63], [0.55, 0.63], [0.30, 0.60], [0.12, 0.55]
+    ]
+  };
+
+  function pointInPoly(x, y, poly) {
+    var inside = false;
+    for (var i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      var xi = poly[i][0], yi = poly[i][1];
+      var xj = poly[j][0], yj = poly[j][1];
+      var intersect = ((yi > y) !== (yj > y)) &&
+        (x < (xj - xi) * (y - yi) / ((yj - yi) || 1e-12) + xi);
+      if (intersect) inside = !inside;
+    }
+    return inside;
+  }
+
+  function spotOnFloor(room, x, y) {
+    var poly = ISO_FLOOR[room];
+    if (!poly) return true;
+    return pointInPoly(x, y, poly);
+  }
 
   /** 站姿高度／房間寬（源圖 242px／房間寬）；坐姿比＝179/242 */
   var ISO_SCALE = {
@@ -245,13 +277,16 @@
   var api = {
     ISO_IDS: ISO_IDS,
     ISO_WANDER: ISO_WANDER,
+    ISO_FLOOR: ISO_FLOOR,
     ISO_SCALE: ISO_SCALE,
     STUCK_MS: STUCK_MS,
     parseForce: parseForce,
     pickIsoBehavior: pickIsoBehavior,
     findNeedYou: findNeedYou,
     findStuck: findStuck,
-    wanderPlacement: wanderPlacement
+    wanderPlacement: wanderPlacement,
+    pointInPoly: pointInPoly,
+    spotOnFloor: spotOnFloor
   };
 
   root.IsoStates = api;
