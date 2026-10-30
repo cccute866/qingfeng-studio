@@ -1146,20 +1146,31 @@ function indexStripHTML(){
   }).join("")}</div>
   <div class="idx-meta muted">${asOf?`截至 ${esc(asOf)} 台北`:"報價截至 —"}${src?` · ${esc(src)}`:""} · 缺值顯示 —，不捏造</div>`;
 }
+function stripEnglishIds(s){
+  return String(s||"").replace(/\b[A-Z][A-Z0-9_]{3,}\b/g,"").replace(/[／/]\s*[／/]/g,"／").replace(/\s{2,}/g," ").replace(/^[／/\s；;，,：:]+|[／/\s；;，,：:]+$/g,"").trim();
+}
+function jargonToPlain(s){
+  let t=String(s||"");
+  const pairs=[["SCREEN3_REFINE","三層掃描"],["SCREEN3_PIT","三層掃描"],["SCREEN3","三層掃描"],["FALLBACK 0050+S1","退回方案（對照 0050）"],["FALLBACK 0050","退回方案（對照 0050）"],["FALLBACK","退回"],["VOL_BREAKOUT_GAP","量增突破＋跳空"],["CHIPREV","籌碼反轉"],["OHLV","價量資料"],["FAIL","沒贏過"],["WEAK","偏弱"],["FRAGILE","不穩"],["OOS","新資料驗證"],["PIT","當時可知資料"],["套筒","部位"]];
+  pairs.forEach(([a,b])=>{ t=t.split(a).join(b); });
+  return stripEnglishIds(t);
+}
 function focusCardsHTML(){
   const p=(D&&D.trade&&D.trade.perf)||{};
   const log=(p.dailyLog||[]).find(d=>d && !d.empty) || (p.dailyLog||[])[0];
-  let headline="今日尚無訓練紀錄";
-  if(log){
-    const line=(log.plainTw&&log.plainTw[0])||(log.tw&&log.tw[0])||(log.plainCrypto&&log.plainCrypto[0])||(log.crypto&&log.crypto[0])||"";
-    headline = log.date + (line?(" · "+line):"");
-  }
+  const rawLine=log?((log.tw&&log.tw[0])||(log.crypto&&log.crypto[0])||""):"";
+  let headline=p.focusTw||(log&&(log.focusTw||(log.plainTw&&log.plainTw[0])||(log.plainCrypto&&log.plainCrypto[0])))||"";
+  if(!headline && rawLine) headline=jargonToPlain(rawLine);
+  if(!headline) headline=p.status||"今日尚無訓練紀錄";
+  headline=jargonToPlain(headline);
+  if(log&&log.date&&headline&&!headline.startsWith(log.date)) headline=log.date+" · "+headline;
   const sm=(D.trade&&D.trade.summary)||{};
   const feedTxt = (sm.total!=null)?(`行情已連線 ${sm.ok||0}/${sm.total}`):"尚無行情檢查";
   const g=p.liveGate||{};
   const gateTxt = g.daysElapsed!=null?`往實盤 ${g.daysElapsed}/${g.targetDays||90} 天`:"往實盤進度 —";
+  const detail=rawLine&&rawLine!==headline?`<details class="focus-raw"><summary>詳細</summary><div class="muted" style="margin-top:6px;font-size:12px;word-break:break-word">${esc(rawLine)}</div></details>`:"";
   return `<div class="focus-grid">
-    <div class="focus-card"><div class="focus-k">今日焦點</div><div class="focus-v">${esc(headline)}</div></div>
+    <div class="focus-card"><div class="focus-k">今日焦點</div><div class="focus-v">${esc(headline)}</div>${detail}</div>
     <div class="focus-card"><div class="focus-k">行情連線</div><div class="focus-v">${esc(feedTxt)}</div><div class="muted" style="margin-top:4px;font-size:11px">${esc(gateTxt)} · 紙上模擬</div></div>
   </div>`;
 }
@@ -1181,8 +1192,15 @@ function watchHTML(){
   const crMeta=groupAsOf(CORE_CRYPTO);
   const asOfTw=twMeta.asOf?`資料時間 ${esc(twMeta.asOf)} 台北${twMeta.cached?" · 快取":""}`:`資料時間 —`;
   const asOfCr=crMeta.asOf?`資料時間 ${esc(crMeta.asOf)} 台北${crMeta.cached?" · 快取":""}`:`資料時間 —`;
+  const perf=(D&&D.trade&&D.trade.perf)||{};
+  const sleeves=(perf.sleeves||[]).filter(s=>s&&s.name);
+  const active=sleeves.filter(s=>/執行|等待|掛單/.test(String(s.status||"")));
+  const sleeveTxt=active.length?active.map(s=>s.name).join("、"):(sleeves[0]?sleeves[0].name:"");
+  const explain=sleeveTxt
+    ?(`為什麼大多是「觀望」？目前配置看 ${sleeveTxt}；0050 只作對照基準。其餘策略驗證沒過或已淘汰，所以個股／幣圈先不建議進場。`)
+    :(`為什麼大多是「觀望」？目前沒有執行中的進場策略；0050 只作對照基準。其餘策略驗證沒過或已淘汰，所以個股／幣圈先不建議進場。`);
   return `<div class="wl-panel">
-    <div class="wl-explain">為什麼大多是「觀望」？目前只有「核心：抱緊 0050」在執行中；其餘策略驗證沒過或已淘汰，所以個股／幣圈先不建議進場。</div>
+    <div class="wl-explain">${esc(explain)}</div>
     <div class="wl-group"><div class="wl-ghd">台股核心</div><div class="wl-asof muted">${asOfTw}</div>${CORE_TW.map(watchRowHTML).join("")}</div>
     <div class="wl-group"><div class="wl-ghd">幣圈</div><div class="wl-asof muted">${asOfCr}</div>${CORE_CRYPTO.map(watchRowHTML).join("")}</div>
     <div class="feed-disc">天氣＝策略觀點（晴看多／陰觀望／雨看空）。報價缺值顯示 —，不捏造。點進可看日 K 與模擬／回測標記。紙上模擬，非投資建議。</div>
@@ -1213,7 +1231,7 @@ function bookHTML(){
   const availRaw=cap.availableLabel||cap.label||"";
   const avail=String(availRaw).replace(/^可用資金[：:]\s*/,"");
   const vs = p.vs0050Sentence || `模擬獲利 ${fmtPct(p.equityReturnPct)}，同期買 0050 ${fmtPct(p.benchmark0050ReturnPct)}`;
-  const posRows=pos.length?pos.map(x=>`<div class="wl-row"><div class="wl-meta"><div class="wl-name">${esc(symLabel(x.symbol)||x.symbol)}</div></div><div class="wl-px"><div class="wl-close">權重 ${esc(fmtDash(x.weightPct,1))}%</div><div class="wl-chg">未實現 ${fmtPct(x.unrealizedPct)}</div></div></div>`).join(""):emptySoon("尚無紙上持倉","核心 0050 掛單等 11/02 開盤成交後會出現");
+  const posRows=pos.length?pos.map(x=>`<div class="wl-row"><div class="wl-meta"><div class="wl-name">${esc(symLabel(x.symbol)||x.symbol)}</div></div><div class="wl-px"><div class="wl-close">權重 ${esc(fmtDash(x.weightPct,1))}%</div><div class="wl-chg">未實現 ${fmtPct(x.unrealizedPct)}</div></div></div>`).join(""):emptySoon("尚無紙上持倉","紙上掛單等開盤成交後會出現；0050 為對照基準");
   return `<div class="book-panel">
     <div class="sim-banner">紙上模擬 · 非投資建議 · 不碰真錢</div>
     ${avail?`<div class="capital-avail"><span class="ca-lab">可用資金</span><span class="ca-val">${esc(avail)}</span></div>`:""}

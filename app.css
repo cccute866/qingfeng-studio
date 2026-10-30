@@ -361,6 +361,9 @@ ul.qu{margin:6px 0}ul.qu li{margin:3px 0}
 .focus-card{border:1px solid var(--line2);border-radius:12px;padding:10px;background:#0c141eaa}
 .focus-k{font-size:11px;color:#C9A227;font-weight:700;margin-bottom:4px}
 .focus-v{font-size:13px;line-height:1.4;color:#e8eef6;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.focus-raw{margin-top:8px}
+.focus-raw summary{cursor:pointer;color:#9db0c7;font-size:12px;font-weight:600}
+.focus-raw[open] summary{color:#c5d4e4}
 .wl-panel{display:flex;flex-direction:column;gap:12px}
 .wl-group{border:1px solid var(--line2);border-radius:12px;background:#0c141eaa;overflow:hidden}
 .wl-ghd{font-size:13px;font-weight:700;color:#C9A227;padding:8px 10px;border-bottom:1px solid #ffffff0d;background:#C9A22712}
