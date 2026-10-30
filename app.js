@@ -1490,8 +1490,13 @@ function tradeAppBody(){
 }
 function tradeAppHTML(){
   const tabs=TRADE_TABS.map(t=>`<button type="button" class="ttab${tradeTab===t.id?" on":""}" data-trade-tab="${t.id}"><span class="ttab-ic" aria-hidden="true"></span><span>${esc(t.label)}</span></button>`).join("");
+  const p=(D&&D.trade&&D.trade.perf)||{};
+  const st=p.status||"模擬營運中";
+  const cap=((p.capital||{}).availableLabel||(p.capital||{}).label||"");
+  const brief="這層做紙上模擬交易（非真錢）。今天重點："+st+(cap?"。"+String(cap).replace(/^可用資金[：:]\s*/, "可用資金 "):"");
   return `<div class="trade-app">
     ${tradeHead()}
+    ${floorBriefHTML(brief)}
     <div class="sim-banner">青鋒交易 · 紙上模擬 · 非投資建議</div>
     <div class="trade-body" data-tab="${esc(tradeTab)}">${tradeAppBody()}</div>
     <nav class="trade-tabs" aria-label="交易室分頁">${tabs}</nav>
@@ -1502,26 +1507,31 @@ function renderRoomDash(){
   const el=$("#room-dash"); if(!el||!D) return;
   const id=activeFloor;
   if(id==="trade"){ el.innerHTML=tradeAppHTML(); bindTradeApp(el); return; }
-  if(id==="council"){ el.innerHTML=`<div class="card"><h2>今日決定看板</h2>${decisionBoardHTML()}</div>`; return; }
+  if(id==="council"){
+    const n=decisionsList().length;
+    el.innerHTML=`<div class="card"><h2>今日決定</h2>${floorBriefHTML(n?("這層保存完整決定列表；桌上標示也看得到。共 "+n+" 項。"):"今天還沒有已裁決的決定。")}${n?decisionBoardHTML():emptySoon("今天還沒有已裁決的決定","會議結束後會出現在這裡")}</div>`; return;
+  }
   if(id==="art"){
     const a=D.art||{}; const n=a.todayCount||0;
-    el.innerHTML=`<div class="card"><h2>美術交件</h2><div class="chips"><span class="chip ok">今日 ${n} 張</span><span class="chip">最新批次 ${a.baseCount||0} 張</span><span class="chip ${a.integrated?"ok":"mid"}">${a.integrated?"已整合":"待整合"}</span></div><div class="spark-wrap" style="margin-top:8px">${artTrendSVG(a.trend)}<span class="muted">近 7 日交件量</span></div></div>`; return;
+    el.innerHTML=`<div class="card"><h2>美術交件</h2>${floorBriefHTML("今天交了 "+n+" 張"+(a.integrated?"，已整合":"，待整合")+"。")}${keyCardsHTML([{v:n,l:"今日"},{v:a.baseCount||0,l:"最新批次"},{v:a.integrated?"已整合":"待整合",l:"狀態"}])}<div class="spark-wrap" style="margin-top:8px">${artTrendSVG(a.trend)}<span class="muted">近 7 日交件量</span></div></div>`; return;
   }
   if(id==="num"){
     const n=D.numbers||{}; const ser=n.series||[];
-    el.innerHTML=`<div class="card"><h2>模擬曲線</h2>${ser.length>=2?`<div class="spark-wrap">${sparkSVG(ser,"free")}<span class="muted">免費</span>${sparkSVG(ser,"v10")}<span class="muted">V10</span></div>`:'<div class="muted">今天尚無模擬資料</div>'}</div>`; return;
+    el.innerHTML=`<div class="card"><h2>數值模擬</h2>${floorBriefHTML("建議 "+((n.suggestions||[]).length)+" 條 · 已採納 "+(n.adopted||0)+"。")}${ser.length>=2?`<div class="spark-wrap">${sparkSVG(ser,"free")}<span class="muted">免費</span>${sparkSVG(ser,"v10")}<span class="muted">V10</span></div>`:emptySoon("今天尚無模擬資料","數值跑完會出現曲線")}</div>`; return;
   }
   if(id==="qa"){
-    const q=D.qa||{}; el.innerHTML=`<div class="card"><h2>品管燈號</h2>${lightHTML(q.light||"green")}<div class="chips" style="margin-top:8px"><span class="chip">重要 ${(q.important||0)+(q.openImportant||0)}</span><span class="chip">次要 ${(q.minor||0)+(q.openMinor||0)}</span></div></div>`; return;
+    const q=D.qa||{}; el.innerHTML=`<div class="card"><h2>品管燈號</h2>${floorBriefHTML("重要 "+((q.important||0)+(q.openImportant||0))+" · 次要 "+((q.minor||0)+(q.openMinor||0))+"。")}${lightHTML(q.light||"green")}<div class="chips" style="margin-top:8px"><span class="chip">重要 ${(q.important||0)+(q.openImportant||0)}</span><span class="chip">次要 ${(q.minor||0)+(q.openMinor||0)}</span></div></div>`; return;
   }
   if(id==="dev"||id==="eng"){
-    el.innerHTML=`<div class="card"><h2>發布管線</h2>${pipeHTML((D.dev||{}).pipeline)}</div>`; return;
+    const v=(D.dev||{}).version||"";
+    el.innerHTML=`<div class="card"><h2>${id==="dev"?"開發發版":"工程修復"}</h2>${floorBriefHTML(id==="dev"?("目前版本 "+v+"。"):"修 bug 與介面打磨。")}${pipeHTML((D.dev||{}).pipeline)}</div>`; return;
   }
   if(id==="lobby"){
-    el.innerHTML=`<div class="card"><h2>遊戲入口</h2><div class="play"><div class="ver">目前版本 <b>${esc(D.game.version)}</b><br>${esc(D.game.subtitle)}</div><a class="btn" target="_blank" rel="noopener" href="${esc(D.game.url)}">進入遊戲</a></div></div>`; return;
+    el.innerHTML=`<div class="card"><h2>遊戲入口</h2>${floorBriefHTML("從這裡進遊戲，也可看待辦與排程。")}<div class="play"><div class="ver">目前版本 <b>${esc(D.game.version)}</b><br>${esc(D.game.subtitle)}</div><a class="btn" target="_blank" rel="noopener" href="${esc(D.game.url)}">進入遊戲</a></div></div>`; return;
   }
   if(id==="director"){
-    el.innerHTML=`<div class="card" id="usage-card-room" style="cursor:pointer"><h2>用量與額度</h2><div class="muted">點「看明細」打開完整面板</div></div>`;
+    const n=((D.director||{}).needYou||[]).length;
+    el.innerHTML=`<div class="card" id="usage-card-room" style="cursor:pointer"><h2>總裁辦公室</h2>${floorBriefHTML("今天有 "+n+" 件等你決定；用量明細點「看明細」。")}<div class="muted">點右上「看明細」打開完整面板</div></div>`;
     return;
   }
   el.innerHTML="";
@@ -1606,7 +1616,7 @@ function renderBoard(){
   const hd=$("#hint-decisions"); if(hd) hd.onclick=()=>{setView("tower");};
   const hu=$("#hint-usage"); if(hu) hu.onclick=()=>{setView("room","director"); openFloor("director");};
 }
-function renderFeedfunction renderFeed(){$("#feed").innerHTML=D.feed.map(e=>`<li><time>${esc(fmtAt(e.at))}<small>${esc(e.at.slice(0,10)===todayStr()?"今天":"")}</small></time><div><span class="k ${esc(e.kind)}">${esc(e.kind)}</span>${esc(noemo(e.text))}</div></li>`).join("");
+function renderFeed(){$("#feed").innerHTML=D.feed.map(e=>`<li><time>${esc(fmtAt(e.at))}<small>${esc(e.at.slice(0,10)===todayStr()?"今天":"")}</small></time><div><span class="k ${esc(e.kind)}">${esc(e.kind)}</span>${esc(noemo(e.text))}</div></li>`).join("");
   const ws=Object.keys(SHORT).map(i=>[i,memberState(i)]).filter(x=>x[1].cat==="work"||x[1].cat==="meet");
   $("#nowline").textContent="台北 "+hm(tpNow())+" · "+(ws.length?ws.map(x=>SHORT[x[0]]+CAT[x[1].cat]).join("、"):"目前沒人在趕工");}
 function renderAll(){if(!D)return;const U=D.updatedAt||D.builtAt;const LA=D.lastActivity||"";$("#updated").textContent="更新時間 "+U.slice(5).replace("-","/")+(LA?" · 最後進度 "+LA.slice(5).replace("-","/"):"")+(D.notice?" · "+D.notice:"");$("#foot-upd").textContent="資料更新時間 "+U+"（台北時間）";
@@ -1624,50 +1634,145 @@ function tradeHead(){return `<div class="who trade-who trade-brand"><img class="
 function memberBtn(id){return `<div class="mbtn"><button data-m="${id}" class="mbtn-ava"><img class="mava" src="${avatarURL(id)}" alt="" width="28" height="28">看 ${esc(NAMES[id])} 在想什麼</button></div>`;}
 function head(f,extra){const s=floorState(f);return `<h3>${iconSVG(f.id)}<span class="no">${f.no}</span> ${f.name}</h3><div class="muted"><span class="dot ${s.cat}"></span> ${esc(s.label)} · ${esc(noemo(s.text))}${extra||""}</div>`;}
 function openFloor(id){const f=FLOORS.find(x=>x.id===id);let h=head(f);
-  if(id==="director"){const d=D.director;h+=`<h4>等你決定／開通（${d.needYou.length}）</h4><ul>${d.needYou.map(x=>`<li><b>${esc(x.track)}</b>：${esc(x.what)}</li>`).join("")}</ul>
-    ${D.backlog.tiers?`<h4>本週目標（${D.backlog.tiers.weekDone}/${D.backlog.tiers.week}，每週一會議挑選）</h4>${weekHTML()}
-    <h4>排隊中（${D.backlog.tiers.queue} 項：工程 ${D.backlog.tiers.queueBy["工程"]}、智雅 ${D.backlog.tiers.queueBy["智雅"]}）</h4><div class="muted">新建議先排在這裡，週一會議再挑進本週。</div>${queueHTML(null,8)}
-    <div class="tiers"><span class="chip">長期／上架前 ${D.backlog.tiers.long}</span><span class="chip">已關閉 ${D.backlog.tiers.closed}（重複或過時，附原因）</span></div>`:""}
-    <h4>你的回饋處理狀況</h4><ul>${d.feedback.map(x=>`<li>${x.done?'<span class="chip ok">已處理</span>':'<span class="chip mid">處理中</span>'} ${esc(x.text)} <span class="muted">（${esc(x.from)}）</span></li>`).join("")}</ul>`+`<h4>用量與額度警示</h4>`+usagePanelHTML()+memberBtn("weixiang");}
-  if(id==="council"){const c=D.council;if(c){const dec=c.decisions||[];
-    h+=`<h4>${esc(c.title)}</h4><div class="muted">${esc(fmtAt(c.at))} · ${esc(c.attend)}</div><div class="chips" style="margin-top:8px">${Object.entries(c.counts).map(([k,v])=>`<span class="chip ${k==="採納"||k==="縮小後採納"?"ok":k==="不採納"?"no":"mid"}">${esc(k)} ${v}</span>`).join("")}</div>
-    ${dec.length?`<h4>今日決定看板</h4>${decisionBoardHTML()}`:""}
-    <h4>最新裁決</h4><table><tr><th>提案</th><th>結論</th><th>理由</th></tr>${c.verdicts.map(v=>`<tr><td>${esc(v.item)}</td><td>${esc(v.verdict)}</td><td>${esc(v.why)}</td></tr>`).join("")}</table>
-    ${(c.shortlist||[]).length?`<h4>會議排行榜（第二輪投票）</h4><ol>${c.shortlist.map(x=>`<li>${esc(x)}</li>`).join("")}</ol>`:""}
-    ${(c.stances||[]).length?`<h4>各成員立場</h4><ul>${c.stances.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`:""}
-    ${c.common.length?`<h4>共同意見</h4><ul>${c.common.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`:""}
-    ${c.grill.length?`<h4>提案檢視（grill）摘要</h4><table><tr><th>提案</th><th>有依據</th><th>付費牆風險</th><th>結論</th></tr>${c.grill.map(g=>`<tr><td>${esc(g.item)}</td><td>${esc(g.evidence)}</td><td>${esc(g.risk)}</td><td>${esc(g.verdict)}</td></tr>`).join("")}</table>`:""}`;}}
-  if(id==="dev"){const v=D.dev,t=v.tests;h+=`<div class="big" style="margin-top:10px"><div><b>${esc(v.version)}</b><span>目前版本</span></div><div><b>${t?t.suitesPass+"/"+t.suites:"-"}</b><span>測試組通過</span></div><div><b>${t?t.itemsPass+"/"+t.items:"-"}</b><span>測試項目通過</span></div><div><b>${D.backlog.open}</b><span>待辦剩餘</span></div></div>
-    <h4>發布管線</h4>${pipeHTML(v.pipeline)}
-    <h4>今天修了什麼（${esc(v.version)}）</h4><ul>${v.changes.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>
-    <h4>版本紀錄</h4><table>${v.releases.map(r=>`<tr><td><b>${esc(r.ver)}</b></td><td class="muted">${esc(fmtAt(r.at))}</td><td>${esc(r.msg)}</td></tr>`).join("")}</table>
-    <h4>待辦進度</h4>${progressHTML()}`+memberBtn("zhiya");}
+  if(id==="director"){const d=D.director; const need=d.needYou||[]; const fb=d.feedback||[];
+    h+=floorBriefHTML("這層是偉翔看全局與用量的地方。今天有 "+need.length+" 件等你本人決定或開通。");
+    h+=keyCardsHTML([
+      {v:need.length,l:"等你決定",note:need.length?"點下面看細節":"目前沒有卡住的事"},
+      {v:(D.backlog.tiers?`${D.backlog.tiers.weekDone}/${D.backlog.tiers.week}`:"—"),l:"本週目標",note:"每週一會議挑選"},
+      {v:(D.backlog.tiers&&D.backlog.tiers.queue)||0,l:"排隊中",note:"新建議先排這裡"},
+    ]);
+    h+=`<h4>等你決定／開通</h4>`+(need.length?`<ul class="plain-list">${listTopHTML(need,3,x=>`<li><b>${esc(x.track)}</b>：${esc(x.what)}</li>`)}</ul>`:emptySoon("沒有等你決定的事項","有新需求時會出現在這裡"));
+    if(D.backlog.tiers){
+      h+=`<h4>本週目標（${D.backlog.tiers.weekDone}/${D.backlog.tiers.week}）</h4>${weekHTML()}`;
+      h+=detailFoldHTML("排隊中詳細（"+D.backlog.tiers.queue+" 項）", `<div class="muted">新建議先排在這裡，週一會議再挑進本週。</div>${queueHTML(null,8)}<div class="tiers"><span class="chip">長期／上架前 ${D.backlog.tiers.long}</span><span class="chip">已關閉 ${D.backlog.tiers.closed}</span></div>`);
+    }
+    h+=`<h4>你的回饋</h4>`+(fb.length?`<ul class="plain-list">${listTopHTML(fb,3,x=>`<li>${x.done?'<span class="chip ok">已處理</span>':'<span class="chip mid">處理中</span>'} ${esc(x.text)} <span class="muted">（${esc(x.from)}）</span></li>`)}</ul>`:emptySoon("還沒有回饋紀錄","試玩後的意見會出現在這裡"));
+    h+=detailFoldHTML("用量與額度詳細", usagePanelHTML());
+    h+=memberBtn("weixiang");
+  }
+  if(id==="council"){const c=D.council;if(c){const dec=c.decisions||[]; const ver=c.verdicts||[];
+    const adopt=(c.counts&& (c.counts["採納"]||0)+(c.counts["縮小後採納"]||0))||0;
+    const reject=(c.counts&&c.counts["不採納"])||0;
+    h+=floorBriefHTML("這層開每日決策會。今天採納 "+adopt+" 項、不採納 "+reject+" 項；完整列表在這裡，負責人桌上也有標示。");
+    h+=keyCardsHTML([
+      {v:dec.length,l:"今日決定",note:dec.length?"已掛到負責人桌":"會議後會出現"},
+      {v:adopt,l:"採納",note:"會開始做"},
+      {v:reject,l:"不採納",note:"先不做"},
+    ]);
+    h+=`<h4>${esc(c.title||"今日會議")}</h4><div class="muted">${esc(fmtAt(c.at))} · ${esc(c.attend||"")}</div>`;
+    h+=`<h4>今日決定</h4>${decisionBoardHTML()}`;
+    if(ver.length){
+      h+=`<h4>最新裁決</h4><div class="plain-list">`+listTopHTML(ver,3,v=>{
+        const line=plainDecisionSentence(v);
+        const why=v.why?`<div class="muted why">${esc(v.why)}</div>`:"";
+        return `<div class="vcard"><div class="ditem">${esc(line)}</div>${why}</div>`;
+      })+`</div>`;
+    }
+    h+=detailFoldHTML("會議排行榜／立場／共同意見／grill",
+      ((c.shortlist||[]).length?`<h4>會議排行榜</h4><ol>${c.shortlist.map(x=>`<li>${esc(x)}</li>`).join("")}</ol>`:"")+
+      ((c.stances||[]).length?`<h4>各成員立場</h4><ul>${c.stances.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`:"")+
+      ((c.common||[]).length?`<h4>共同意見</h4><ul>${c.common.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`:"")+
+      ((c.grill||[]).length?`<h4>提案檢視摘要</h4><ul>${c.grill.map(g=>`<li><b>${esc(g.item)}</b>：${esc(g.verdict)} · 依據 ${esc(g.evidence)} · 風險 ${esc(g.risk)}</li>`).join("")}</ul>`:"")
+    );
+  } else h+=emptySoon("今天還沒有會議紀錄","每日會議後會寫進來");}
+  if(id==="dev"){const v=D.dev,t=v.tests;
+    const pass=t?`${t.suitesPass}/${t.suites}`:"—";
+    h+=floorBriefHTML("這層負責寫程式與發版。目前版本 "+(v.version||"—")+"，測試組通過 "+pass+"。");
+    h+=keyCardsHTML([
+      {v:v.version||"—",l:"目前版本"},
+      {v:pass,l:"測試組通過",note:t&&t.suitesPass===t.suites?"全部過了":"還有沒過的"},
+      {v:t?`${t.itemsPass}/${t.items}`:"—",l:"測試項目"},
+      {v:D.backlog.open,l:"待辦剩餘"},
+    ]);
+    h+=`<h4>發布管線</h4>${pipeHTML(v.pipeline)}`;
+    h+=`<h4>今天修了什麼</h4>`+((v.changes||[]).length?`<ul class="plain-list">${listTopHTML(v.changes,3,x=>`<li>${esc(x)}</li>`)}</ul>`:emptySoon("今天還沒記變更","發版後會寫進來"));
+    h+=detailFoldHTML("版本紀錄", `<table>${(v.releases||[]).map(r=>`<tr><td><b>${esc(r.ver)}</b></td><td class="muted">${esc(fmtAt(r.at))}</td><td>${esc(r.msg)}</td></tr>`).join("")}</table>`);
+    h+=`<h4>待辦進度</h4>${progressHTML()}`+memberBtn("zhiya");
+  }
   if(id==="trade"){h+=tradeAppHTML();}
   if(id==="art"){const a=D.art;if(a){
-    h+=`<h4>交件統計</h4><div class="chips"><span class="chip ok">今日 ${a.todayCount||0} 張</span><span class="chip">最新批次 ${a.baseCount||a.files||0} 張</span><span class="chip ${a.integrated?"ok":"mid"}">${a.integrated?"已整合":"待整合"}</span><span class="chip">交件 ${esc(fmtAt(a.at))}</span></div>
-    <div class="spark-wrap" style="margin-top:10px">${artTrendSVG(a.trend)}<span class="muted">近 7 日交件量</span></div>
-    <h4>最新交件：${esc(a.batch)} 批次</h4><div class="chips"><span class="chip">已整合批次 ${esc((a.integratedBatches||[]).join("、")||"—")}</span></div>
-    <h4>內容</h4><ul>${(a.groups||[]).map(g=>`<li><b>${esc(g.name)}</b>：${esc(g.desc)}</li>`).join("")}</ul>`+memberBtn("art");}}
-  if(id==="num"){const n=D.numbers;if(n){const ser=n.series||[]; const st=n.stats||[];
-    h+=`<div class="big" style="margin-top:10px"><div><b>${(n.suggestions||[]).length}</b><span>建議</span></div><div><b>${n.adopted}</b><span>已採納</span></div><div><b>${n.declined}</b><span>未採納</span></div></div>
-    <h4>模擬曲線（${esc(n.date)}）</h4>${ser.length>=2?`<div class="spark-wrap">${sparkSVG(ser,"free")}<span class="muted">免費戰力</span>${sparkSVG(ser,"v10")}<span class="muted">V10 戰力</span></div>`:(st.length?"":'<div class="muted">今天尚無模擬資料</div>')}
-    ${st.length?`<div class="chips" style="margin-top:8px">${st.map(s=>`<span class="chip">${esc(s.label)} <b>${esc(s.value)}</b></span>`).join("")}</div>`:""}
-    <h4>報告重點</h4><ul>${(n.highlights||[]).map(x=>`<li>${esc(x)}</li>`).join("")}</ul>
-    <h4>建議與採納</h4><table>${(n.suggestions||[]).map(s=>`<tr><td><b>${esc(s.id)}</b></td><td>${esc(s.title)}</td><td><span class="chip ${s.state==="已採納"?"ok":s.state==="未採納"?"no":"mid"}">${esc(s.state)}</span></td></tr>`).join("")}</table>`+memberBtn("num");}}
-  if(id==="qa"){const q=D.qa,b=D.backlog;h+=`<h4>今日燈號</h4>${q?lightHTML(q.light)+`<div class="chips" style="margin-top:8px"><span class="chip">重要 ${ (q.important||0)+(q.openImportant||0) }</span><span class="chip">次要 ${ (q.minor||0)+(q.openMinor||0) }</span><span class="chip">致命新 ${q.fatal||0}</span></div>`:'<div class="muted">尚無 QA 報告</div>'}
-    <h4>待辦中未修的回報</h4><div>${sevHTML(b.qaOpen)}</div><ul>${b.qaOpenItems.map(x=>`<li><span class="sev ${x.sev==="🔴"?"s1":x.sev==="🟠"?"s2":"s3"}"><i></i></span>${esc(x.text)}</li>`).join("")}</ul>`;
-    if(q)h+=`<h4>${esc(q.title)}</h4><div class="muted">${esc(fmtAt(q.at))} · ${esc(noemo(q.tests))}</div><div style="margin-top:6px">${sevHTML(q.counts)}</div><ul>${(q.items||[]).map(x=>`<li><span class="sev ${x.sev==="🔴"?"s1":x.sev==="🟠"?"s2":"s3"}"><i></i>${esc(x.id)}</span>${esc(x.text)}</li>`).join("")}</ul>`;h+=memberBtn("qa");}
-  if(id==="eng"){const t=D.backlog.tiers||{};h+=`<div class="big" style="margin-top:10px"><div><b>${(D.backlog.week||[]).filter(x=>x.owner==="工程"&&!x.done).length}</b><span>本週負責</span></div><div><b>${(t.queueBy||{})["工程"]||0}</b><span>排隊中</span></div><div><b>${Object.values(D.backlog.qaOpen).reduce((a,b)=>a+b,0)}</b><span>未修回報</span></div></div>
-    <h4>發布管線</h4>${pipeHTML((D.dev||{}).pipeline)}
-    <h4>本週負責</h4>${weekHTML("工程")}<h4>排隊中（工程）</h4>${queueHTML("工程")}
-    <h4>工作方式</h4><ul><li>每天約 15:00–16:30 修 QA 回報、介面打磨，發布修補版熱修</li><li>在自己的修復分支工作，時段內才併回主線；動手前先登記「誰、何時、做什麼」，做完解除</li><li>每個修正都附回歸測試，存檔保持相容</li></ul>`+memberBtn("eng");}
-  if(id==="lobby"){h+=`<div class="play" style="margin-top:10px"><div class="ver">目前版本 <b>${esc(D.game.version)}</b><br>${esc(D.game.subtitle)}</div><a class="btn" target="_blank" rel="noopener" href="${esc(D.game.url)}">進入遊戲</a></div>
-    <h4>待辦進度</h4>${progressHTML()}<h4>今日排程</h4>${timelineHTML()}<h4>上架路線圖</h4>${roadmapHTML()}`;}
-  openSheet(h);document.querySelectorAll("#sheetbody [data-m]").forEach(b=>b.onclick=()=>openMember(b.dataset.m));bindUsageDetails($("#sheetbody"));bindStrategyFilters($("#sheetbody"));bindTradeApp($("#sheetbody"));}
+    h+=floorBriefHTML("這層做美術交件。今天交了 "+(a.todayCount||0)+" 張"+(a.integrated?"，已整合進遊戲":"，還在等整合")+"。");
+    h+=keyCardsHTML([
+      {v:a.todayCount||0,l:"今日交件",note:(a.todayCount||0)?"有新圖":"今天還沒交"},
+      {v:a.baseCount||a.files||0,l:"最新批次"},
+      {v:a.integrated?"已整合":"待整合",l:"整合狀態"},
+    ]);
+    h+=`<div class="spark-wrap" style="margin-top:10px">${artTrendSVG(a.trend)}<span class="muted">近 7 日交件量</span></div>`;
+    h+=`<h4>最新交件：${esc(a.batch||"")} 批次</h4>`;
+    const groups=a.groups||[];
+    h+=(groups.length?`<ul class="plain-list">${listTopHTML(groups,3,g=>`<li><b>${esc(g.name)}</b>：${esc(g.desc)}</li>`)}</ul>`:emptySoon("還沒有分組說明","下次交件會寫進來"));
+    h+=detailFoldHTML("已整合批次", `<div class="chips"><span class="chip">${esc((a.integratedBatches||[]).join("、")||"尚無")}</span></div><div class="muted">交件時間 ${esc(fmtAt(a.at))}</div>`);
+    h+=memberBtn("art");
+  } else h+=emptySoon("尚無美術交件","有新批次時會出現");}
+  if(id==="num"){const n=D.numbers;if(n){const ser=n.series||[]; const st=n.stats||[]; const sug=n.suggestions||[];
+    h+=floorBriefHTML("這層跑數值模擬與建議。建議 "+sug.length+" 條，已採納 "+(n.adopted||0)+"、未採納 "+(n.declined||0)+"。");
+    h+=keyCardsHTML([
+      {v:sug.length,l:"建議"},
+      {v:n.adopted||0,l:"已採納",note:"會進遊戲"},
+      {v:n.declined||0,l:"未採納"},
+    ]);
+    h+=`<h4>模擬曲線（${esc(n.date||"")}）</h4>${ser.length>=2?`<div class="spark-wrap">${sparkSVG(ser,"free")}<span class="muted">免費戰力</span>${sparkSVG(ser,"v10")}<span class="muted">V10 戰力</span></div>`:(st.length?"":emptySoon("今天尚無模擬資料","數值跑完會出現曲線"))}`;
+    if(st.length) h+=`<div class="chips" style="margin-top:8px">${st.map(s=>`<span class="chip">${esc(s.label)} <b>${esc(s.value)}</b></span>`).join("")}</div>`;
+    const hl=n.highlights||[];
+    h+=`<h4>報告重點</h4>`+(hl.length?`<ul class="plain-list">${listTopHTML(hl,3,x=>`<li>${esc(x)}</li>`)}</ul>`:emptySoon("尚無報告重點","報告寫完會出現"));
+    h+=`<h4>建議與採納</h4>`+(sug.length?`<div class="plain-list">${listTopHTML(sug,3,s=>`<div class="vcard"><b>${esc(s.title||s.id)}</b> <span class="chip ${s.state==="已採納"?"ok":s.state==="未採納"?"no":"mid"}">${esc(s.state)}</span>${detailFoldHTML("詳細代號", `<code class="id-muted">${esc(s.id||"")}</code>`)}</div>`)}</div>`:emptySoon("尚無建議","數值提出後會列在這裡"));
+    h+=memberBtn("num");
+  } else h+=emptySoon("尚無數值報告","每日模擬後會出現");}
+  if(id==="qa"){const q=D.qa,b=D.backlog;
+    const imp=(q?((q.important||0)+(q.openImportant||0)):0);
+    const min=(q?((q.minor||0)+(q.openMinor||0)):0);
+    h+=floorBriefHTML("這層盯品質燈號。重要 "+imp+"、次要 "+min+(q&&q.fatal?("、致命新 "+q.fatal):"")+"。");
+    h+=keyCardsHTML([
+      {v:imp,l:"重要",note:imp?"要先修":"沒有重要未修"},
+      {v:min,l:"次要"},
+      {v:q&&q.fatal||0,l:"致命新",note:(q&&q.fatal)?"立刻看":"沒有"},
+    ]);
+    h+=`<h4>今日燈號</h4>${q?lightHTML(q.light):emptySoon("尚無 QA 報告","巡檢後會亮燈")}`;
+    h+=`<h4>待辦中未修的回報</h4><div>${sevHTML(b.qaOpen)}</div>`;
+    const openItems=b.qaOpenItems||[];
+    h+=(openItems.length?`<ul class="plain-list">${listTopHTML(openItems,3,x=>`<li><span class="sev ${x.sev==="🔴"?"s1":x.sev==="🟠"?"s2":"s3"}"><i></i></span>${esc(x.text)}</li>`)}</ul>`:emptySoon("沒有未修回報","有新 bug 會列在這裡"));
+    if(q){
+      h+=detailFoldHTML((q.title||"今日報告")+" 詳細", `<div class="muted">${esc(fmtAt(q.at))} · ${esc(noemo(q.tests||""))}</div><div style="margin-top:6px">${sevHTML(q.counts)}</div><ul>${(q.items||[]).map(x=>`<li><span class="sev ${x.sev==="🔴"?"s1":x.sev==="🟠"?"s2":"s3"}"><i></i><span class="id-muted">${esc(x.id)}</span></span>${esc(x.text)}</li>`).join("")}</ul>`);
+    }
+    h+=memberBtn("qa");
+  }
+  if(id==="eng"){const t=D.backlog.tiers||{};
+    const weekN=(D.backlog.week||[]).filter(x=>x.owner==="工程"&&!x.done).length;
+    const qN=(t.queueBy||{})["工程"]||0;
+    const openQa=Object.values(D.backlog.qaOpen||{}).reduce((a,b)=>a+b,0);
+    h+=floorBriefHTML("這層修 bug 與介面打磨。本週負責 "+weekN+" 項，排隊 "+qN+" 項，未修回報 "+openQa+"。");
+    h+=keyCardsHTML([
+      {v:weekN,l:"本週負責",note:weekN?"進行中":"本週沒事"},
+      {v:qN,l:"排隊中"},
+      {v:openQa,l:"未修回報",note:openQa?"先清這些":"已清完"},
+    ]);
+    h+=`<h4>發布管線</h4>${pipeHTML((D.dev||{}).pipeline)}`;
+    h+=`<h4>本週負責</h4>${weekHTML("工程")}`;
+    h+=detailFoldHTML("排隊中（工程）與工作方式", `${queueHTML("工程")}<h4>工作方式</h4><ul class="plain-list"><li>每天約 15:00–16:30 修 QA 回報、介面打磨，發布修補版熱修</li><li>在自己的修復分支工作，時段內才併回主線；動手前先登記「誰、何時、做什麼」，做完解除</li><li>每個修正都附回歸測試，存檔保持相容</li></ul>`);
+    h+=memberBtn("eng");
+  }
+  if(id==="lobby"){
+    const b=D.backlog||{}; const p=b.total?Math.round(b.done/b.total*100):0;
+    h+=floorBriefHTML("這層是遊戲入口與進度總覽。目前版本 "+((D.game&&D.game.version)||"—")+"，待辦完成 "+p+"%。");
+    h+=keyCardsHTML([
+      {v:(D.game&&D.game.version)||"—",l:"遊戲版本"},
+      {v:p+"%",l:"待辦完成",note:`還剩 ${b.open||0} 項`},
+      {v:(D.schedule||[]).length,l:"今日排程段"},
+    ]);
+    h+=`<div class="play" style="margin-top:10px"><div class="ver">目前版本 <b>${esc(D.game.version)}</b><br>${esc(D.game.subtitle)}</div><a class="btn" target="_blank" rel="noopener" href="${esc(D.game.url)}">進入遊戲</a></div>`;
+    h+=`<h4>待辦進度</h4>${progressHTML()}`;
+    h+=`<h4>今日排程</h4>${timelineHTML()}`;
+    h+=detailFoldHTML("上架路線圖（7 條）", roadmapHTML());
+  }
+  openSheet(h);document.querySelectorAll("#sheetbody [data-m]").forEach(b=>b.onclick=()=>openMember(b.dataset.m));bindUsageDetails($("#sheetbody"));bindStrategyFilters($("#sheetbody"));bindTradeApp($("#sheetbody"));
+}
 function openMember(id){const s=memberState(id),c=D.cards[id]||{},m=(D.office&&D.office.members[id])||{role:ROLES[id]};
+  const desk=((typeof decisionsByFloor==="function"?decisionsByFloor():{})[SPOT[id]?SPOT[id].f:""]||[]).filter(x=>(x.mids||[]).includes(id));
+  const deskHint=desk.length?`<div class="floor-brief" style="margin-top:10px">桌上決定：${esc(plainDecisionSentence(desk[0].d))}${desk.length>1?`（還有 ${desk.length-1} 項）`:""}</div>`:"";
   openSheet(`<div class="who"><img id="ava" class="ava" width="96" height="96" alt="${esc(NAMES[id])}" src="${avatarURL(id,true)}" data-id="${id}"><div><div class="nm">${esc(NAMES[id])}</div><div class="rl">${esc(m.role||"")}</div><div class="stl"><span class="dot ${s.cat}"></span>${CAT[s.cat]} · <span class="muted">${s.live?esc(agoText(s.updatedAt)):"依每日排程"}</span></div></div></div>
   <div class="thought">${esc(thoughtOf(id))}</div>
-  <div class="rows"><div class="r"><b>正在忙</b>${esc(noemo(s.full||s.text))}</div><div class="r"><b>剛完成</b>${esc(noemo(c.recent)||"—")}</div><div class="r"><b>下一步</b>${esc(noemo(nextStep(id)))}</div></div>
+  ${deskHint}
+  <div class="rows"><div class="r"><b>正在忙</b>${esc(noemo(s.full||s.text))}</div><div class="r"><b>剛完成</b>${esc(noemo(c.recent)||"—")}</div><div class="r"><b>下一步</b>${esc(noemo(nextStep(id))||"目前沒寫下一步，有排程時會出現")}</div></div>
   <div class="mbtn"><button id="poke">打招呼</button><button id="tofloor">看這層樓</button></div>`);
   const ava=$("#ava");
   $("#poke").onclick=()=>{ava.classList.remove("hop");void ava.offsetWidth;ava.classList.add("hop");react(id);};
