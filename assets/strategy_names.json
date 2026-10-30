@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "note": "策略中文顯示名／白話狀態理由；0050 為對照基準非抱緊主策略；供 7F AgentX+ 手機版",
+    "note": "策略中文顯示名／白話狀態理由；0050 為對照基準非抱緊主策略；供 7F AgentX+ 手機版；已合併 paper/strategies/names_zh.json v2／對照線",
     "updatedAt": "2026-10-30"
   },
   "statusMap": {
@@ -97,6 +97,42 @@
     "AGENTX_DIMS_crypto_v1": {
       "displayName": "幣圈維度測試",
       "plainReason": "還在驗證價格維度，尚未完成"
+    },
+    "VOL_BREAKOUT_v2": {
+      "displayName": "量增創高突破",
+      "plainReason": "舊版樣本外偏弱；v2 加上停損／目標價後當練習策略累積前進樣本"
+    },
+    "VOL_BREAKOUT_INST_v2": {
+      "displayName": "量增突破＋法人連買",
+      "plainReason": "舊版偏弱；v2 固定法人連買天數並加停損目標，僅練習"
+    },
+    "GAP_CONT_v2": {
+      "displayName": "向上跳空延續",
+      "plainReason": "樣本外筆數不足尚無定論；小額練習累積樣本"
+    },
+    "L2L3_SCAN_v2": {
+      "displayName": "量價法人掃描練習",
+      "plainReason": "驗證期贏不了 0050，半倉試單加碼規則繼續練習"
+    },
+    "LEV_00631L_S1_vol_v2": {
+      "displayName": "槓桿 ETF 均線＋波動控管",
+      "plainReason": "舊版回撤大；加上波動控管後偏弱但可小額練習"
+    },
+    "BTC_FUND_CARRY_v2": {
+      "displayName": "比特幣資金費套利",
+      "plainReason": "舊版成交太少；改用真實資金費率門檻小額練習"
+    },
+    "CRYPTO_PBAND_RSI_v2": {
+      "displayName": "幣圈超賣反彈",
+      "plainReason": "來自候選維度的簡單規則版，參數事前寫死，待前進樣本驗證"
+    },
+    "BENCH_0050": {
+      "displayName": "對照：0050 虛擬線",
+      "plainReason": "只記績效、不占模擬資金"
+    },
+    "BENCH_BTC": {
+      "displayName": "對照：比特幣虛擬線",
+      "plainReason": "只記績效、不占模擬資金"
     }
   }
 }
