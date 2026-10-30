@@ -911,7 +911,7 @@ function openFloor(id){const f=FLOORS.find(x=>x.id===id);let h=head(f);
     <h4>今天修了什麼（${esc(v.version)}）</h4><ul>${v.changes.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>
     <h4>版本紀錄</h4><table>${v.releases.map(r=>`<tr><td><b>${esc(r.ver)}</b></td><td class="muted">${esc(fmtAt(r.at))}</td><td>${esc(r.msg)}</td></tr>`).join("")}</table>
     <h4>待辦進度</h4>${progressHTML()}`+memberBtn("zhiya");}
-  if(id==="trade"){h+=`<h4>往實盤進度圖</h4>${liveGateHTML()}<h4>模擬績效</h4>${tradePerfHTML()}<h4>行情資料來源</h4>${feedStatusHTML()}<h4>營運說明</h4><ul><li>青鋒交易 · 專業投資人角色（紙上模擬）</li><li>只用公開行情、不串券商、不使用金鑰</li><li>不碰真錢、不下單、模擬結果非投資建議</li><li>實盤須滿 90 天、勝過 0050 與 BTC、≥30 筆、回撤在限內、監管乾淨，且偉翔親口核准</li></ul>`;}
+  if(id==="trade"){h+=`<h4>往實盤進度圖</h4>${liveGateHTML()}<h4>模擬績效</h4>${tradePerfHTML()}<h4>行情資料來源</h4>${feedStatusHTML()}<h4>營運說明</h4><ul><li>青鋒交易 · 專業投資人角色（紙上模擬）</li><li>公開行情＋永豐 Shioaji 行情專用（不下單、不啟用憑證）</li><li>不碰真錢、不下單、模擬結果非投資建議</li><li>實盤須滿 90 天、勝過 0050 與 BTC、≥30 筆、回撤在限內、監管乾淨，且偉翔親口核准</li></ul>`;}
   if(id==="art"){const a=D.art;if(a){
     h+=`<h4>交件統計</h4><div class="chips"><span class="chip ok">今日 ${a.todayCount||0} 張</span><span class="chip">最新批次 ${a.baseCount||a.files||0} 張</span><span class="chip ${a.integrated?"ok":"mid"}">${a.integrated?"已整合":"待整合"}</span><span class="chip">交件 ${esc(fmtAt(a.at))}</span></div>
     <div class="spark-wrap" style="margin-top:10px">${artTrendSVG(a.trend)}<span class="muted">近 7 日交件量</span></div>
