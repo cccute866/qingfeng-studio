@@ -156,7 +156,9 @@ function renderBands(){
     b.type="button"; b.className="band"+(f.prep?" prep":""); b.setAttribute("role","listitem");
     b.style.top=top.toFixed(2)+"%"; b.style.height=h.toFixed(2)+"%";
     b.setAttribute("aria-label",f.no+" "+f.name+(f.prep?"（籌備中）":""));
-    const tag=f.prep?'<span class="tag prep">籌備中</span>':(f.unit==="trade"?'<span class="tag trade">模擬</span>':(f.unit==="game"?'<span class="tag">遊戲</span>':(f.unit==="exec"?'<span class="tag">總裁</span>':"")));
+    let tag=f.prep?'<span class="tag prep">籌備中</span>':(f.unit==="trade"?'<span class="tag trade">模擬</span>':(f.unit==="game"?'<span class="tag">遊戲</span>':(f.unit==="exec"?'<span class="tag">總裁</span>':"")));
+    const decN=((typeof decisionsByFloor==="function"?decisionsByFloor():{})[f.id]||[]).length;
+    if(decN) tag+=`<span class="tag dec">${decN} 決定</span>`;
     b.innerHTML=`<span class="blabel"><b>${f.no}</b>${esc(f.name)}${tag}</span>`;
     b.addEventListener("click",()=>setView("room",f.id));
     box.appendChild(b);
@@ -900,15 +902,110 @@ function dueStatus(due){
   }
   return {lite:"green", text:due, cls:""};
 }
+
+/* ---- 人性化：白話摘要／關鍵卡／收合列表／桌上決定標示 ---- */
+function emptySoon(what, when){
+  return `<div class="empty-soon"><b>${esc(what||"這裡還沒有內容")}</b><span class="muted">${esc(when||"有資料時會出現在這裡")}</span></div>`;
+}
+function floorBriefHTML(text){
+  if(!text) return "";
+  return `<div class="floor-brief">${esc(text)}</div>`;
+}
+function keyCardsHTML(cards){
+  if(!cards||!cards.length) return "";
+  return `<div class="key-cards">${cards.map(c=>{
+    const note=c.note?`<em>${esc(c.note)}</em>`:"";
+    return `<div class="kc"><b>${esc(String(c.v==null?"—":c.v))}</b><span>${esc(c.l||"")}</span>${note}</div>`;
+  }).join("")}</div>`;
+}
+function listTopHTML(items, n, renderOne, moreLabel){
+  const arr=items||[];
+  if(!arr.length) return "";
+  const top=arr.slice(0, n||3);
+  const rest=arr.slice(n||3);
+  let h=top.map(renderOne).join("");
+  if(rest.length){
+    const id="more-"+Math.random().toString(36).slice(2,8);
+    h+=`<details class="list-more"><summary>${esc(moreLabel||("看全部（+"+rest.length+"）"))}</summary><div>${rest.map(renderOne).join("")}</div></details>`;
+  }
+  return h;
+}
+function detailFoldHTML(summary, bodyHtml){
+  if(!bodyHtml) return "";
+  return `<details class="detail-fold"><summary>${esc(summary||"詳細")}</summary><div class="detail-body">${bodyHtml}</div></details>`;
+}
+function plainDecisionSentence(d){
+  if(!d) return "";
+  const tag=String(d.tag||d.verdict||"決定");
+  const item=String(d.item||"");
+  const who=String(d.dri||"未指派");
+  const due=String(d.due||"期限未定");
+  let head;
+  if(tag==="採納"||tag==="縮小後採納") head=`${tag}了「${item}」`;
+  else if(/不採納|拒絕|淘汰/.test(tag)) head=`${tag}「${item}」`;
+  else head=`${tag}：${item}`;
+  return `${head}。負責：${who}。期限：${due}`;
+}
+function decisionsList(){
+  return ((D&&D.council)||{}).decisions||[];
+}
+function decisionsByFloor(){
+  // floorId -> [{d, mids}]
+  const out={};
+  for(const d of decisionsList()){
+    const mids=driIds(d.dri);
+    const floors=new Set();
+    if(!mids.length) floors.add("council");
+    for(const mid of mids){
+      if(mid==="trade") floors.add("trade");
+      else if(SPOT[mid]) floors.add(SPOT[mid].f);
+      else floors.add("council");
+    }
+    // 一律也掛一份在 8F 會議室外觀提示
+    floors.add("council");
+    for(const f of floors){
+      (out[f]=out[f]||[]).push({d, mids});
+    }
+  }
+  return out;
+}
+function renderDeskSigns(){
+  document.querySelectorAll(".desk-sign").forEach(e=>e.remove());
+  if(!D) return;
+  const by=decisionsByFloor();
+  for(const [fid, rows] of Object.entries(by)){
+    const F=floorsEl[fid]; if(!F||!F.room) continue;
+    // 每層最多 2 則桌上標示，其餘點明細看
+    const show=rows.slice(0,2);
+    if(!show.length) continue;
+    const wrap=document.createElement("div");
+    wrap.className="desk-sign";
+    wrap.setAttribute("aria-label","今日決定標示");
+    wrap.innerHTML=show.map(({d,mids})=>{
+      const av=mids.filter(id=>id!=="council"&&NAMES[id]).slice(0,2)
+        .map(id=>`<img class="ds-av" src="${avatarURL(id)}" alt="" width="22" height="22">`).join("");
+      return `<button type="button" class="ds-item" data-goto-council="1"><span class="ds-avs">${av}</span><span class="ds-txt">${esc(plainDecisionSentence(d))}</span></button>`;
+    }).join("");
+    if(rows.length>2){
+      wrap.innerHTML+=`<button type="button" class="ds-more" data-goto-council="1">還有 ${rows.length-2} 項 · 看 8F</button>`;
+    }
+    wrap.querySelectorAll("[data-goto-council]").forEach(btn=>{
+      btn.addEventListener("click",e=>{e.stopPropagation(); setView("room","council"); openFloor("council");});
+    });
+    F.room.appendChild(wrap);
+  }
+}
+
 function decisionBoardHTML(){
-  const dec=((D.council||{}).decisions)||[];
-  if(!dec.length) return `<div class="muted">今天尚無已裁決的決定</div>`;
+  const dec=decisionsList();
+  if(!dec.length) return emptySoon("今天還沒有已裁決的決定","會議結束後會出現在這裡");
   return `<div class="dboard">${dec.map(d=>{
     const ids=driIds(d.dri); const st=dueStatus(d.due);
     const av=ids.length
       ?`<div class="davs">${ids.map(id=>`<img class="dav" src="${avatarURL(id)}" alt="" width="36" height="36">`).join("")}</div>`
       :`<div class="davs"><div class="dav"></div></div>`;
-    return `<div class="dcard">${av}<div class="dmeta"><div class="ditem">${esc(d.item)}</div><div class="ddri">${esc(d.tag)} · ${esc(d.dri||"未指派")}</div></div><div class="dright"><span class="slite ${st.lite}"></span><span class="ddue ${st.cls}">${esc(st.text)}</span></div></div>`;
+    const line=plainDecisionSentence(d);
+    return `<div class="dcard">${av}<div class="dmeta"><div class="ditem">${esc(line)}</div><div class="ddri muted">負責人桌上也有標示</div></div><div class="dright"><span class="slite ${st.lite}"></span><span class="ddue ${st.cls}">${esc(st.text)}</span></div></div>`;
   }).join("")}</div>`;
 }
 
@@ -1112,14 +1209,18 @@ function bookHTML(){
   const p=(D&&D.trade&&D.trade.perf)||{};
   const pos=p.positions||[];
   const sleeves=p.sleeves||[];
+  const cap=p.capital||{};
+  const availRaw=cap.availableLabel||cap.label||"";
+  const avail=String(availRaw).replace(/^可用資金[：:]\s*/,"");
   const vs = p.vs0050Sentence || `模擬獲利 ${fmtPct(p.equityReturnPct)}，同期買 0050 ${fmtPct(p.benchmark0050ReturnPct)}`;
-  const posRows=pos.length?pos.map(x=>`<div class="wl-row"><div class="wl-meta"><div class="wl-name">${esc(symLabel(x.symbol)||x.symbol)}</div></div><div class="wl-px"><div class="wl-close">權重 ${esc(fmtDash(x.weightPct,1))}%</div><div class="wl-chg">未實現 ${fmtPct(x.unrealizedPct)}</div></div></div>`).join(""):`<div class="muted">尚無紙上持倉（核心 0050 掛單待開盤）</div>`;
+  const posRows=pos.length?pos.map(x=>`<div class="wl-row"><div class="wl-meta"><div class="wl-name">${esc(symLabel(x.symbol)||x.symbol)}</div></div><div class="wl-px"><div class="wl-close">權重 ${esc(fmtDash(x.weightPct,1))}%</div><div class="wl-chg">未實現 ${fmtPct(x.unrealizedPct)}</div></div></div>`).join(""):emptySoon("尚無紙上持倉","核心 0050 掛單等 11/02 開盤成交後會出現");
   return `<div class="book-panel">
     <div class="sim-banner">紙上模擬 · 非投資建議 · 不碰真錢</div>
+    ${avail?`<div class="capital-avail"><span class="ca-lab">可用資金</span><span class="ca-val">${esc(avail)}</span></div>`:""}
     <div class="vs-bench">${esc(vs)}</div>
     <div class="big" style="margin-top:8px">
-      <div><b>${fmtPct(p.equityReturnPct)}</b><span>模擬報酬</span></div>
-      <div><b>${fmtPct(p.dailyChangePct)}</b><span>日變動</span></div>
+      <div><b>${fmtPct(p.equityReturnPct)}</b><span>模擬報酬</span><em>${Number(p.equityReturnPct)==0?"還沒開始漲跌":(Number(p.equityReturnPct)>0?"比開始好":"比開始差")}</em></div>
+      <div><b>${fmtPct(p.dailyChangePct)}</b><span>日變動</span><em>${p.dailyChangePct==null||Number(p.dailyChangePct)==0?"與昨天差不多":(Number(p.dailyChangePct)>0?"比昨天好":"比昨天差")}</em></div>
       <div><b>${p.closedTrades==null?"—":esc(String(p.closedTrades))}</b><span>已平倉</span></div>
       <div><b>${p.maxDrawdownPct==null?"—":(Number(p.maxDrawdownPct).toFixed(1)+"%")}</b><span>最大回撤</span></div>
     </div>
@@ -1429,7 +1530,9 @@ function renderFloors(){for(const f of FLOORS){const F=floorsEl[f.id],s=floorSta
   b.querySelector(".dot").className="dot "+s.cat;b.querySelector("b").textContent=s.label;b.querySelector(".t").textContent=noemo(s.text);
   const fv=F.el.querySelector(".fviz"); if(fv) fv.innerHTML=D?floorVizHTML(f.id):"";
   if(f.id==="director"&&D){const a=usageAlert();F.el.classList.toggle("usage-alert",a.level==="red");F.el.classList.toggle("usage-warn",a.level==="yellow");}}
-  if(D&&D.game) document.querySelectorAll(".play-link").forEach(a=>{a.href=D.game.url;a.textContent="進入遊戲 "+D.game.version;});}
+  if(D&&D.game) document.querySelectorAll(".play-link").forEach(a=>{a.href=D.game.url;a.textContent="進入遊戲 "+D.game.version;});
+  if(typeof renderDeskSigns==="function") renderDeskSigns();
+}
 function chipOf(s){
   if(s.chip)return s.chip;
   if(s.who==="council")return"會議";
@@ -1484,27 +1587,32 @@ function weekHTML(filter){const w=(D.backlog.week||[]).filter(x=>!filter||x.owne
 function queueHTML(filter,max){const q=(D.backlog.queue||[]).filter(x=>!filter||x.owner===filter);const sh=q.slice(0,max||99);
   return `<ul class="qu">${sh.map(x=>`<li>${ownerChip(x.owner)}${x.sev?`<span class="sev ${x.sev==="🔴"?"s1":x.sev==="🟠"?"s2":"s3"}"><i></i></span>`:""}${esc(x.text)}</li>`).join("")}</ul>${q.length>sh.length?`<div class="muted">還有 ${q.length-sh.length} 項</div>`:""}`;}
 function renderBoard(){
-  const a=usageAlert(); const tod=usageToday(); const c=tod&&tod.real&&tod.real.council||{};
-  const ub=a.level?`<span class="chip ${a.level==="red"?"no":"mid"}">${esc(a.short)}</span>`:`<span class="chip ok">例行正常</span>`;
-  // 看板只在城市／大樓視圖顯示；房間視圖用 room-dash
+  const a=usageAlert();
   const board=$("#board"); if(!board) return;
   board.hidden = view==="room";
   if(view==="room") return;
-  board.innerHTML=`<div class="card"><h2>事業部</h2><div class="chips"><span class="chip ok">遊戲事業部 · 開發／美術／數值／品管／工程</span><span class="chip ok">交易事業部 · 模擬營運中</span></div></div>
-  <div class="card"><h2>今日決定看板</h2>${decisionBoardHTML()}<div class="muted" style="margin-top:6px">點大樓 → 8F 決策會議室看完整裁決</div></div>
+  const decN=decisionsList().length;
+  const decHint = decN
+    ? `<button type="button" class="hint-card" id="hint-decisions"><span class="hint-ico">📋</span><span>今天有 <b>${decN}</b> 項決定 · 點進大樓，會掛在負責人桌上</span><span class="hint-go">看大樓 →</span></button>`
+    : `<div class="hint-card muted"><span class="hint-ico">📋</span><span>今天還沒有新決定 · 會議後會掛在桌上</span></div>`;
+  const usageHint = a.level
+    ? `<button type="button" class="hint-card warn" id="hint-usage"><span class="hint-ico">⚡</span><span>${esc(a.short||"用量需要留意")} · 到 9F 總裁辦公室看</span><span class="hint-go">去 9F →</span></button>`
+    : `<button type="button" class="hint-card" id="hint-usage"><span class="hint-ico">⚡</span><span>用量與額度 · 在 9F 總裁辦公室看明細</span><span class="hint-go">去 9F →</span></button>`;
+  board.innerHTML=`${decHint}${usageHint}
   <div class="card"><h2>${iconSVG("lobby")}大廳 · 遊戲入口</h2><div class="play"><div class="ver">目前版本 <b>${esc(D.game.version)}</b><br>${esc(D.game.subtitle)}</div><a class="btn" target="_blank" rel="noopener" href="${esc(D.game.url)}">進入遊戲</a></div></div>
-  <div class="card" id="usage-card" style="cursor:pointer"><h2>${iconSVG("director")}總裁辦公室用量 · 每日估算</h2>
-    <div class="chips">${ub}<span class="chip">會議呼叫 ${c.calls||0}<span class="tag-real">實</span></span><span class="chip">輸入 ${fmtN(c.inputTokens||0)}</span><span class="chip">美術圖 ${(tod&&tod.est&&tod.est.artImages)||0}<span class="tag-est">估</span></span></div>
-    <div class="muted" style="margin-top:6px">點此或 9F 總裁辦公室看 7 天明細 · 非帳單餘額</div></div>
   <div class="card"><h2>待辦進度</h2>${progressHTML()}</div>
   <div class="card"><h2>${iconSVG("schedule")}今日排程</h2>${timelineHTML()}</div>
   <div class="card"><h2>${iconSVG("roadmap")}上架路線圖 · 7 條</h2>${roadmapHTML()}</div>`;
-  const uc=$("#usage-card"); if(uc) uc.onclick=()=>{setView("room","director"); openFloor("director");};
+  const hd=$("#hint-decisions"); if(hd) hd.onclick=()=>{setView("tower");};
+  const hu=$("#hint-usage"); if(hu) hu.onclick=()=>{setView("room","director"); openFloor("director");};
 }
-function renderFeed(){$("#feed").innerHTML=D.feed.map(e=>`<li><time>${esc(fmtAt(e.at))}<small>${esc(e.at.slice(0,10)===todayStr()?"今天":"")}</small></time><div><span class="k ${esc(e.kind)}">${esc(e.kind)}</span>${esc(noemo(e.text))}</div></li>`).join("");
+function renderFeedfunction renderFeed(){$("#feed").innerHTML=D.feed.map(e=>`<li><time>${esc(fmtAt(e.at))}<small>${esc(e.at.slice(0,10)===todayStr()?"今天":"")}</small></time><div><span class="k ${esc(e.kind)}">${esc(e.kind)}</span>${esc(noemo(e.text))}</div></li>`).join("");
   const ws=Object.keys(SHORT).map(i=>[i,memberState(i)]).filter(x=>x[1].cat==="work"||x[1].cat==="meet");
   $("#nowline").textContent="台北 "+hm(tpNow())+" · "+(ws.length?ws.map(x=>SHORT[x[0]]+CAT[x[1].cat]).join("、"):"目前沒人在趕工");}
-function renderAll(){if(!D)return;const U=D.updatedAt||D.builtAt;const LA=D.lastActivity||"";$("#updated").textContent="更新時間 "+U.slice(5).replace("-","/")+(LA?" · 最後進度 "+LA.slice(5).replace("-","/"):"")+(D.notice?" · "+D.notice:"");$("#foot-upd").textContent="資料更新時間 "+U+"（台北時間）";renderFloors();renderBoard();renderFeed();renderUsageBanner();if(view==="room")renderRoomDash();if(view==="tower")renderBands();}
+function renderAll(){if(!D)return;const U=D.updatedAt||D.builtAt;const LA=D.lastActivity||"";$("#updated").textContent="更新時間 "+U.slice(5).replace("-","/")+(LA?" · 最後進度 "+LA.slice(5).replace("-","/"):"")+(D.notice?" · "+D.notice:"");$("#foot-upd").textContent="資料更新時間 "+U+"（台北時間）";
+  const cap=document.querySelector(".city-caption");
+  if(cap){const n=decisionsList().length; cap.textContent=n?(`點大樓進入 · 今天有 ${n} 項決定會掛在負責人桌上 · 遊戲／交易／總裁`):"點大樓進入 · 遊戲事業部 · 交易事業部（模擬）· 總裁辦公室";}
+  renderFloors();renderBoard();renderFeed();renderUsageBanner();if(view==="room")renderRoomDash();if(view==="tower")renderBands();}
 function tick(){$("#clock").textContent=hm(tpNow());if(D){renderFloors();renderFeed();const tl=document.querySelector("#board .tl");if(tl)tl.parentNode.innerHTML='<h2>'+iconSVG('schedule')+'今日排程</h2>'+timelineHTML();}}
 
 // ---- 細節面板 ----
