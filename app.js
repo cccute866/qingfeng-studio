@@ -145,7 +145,8 @@ function floorState(f){
   }
   if(f.id==="director"){const a=typeof usageAlert==="function"?usageAlert():{level:""};
     if(a.level==="red")return{cat:"you",label:"額度警示",text:a.short||"可能額度用完或例行失敗"};
-    if(a.level==="yellow")return{cat:"you",label:"用量偏高",text:a.short||"今日估算超預算"};}
+    if(a.level==="yellow")return{cat:"you",label:"用量偏高",text:a.short||"今日估算超預算"};
+    if(a.level==="gray")return{cat:"idle",label:"資料停更",text:a.short||"網站資料待更新"};}
   if(f.member){const s=memberState(f.member);return{cat:s.cat,label:CAT[s.cat],text:s.text};}
   if(f.id==="council"){const ids=meeters().filter(i=>memberState(i).where==="meeting");
     const o=D.office;const min=nowMin();
@@ -439,6 +440,8 @@ function usageAlert(){
   const u=D&&D.usage; if(!u) return {level:"",short:"",html:""};
   const grace=+(u.graceMin||60);
   const min=nowMin(), tod=todayStr();
+  const dataAt=(D.updatedAt||D.builtAt||"").trim();
+  const dataHM=(()=>{const m=/ (\d{2}:\d{2})/.exec(dataAt); return m?m[1]:"";})();
   const live=D.live||{};
   const dayU=usageToday()||{};
   const evAt=Object.assign({}, dayU.evidenceAt||{});
@@ -452,14 +455,17 @@ function usageAlert(){
   for(const v of Object.values(evAt)) if(v&&v>lastSeen) lastSeen=v;
   const whoKey=w=>w==="council"?"council":w;
   const misses=[];
+  let staleSlots=0;
   for(const s of (D.schedule||[])){
     if(s.soft) continue;
     const end=mm(s.to);
     if(min < end + grace) continue;          // 時段結束 + 寬限尚未到
     if(min > 22*60) continue;
+    const since=tod+" "+s.from;
+    // 時段開始晚於 data.updatedAt → 不判紅燈（發布額度用完時）
+    if(dataAt && since > dataAt){ staleSlots++; continue; }
     const key=whoKey(s.who);
     const alt=s.who==="council"?"zhiya":s.who; // 會議時智雅也算主持證據
-    const since=tod+" "+s.from;
     const et= [evAt[key], evAt[alt], evAt[s.who]].filter(Boolean).sort().slice(-1)[0]||"";
     // 需有「時段開始之後」的產出／心跳
     if(!et || et < since){
@@ -473,6 +479,12 @@ function usageAlert(){
       + `。最後見到活動 ${esc(lastSeen||"—")}（台北時間）。請到設定 → Usage & Billing 查看真實額度。</span>`
       + `<button type="button" class="ub-act" id="ub-open">打開總監室用量</button></div>`;
     return {level:"red", short, html, misses, lastSeen};
+  }
+  // 資料太舊：灰字說明，不代表員工失敗
+  if(staleSlots>0 && dataHM){
+    const short="網站資料停在 "+dataHM;
+    const html=`<div class="ub-row"><span>網站資料停在 ${esc(dataHM)}（今日發布次數已用完），不代表員工失敗</span></div>`;
+    return {level:"gray", short, html, lastSeen, stale:true, dataHM};
   }
   // 黃色／待核對：建站自檢 needsCheck（超預算或高於近三日均×2）
   const todD = dayU, bud=u.budget||{};
@@ -1113,7 +1125,24 @@ function plainDecisionSentence(d){
   return `${head}。負責：${who}。期限：${due}`;
 }
 function decisionsList(){
-  return ((D&&D.council)||{}).decisions||[];
+  const c=(D&&D.council)||{};
+  const at=c.at||"";
+  // 「今日」只顯示當天會議裁決；資料停在舊日時回空陣列（舊的見 historyDecisions）
+  if(at && at.slice(0,10)!==todayStr()) return [];
+  return c.decisions||[];
+}
+function historyDecisions(){
+  const c=(D&&D.council)||{};
+  const at=c.at||"";
+  if(!at || at.slice(0,10)===todayStr()) return [];
+  return c.decisions||[];
+}
+function shortDecisionTitle(d, max){
+  const n=max||18;
+  let t=String((d&&d.item)||"").replace(/^\s+/,"");
+  // 去掉過長前綴空白；超過字數加省略
+  if(t.length<=n) return t;
+  return t.slice(0,n-1)+"…";
 }
 function decisionsByFloor(){
   // floorId -> [{d, mids}]
@@ -1150,7 +1179,9 @@ function renderDeskSigns(){
     wrap.innerHTML=show.map(({d,mids})=>{
       const av=mids.filter(id=>id!=="council"&&NAMES[id]).slice(0,2)
         .map(id=>`<img class="ds-av" src="${avatarURL(id)}" alt="" width="22" height="22">`).join("");
-      return `<button type="button" class="ds-item" data-goto-council="1"><span class="ds-avs">${av}</span><span class="ds-txt">${esc(plainDecisionSentence(d))}</span></button>`;
+      const due=String(d.due||"").trim();
+      const dueBit=due?`<span class="ds-due">${esc(due)}</span>`:"";
+      return `<button type="button" class="ds-item" data-goto-council="1"><span class="ds-avs">${av}</span><span class="ds-txt">${esc(shortDecisionTitle(d,16))}</span>${dueBit}</button>`;
     }).join("");
     if(rows.length>2){
       wrap.innerHTML+=`<button type="button" class="ds-more" data-goto-council="1">還有 ${rows.length-2} 項 · 看 8F</button>`;
@@ -1164,15 +1195,25 @@ function renderDeskSigns(){
 
 function decisionBoardHTML(){
   const dec=decisionsList();
+  const hist=typeof historyDecisions==="function"?historyDecisions():[];
+  if(!dec.length && hist.length){
+    const at=((D&&D.council)||{}).at||"";
+    return emptySoon("今天還沒有已裁決的決定","會議資料停在 "+(at.slice(0,10)||"較早日期")+"，待網站更新後會顯示今日裁決")
+      +`<details class="list-more"><summary>歷史決定（${esc(at.slice(0,10)||"舊")} · ${hist.length} 項）</summary><div class="dboard dboard-hist">${hist.map((d,i)=>decisionRowHTML(d,false)).join("")}</div></details>`;
+  }
   if(!dec.length) return emptySoon("今天還沒有已裁決的決定","會議結束後會出現在這裡");
-  return `<div class="dboard">${dec.map(d=>{
-    const ids=driIds(d.dri); const st=dueStatus(d.due);
-    const av=ids.length
-      ?`<div class="davs">${ids.map(id=>`<img class="dav" src="${avatarURL(id)}" alt="" width="36" height="36">`).join("")}</div>`
-      :`<div class="davs"><div class="dav"></div></div>`;
-    const line=plainDecisionSentence(d);
-    return `<div class="dcard">${av}<div class="dmeta"><div class="ditem">${esc(line)}</div><div class="ddri muted">負責人桌上也有標示</div></div><div class="dright"><span class="slite ${st.lite}"></span><span class="ddue ${st.cls}">${esc(st.text)}</span></div></div>`;
-  }).join("")}</div>`;
+  return `<div class="dboard">${dec.map((d,i)=>decisionRowHTML(d, i<3)).join("")}</div>`;
+}
+function decisionRowHTML(d, open){
+  const ids=driIds(d.dri); const st=dueStatus(d.due);
+  const av=ids.length
+    ?`<div class="davs">${ids.map(id=>`<img class="dav" src="${avatarURL(id)}" alt="" width="28" height="28">`).join("")}</div>`
+    :`<div class="davs"><div class="dav"></div></div>`;
+  const title=shortDecisionTitle(d,18);
+  const dueTxt=st.text||"—";
+  const body=esc(plainDecisionSentence(d));
+  const openAttr=open?" open":"";
+  return `<details class="drow"${openAttr}><summary class="dcard dcard-compact">${av}<span class="dtitle">${esc(title)}</span><span class="ddue-tag ${st.cls}">${esc(dueTxt)}</span></summary><div class="drow-body">${body}<div class="ddri muted">負責人桌上也有標示</div></div></details>`;
 }
 
 /* ---- 7F 交易室：投資先生風格分頁（原創版面，無元大商標／色票複製） ---- */
@@ -1560,14 +1601,172 @@ function bindTradeApp(root){
   });
 }
 
+/* ---- 四視角選股參考（AgentX 風；公開只留分數／情境價） ---- */
+const LENS_ORDER = ["段","巴","芒","李"];
+const LENS_NAME = {
+  "段":"段永平",
+  "巴":"華倫・巴菲特",
+  "芒":"查理・芒格",
+  "李":"李錄"
+};
+const LENS_PLAIN = LENS_NAME;
+const LENS_CHIP = {"段":"段永平","巴":"巴菲特","芒":"芒格","李":"李錄"};
+const LENS_TAG = {"段":"L1","巴":"L2","芒":"L3","李":"L4"};
+const SCENARIO_ORDER = ["悲觀","中性","樂觀"]; // 左低右高
+const FL_DISC = "研究參考，不是下單依據";
+function fourLensMap(){
+  const t=(D&&D.trade)||{};
+  const m=t.fourLens||t.four_lens||{};
+  return (m && typeof m==="object" && !Array.isArray(m)) ? m : {};
+}
+function fourLensOf(code){
+  if(!code) return null;
+  const m=fourLensMap();
+  return m[code] || m[String(code).toUpperCase()] || m[String(code).toLowerCase()] || null;
+}
+function flScoreTone(sc){
+  if(sc==null||Number.isNaN(Number(sc))) return "mid";
+  const n=Number(sc);
+  if(n>=4) return "ok";
+  if(n>=3) return "mid";
+  return "bad";
+}
+function flFmtScore(sc){
+  if(sc==null||Number.isNaN(Number(sc))) return "—";
+  const n=Number(sc);
+  return Number.isInteger(n)?String(n):String(Math.round(n*10)/10);
+}
+function flAvgScore(lenses){
+  const nums=LENS_ORDER.map(k=>{
+    const sc=((lenses||{})[k]||{}).score;
+    return sc==null?null:Number(sc);
+  }).filter(v=>v!=null&&!Number.isNaN(v));
+  if(!nums.length) return null;
+  return Math.round((nums.reduce((a,b)=>a+b,0)/nums.length)*10)/10;
+}
+function flStatusFromClose(closePx, scenarios){
+  // 只依收盤落在哪段情境價，不帶研究敘事
+  const sc=scenarios||{};
+  const c=closePx==null?null:Number(closePx);
+  if(c==null||Number.isNaN(c)) return {label:"待定", tone:"mid"};
+  const hit=k=>{
+    const it=sc[k]||{};
+    if(it.low==null||it.high==null) return false;
+    return c>=Number(it.low)&&c<=Number(it.high);
+  };
+  if(hit("樂觀")) return {label:"偏貴", tone:"bad"};
+  if(hit("悲觀")) return {label:"偏便宜", tone:"ok"};
+  if(hit("中性")){
+    const it=sc["中性"]; const mid=(Number(it.low)+Number(it.high))/2;
+    return c>=mid ? {label:"合理偏貴", tone:"mid"} : {label:"合理", tone:"mid"};
+  }
+  const pes=sc["悲觀"]||{}, opt=sc["樂觀"]||{};
+  if(pes.low!=null&&c<Number(pes.low)) return {label:"偏便宜", tone:"ok"};
+  if(opt.high!=null&&c>Number(opt.high)) return {label:"偏貴", tone:"bad"};
+  return {label:"中性", tone:"mid"};
+}
+function flSignalBar(avg){
+  const filled=avg==null?0:Math.max(0,Math.min(5, Math.round(Number(avg))));
+  const tone=flScoreTone(avg);
+  let cells="";
+  for(let i=0;i<5;i++){
+    cells+=`<i class="${i<filled?"on":""}"></i>`;
+  }
+  return `<span class="fl-signal fl-tone-${tone}" aria-hidden="true">${cells}</span>`;
+}
+function fourLensGridHTML(lenses){
+  return `<div class="fl-grid">${LENS_ORDER.map(k=>{
+    const it=(lenses&&lenses[k])||{};
+    const sc=it.score==null?null:Number(it.score);
+    const tone=flScoreTone(sc);
+    const name=it.label||LENS_NAME[k]||k;
+    const tag=LENS_TAG[k]||"L";
+    return `<div class="fl-tile fl-tone-${tone}">
+      <div class="fl-tile-tag">${esc(tag)} · ${esc(name)}</div>
+      <div class="fl-tile-score">${esc(flFmtScore(sc))}</div>
+      <div class="fl-tile-foot">分 ${esc(flFmtScore(sc))}/5</div>
+    </div>`;
+  }).join("")}</div>`;
+}
+function fourLensScenarioTilesHTML(scenarios, closePx){
+  const sc=scenarios||{};
+  const rows=SCENARIO_ORDER.map(k=>({k, ...(sc[k]||{})})).filter(r=>r.low!=null||r.high!=null);
+  if(!rows.length) return "";
+  const c=closePx==null?null:Number(closePx);
+  const tiles=rows.map(r=>{
+    const tone=r.k==="樂觀"?"ok":(r.k==="悲觀"?"bad":"mid");
+    const lo=r.low!=null?Number(r.low):null, hi=r.high!=null?Number(r.high):null;
+    const active=c!=null&&!Number.isNaN(c)&&lo!=null&&hi!=null&&c>=lo&&c<=hi;
+    const range=`${lo!=null?fmtPrice(lo):"—"}–${hi!=null?fmtPrice(hi):"—"}`;
+    return `<div class="fl-sc-tile fl-tone-${tone}${active?" is-active":""}">
+      <div class="fl-sc-lab">${esc(r.k)}</div>
+      <div class="fl-sc-px">${esc(range)}</div>
+      ${active&&c!=null?`<div class="fl-sc-pill">最新收盤 ${esc(fmtPrice(c))}</div>`:""}
+    </div>`;
+  }).join("");
+  // 若收盤不落任一格，仍在列下顯示收盤 pill
+  let orphan="";
+  if(c!=null&&!Number.isNaN(c)&&!rows.some(r=>{
+    const lo=r.low!=null?Number(r.low):null, hi=r.high!=null?Number(r.high):null;
+    return lo!=null&&hi!=null&&c>=lo&&c<=hi;
+  })){
+    orphan=`<div class="fl-sc-orphan"><span class="fl-sc-pill">最新收盤 ${esc(fmtPrice(c))}</span></div>`;
+  }
+  return `<div class="fl-scenarios"><div class="fl-sc-row">${tiles}</div>${orphan}</div>`;
+}
+function fourLensCompositeHTML(lenses){
+  const avg=flAvgScore(lenses);
+  const tone=flScoreTone(avg);
+  const pct=avg==null?0:Math.max(0,Math.min(100,(Number(avg)/5)*100));
+  const chips=LENS_ORDER.map(k=>{
+    const sc=((lenses||{})[k]||{}).score;
+    if(sc==null) return "";
+    const t=flScoreTone(sc);
+    return `<span class="fl-chip fl-tone-${t}">${esc(LENS_CHIP[k]||k)} ${esc(flFmtScore(sc))}</span>`;
+  }).join("");
+  return `<div class="fl-comp">
+    <div class="fl-comp-row">
+      <span class="fl-comp-lab">綜合</span>
+      <div class="fl-comp-track" aria-hidden="true"><span class="fl-comp-fill fl-tone-${tone}" style="width:${pct}%"></span></div>
+      <span class="fl-comp-sc fl-tone-${tone}">${esc(flFmtScore(avg))}/5</span>
+    </div>
+    <div class="fl-chips">${chips}</div>
+  </div>`;
+}
+function fourLensHTML(code, closePx){
+  const fl=fourLensOf(code);
+  if(!fl) return "";
+  const lenses=fl.lenses||{};
+  const preview=!!(fl._localPreview||fl.previewOnly||fl.fixture);
+  const name=fl.name||(typeof symName==="function"?symName(code):"")||code;
+  const st=flStatusFromClose(closePx, fl.scenarios||{});
+  const avg=flAvgScore(lenses);
+  const gaps=(fl.dataGaps||fl.data_gaps||[]);
+  const gapFold=gaps.length
+    ? `<details class="detail-fold fl-fold"><summary>資料還沒補齊的地方</summary><div class="detail-body"><ul>${gaps.map(g=>`<li>${esc(String(g||""))}</li>`).join("")}</ul></div></details>`
+    : "";
+  return `<div class="fl-block${preview?" fl-preview":""}">
+    <div class="fl-top">
+      <div class="fl-sym"><b>${esc(String(code||""))}</b> <span>${esc(name)}</span>${preview?` <span class="chip mid">本機預覽</span>`:""}</div>
+      <div class="fl-top-right">${flSignalBar(avg)}<span class="fl-pill fl-tone-${st.tone}">${esc(st.label)}</span></div>
+    </div>
+    ${fourLensGridHTML(lenses)}
+    ${fourLensScenarioTilesHTML(fl.scenarios||{}, closePx)}
+    ${fourLensCompositeHTML(lenses)}
+    ${gapFold}
+    <div class="fl-disc">${esc(FL_DISC)}${fl.updatedAt?` · 更新 ${esc(fl.updatedAt)}`:""}</div>
+  </div>`;
+}
+
 /* ---- 個股／幣詳情：自架 canvas 日K + 模擬／回測標記 ---- */
 const _chartCache = {};
 async function openSymbolSheet(code){
   const name=symName(code)||code;
   openSheet(`<h3>${esc(name)} <span class="muted">${esc(code)}</span></h3>
     <div class="sym-loading muted">載入日 K…</div>`);
+  let pack=null;
   try{
-    let pack=_chartCache[code];
+    pack=_chartCache[code];
     if(!pack){
       const url=`assets/charts/${encodeURIComponent(code)}.json?t=${Date.now()}`;
       const res=await fetch(url, {cache:"no-store"});
@@ -1575,12 +1774,8 @@ async function openSymbolSheet(code){
       pack=await res.json();
       _chartCache[code]=pack;
     }
-    renderSymbolSheet(code, pack);
-  }catch(err){
-    openSheet(`<h3>${esc(name)} <span class="muted">${esc(code)}</span></h3>
-      <div class="muted">目前沒有這檔的日 K 資料（不捏造）。</div>
-      <div class="feed-disc">紙上模擬，非投資建議</div>`);
-  }
+  }catch(err){ pack=null; }
+  renderSymbolSheet(code, pack);
 }
 function renderSymbolSheet(code, pack){
   const name=symName(code)||code;
@@ -1589,6 +1784,7 @@ function renderSymbolSheet(code, pack){
   const chg=q&&q.changePct!=null?q.changePct:null;
   const chgCls=chg==null?"":(Number(chg)>0?"up":(Number(chg)<0?"down":""));
   const w=weatherFor(code);
+  pack=pack||{};
   const levels=pack.levels;
   let levelsHtml="";
   if(levels && (levels.entry!=null || levels.rule)){
@@ -1622,16 +1818,22 @@ function renderSymbolSheet(code, pack){
       </div>`;
     }).join("")}</div>`;
   }
+  const hasChart=!!(pack && (pack.candles||[]).length);
+  const chartHtml=hasChart
+    ? `<div class="sym-chart-wrap"><canvas id="sym-k" width="360" height="200" aria-label="日K線"></canvas>
+      <div class="sym-chart-leg muted"><span class="leg-buy">▲ 買</span> <span class="leg-sell">▼ 賣</span> · 黃＝模擬／藍＝回測 · 近約半年</div>
+    </div>`
+    : `<div class="muted" style="margin:8px 0">目前沒有這檔的日 K 資料（不捏造）。</div>`;
+  const flHtml=fourLensHTML(code, close);
   openSheet(`<h3>${esc(name)} <span class="muted">${esc(code)}</span></h3>
     <div class="sym-quote"><span class="sym-px">${esc(fmtPrice(close, code))}</span><span class="sym-chg ${chgCls}">${esc(fmtChg(chg))}</span>
       <span class="chip">${esc(w.wx)} ${esc(w.label)}</span></div>
-    <div class="sym-chart-wrap"><canvas id="sym-k" width="360" height="200" aria-label="日K線"></canvas>
-      <div class="sym-chart-leg muted"><span class="leg-buy">▲ 買</span> <span class="leg-sell">▼ 賣</span> · 黃＝模擬／藍＝回測 · 近約半年</div>
-    </div>
+    ${chartHtml}
+    ${flHtml}
     ${levelsHtml}
     <div class="feed-mkt"><div class="feed-mhd">交易紀錄</div>${tradesHtml}</div>
-    <div class="feed-disc">${esc(pack.disclaimer||"模擬結果，非投資建議")}${pack.source?` · 來源 ${esc(String(pack.source).replace(/^cache:/,""))}`:""}${pack.asOf?` · 截至 ${esc(pack.asOf)}`:""}</div>`);
-  requestAnimationFrame(()=>drawCandleChart(document.getElementById("sym-k"), pack.candles||[], pack.markers||[]));
+    <div class="feed-disc">${esc((pack&&pack.disclaimer)||"模擬結果，非投資建議")}${(pack&&pack.source)?` · 來源 ${esc(String(pack.source).replace(/^cache:/,""))}`:""}${(pack&&pack.asOf)?` · 截至 ${esc(pack.asOf)}`:""}</div>`);
+  if(hasChart) requestAnimationFrame(()=>drawCandleChart(document.getElementById("sym-k"), pack.candles||[], pack.markers||[]));
 }
 function drawCandleChart(canvas, candles, markers){
   if(!canvas || !candles.length) return;
@@ -1790,7 +1992,7 @@ function renderRoomDash(){
 function renderFloors(){for(const f of FLOORS){const F=floorsEl[f.id],s=floorState(f);const b=F.el.querySelector(".bubble");
   b.querySelector(".dot").className="dot "+s.cat;b.querySelector("b").textContent=s.label;b.querySelector(".t").textContent=noemo(s.text);
   const fv=F.el.querySelector(".fviz"); if(fv) fv.innerHTML=D?floorVizHTML(f.id):"";
-  if(f.id==="director"&&D){const a=usageAlert();F.el.classList.toggle("usage-alert",a.level==="red");F.el.classList.toggle("usage-warn",a.level==="yellow");}}
+  if(f.id==="director"&&D){const a=usageAlert();F.el.classList.toggle("usage-alert",a.level==="red");F.el.classList.toggle("usage-warn",a.level==="yellow");F.el.classList.toggle("usage-stale",a.level==="gray");}}
   if(D&&D.game) document.querySelectorAll(".play-link").forEach(a=>{a.href=D.game.url;a.textContent="進入遊戲 "+D.game.version;});
   if(typeof renderDeskSigns==="function") renderDeskSigns();
 }
@@ -1856,8 +2058,10 @@ function renderBoard(){
   const decHint = decN
     ? `<button type="button" class="hint-card" id="hint-decisions"><span class="hint-ico">📋</span><span>今天有 <b>${decN}</b> 項決定 · 點進大樓，會掛在負責人桌上</span><span class="hint-go">看大樓 →</span></button>`
     : `<div class="hint-card muted"><span class="hint-ico">📋</span><span>今天還沒有新決定 · 會議後會掛在桌上</span></div>`;
-  const usageHint = a.level
+  const usageHint = a.level==="red"||a.level==="yellow"
     ? `<button type="button" class="hint-card warn" id="hint-usage"><span class="hint-ico">⚡</span><span>${esc(a.short||"用量需要留意")} · 到 9F 總裁辦公室看</span><span class="hint-go">去 9F →</span></button>`
+    : a.level==="gray"
+    ? `<button type="button" class="hint-card muted" id="hint-usage"><span class="hint-ico">⚡</span><span>${esc(a.short||"網站資料停更")}（今日發布次數已用完），不代表員工失敗</span><span class="hint-go">去 9F →</span></button>`
     : `<button type="button" class="hint-card" id="hint-usage"><span class="hint-ico">⚡</span><span>用量與額度 · 在 9F 總裁辦公室看明細</span><span class="hint-go">去 9F →</span></button>`;
   board.innerHTML=`${decHint}${usageHint}
   <div class="card"><h2>${iconSVG("lobby")}大廳 · 遊戲入口</h2><div class="play"><div class="ver">目前版本 <b>${esc(D.game.version)}</b><br>${esc(D.game.subtitle)}</div><a class="btn" target="_blank" rel="noopener" href="${esc(D.game.url)}">進入遊戲</a></div></div>
@@ -1877,7 +2081,7 @@ function renderAll(){if(!D)return;const U=D.updatedAt||D.builtAt;const LA=D.last
 function tick(){$("#clock").textContent=hm(tpNow());if(D){renderFloors();renderFeed();const tl=document.querySelector("#board .tl");if(tl)tl.parentNode.innerHTML='<h2>'+iconSVG('schedule')+'今日排程</h2>'+timelineHTML();}}
 
 // ---- 細節面板 ----
-function openSheet(html){$("#sheetbody").innerHTML=html;$("#sheet").hidden=false;$("#sheetbg").hidden=false;$("#sheet").scrollTop=0;$("#close").focus();}
+function openSheet(html){$("#sheetbody").innerHTML=html;$("#sheet").hidden=false;$("#sheetbg").hidden=false;$("#sheet").scrollTop=0;$("#sheetbody").scrollTop=0;$("#close").focus();}
 function closeSheet(){$("#sheet").hidden=true;$("#sheetbg").hidden=true;}
 $("#close").onclick=closeSheet;$("#sheetbg").onclick=closeSheet;document.addEventListener("keydown",e=>{if(e.key==="Escape")closeSheet();});
 function sevHTML(c){const L=[["🔴","s1","致命"],["🟠","s2","重要"],["🟡","s3","次要"]];return L.map(([k,cl,n])=>`<span class="sev ${cl}"><i></i>${n} ${typeof c[k]==="object"?c[k].new+" 新 / "+c[k].old+" 舊":c[k]}</span>`).join("");}
