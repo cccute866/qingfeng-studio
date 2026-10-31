@@ -109,6 +109,7 @@ h1{margin:0;font-size:20px;letter-spacing:1px;font-weight:750;color:var(--text)}
 
 /* ---- Board / cards ---- */
 .board{margin-top:16px;display:grid;gap:12px}
+#board[hidden]{display:none!important}
 .card{background:linear-gradient(180deg,#141c28f2,#0e1520f2);border:1px solid var(--line2);border-radius:var(--radius);padding:14px;box-shadow:0 6px 24px #0006}
 .card h2,.feed-card h2{margin:0 0 8px;font-size:15px;color:var(--text);display:flex;align-items:center;gap:8px;font-weight:700}
 .card h2 img{width:26px;height:26px;border-radius:6px}
@@ -366,6 +367,9 @@ ul.qu{margin:6px 0}ul.qu li{margin:3px 0}
 .focus-card{border:1px solid var(--line2);border-radius:12px;padding:10px;background:#0c141eaa}
 .focus-k{font-size:11px;color:#C9A227;font-weight:700;margin-bottom:4px}
 .focus-v{font-size:13px;line-height:1.4;color:#e8eef6;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.focus-card.open .focus-v{-webkit-line-clamp:unset;display:block;overflow:visible}
+.focus-more{margin-top:6px;align-self:flex-start;border:0;background:transparent;color:var(--jade);font:inherit;font-size:12px;font-weight:700;cursor:pointer;padding:0}
+.focus-raw-inline{margin-top:6px;font-size:12px;word-break:break-word}
 .focus-raw{margin-top:8px}
 .focus-raw summary{cursor:pointer;color:#9db0c7;font-size:12px;font-weight:600}
 .focus-raw[open] summary{color:#c5d4e4}
@@ -554,13 +558,14 @@ button.wl-row:active{background:#ffffff08}
 .hint-card .hint-ico{flex:none;font-size:16px}
 .hint-card .hint-go{margin-left:auto;flex:none;color:var(--jade);font-size:12.5px;font-weight:700}
 .hint-card.muted{cursor:default;opacity:.85}
-.desk-sign{position:absolute;right:8px;left:auto;top:54%;bottom:8px;z-index:4;max-width:min(58%,220px);overflow:auto;display:flex;flex-direction:column;gap:4px;pointer-events:auto}
-.ds-item{display:flex;align-items:center;gap:6px;text-align:left;padding:5px 8px;border-radius:10px;border:1px solid #C9A22766;background:#1a160ee8;color:#ffe9a8;font-size:11.5px;line-height:1.25;cursor:pointer;font-family:inherit;backdrop-filter:blur(6px);box-shadow:0 2px 10px #0008;max-width:100%}
+.desk-sign{position:absolute;right:6px;left:auto;top:auto;bottom:28px;z-index:4;max-width:min(44%,170px);max-height:none;overflow:visible;display:flex;flex-direction:column;justify-content:flex-end;gap:4px;pointer-events:auto}
+.ds-item{display:flex;flex-direction:row;flex-wrap:nowrap;align-items:center;gap:4px;text-align:left;padding:3px 6px;border-radius:8px;border:1px solid #C9A22766;background:#1a160ee8;color:#ffe9a8;font-size:10.5px;line-height:1.15;cursor:pointer;font-family:inherit;backdrop-filter:blur(6px);box-shadow:0 2px 10px #0008;max-width:100%;flex:none}
+.ds-row{display:flex;align-items:center;gap:6px;min-width:0;width:100%}
 .ds-avs{display:flex;flex:none}
 .ds-av{width:22px;height:22px;border-radius:50%;object-fit:cover;border:1px solid #C9A22788;margin-left:-6px;background:#121820}
 .ds-av:first-child{margin-left:0}
 .ds-txt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ds-due{flex:none;font-size:10.5px;font-variant-numeric:tabular-nums;color:#ffe9a8;background:#C9A22722;border:1px solid #C9A22755;border-radius:6px;padding:1px 6px;white-space:nowrap;max-width:none}
+.ds-due{flex:none;font-size:10px;font-variant-numeric:tabular-nums;color:#ffe9a8;background:#C9A22722;border:1px solid #C9A22755;border-radius:6px;padding:1px 5px;white-space:nowrap;max-width:7.5em;overflow:hidden;text-overflow:ellipsis}
 .ds-more{align-self:flex-end;border:0;background:#C9A22722;color:#ffe9a8;border-radius:8px;padding:3px 8px;font-size:11px;cursor:pointer;font-family:inherit}
 .band .blabel .tag.dec{background:#C9A22722;color:#ffe9a8;border-color:#C9A22755}
 #sheetbody{font-size:15px;line-height:1.55}
@@ -573,7 +578,7 @@ button.wl-row:active{background:#ffffff08}
   .key-cards{grid-template-columns:repeat(2,1fr)}
   .kc b{font-size:16px}
   .capital-avail .ca-val{font-size:15.5px}
-  .desk-sign{max-width:56%}
+  .desk-sign{max-width:46%;bottom:26px}
   .ds-item{font-size:11px}
   .dcard .ditem{font-size:13.5px}
 }
@@ -635,3 +640,9 @@ button.wl-row:active{background:#ffffff08}
 .drow-body .ddri{margin-top:4px}
 .floor.usage-stale .plate{box-shadow:0 0 0 2px #6a7686,0 0 10px #6a768666}
 .floor.usage-stale .plate .no{background:#2a3340;color:#c5d0dc}
+
+/* 8F 會議標題：換行最多 3 行，不截成單行省略 */
+#sheetbody h4.mtitle,.sheet h4.mtitle{white-space:normal;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;line-height:1.35;max-height:calc(1.35em * 3);word-break:break-word;font-size:14.5px;color:var(--text)}
+
+.today-hi{margin-top:6px;font-size:12.5px;line-height:1.45;color:var(--text);white-space:normal}
+.today-hi-k{display:inline-block;font-size:11px;font-weight:700;color:var(--jade);margin-right:4px;letter-spacing:.3px}

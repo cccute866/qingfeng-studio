@@ -5,7 +5,7 @@ const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;"
 const noemo=s=>String(s||"").replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F000}-\u{1F2FF}\uFE0F]/gu,"").trim();
 
 function iconSVG(kind){
-  const common='xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#3FD8A0" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
+  const common='xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#3FD8A0" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
   const paths={
     director:'<circle cx="12" cy="8" r="3.2"/><path d="M5 19c1.5-3.2 4-4.8 7-4.8s5.5 1.6 7 4.8"/><path d="M12 2.5v1.2"/>',
     council:'<rect x="3.5" y="5" width="17" height="11" rx="1.5"/><path d="M8 19h8M12 16v3"/>',
@@ -1144,6 +1144,36 @@ function shortDecisionTitle(d, max){
   if(t.length<=n) return t;
   return t.slice(0,n-1)+"…";
 }
+function todayHighlights(max){
+  const n=max||4;
+  const parts=[];
+  for(const d of decisionsList()){
+    const t=shortDecisionTitle(d,14);
+    if(t && !parts.includes(t)) parts.push(t);
+    if(parts.length>=n) break;
+  }
+  if(!parts.length){
+    const day=todayStr();
+    for(const e of ((D&&D.feed)||[])){
+      if(String(e.at||"").slice(0,10)!==day) continue;
+      let t=String(e.text||"").replace(/^[^：:]{1,12}[：:]\s*/,"").trim();
+      if(!t) continue;
+      if(t.length>18) t=t.slice(0,17)+"…";
+      if(!parts.includes(t)) parts.push(t);
+      if(parts.length>=n) break;
+    }
+  }
+  if(!parts.length){
+    const v=(D&&D.game&&D.game.version)||"";
+    return v?("目前版本 "+v):"今天還沒有亮點";
+  }
+  return parts.join(" · ");
+}
+function playEntranceHTML(){
+  const g=(D&&D.game)||{};
+  const hi=todayHighlights(4);
+  return `<div class="play"><div class="ver">目前版本 <b>${esc(g.version||"—")}</b><div class="today-hi"><span class="today-hi-k">今日亮點</span> ${esc(hi)}</div></div><a class="btn" target="_blank" rel="noopener" href="${esc(g.url||"#")}">進入遊戲</a></div>`;
+}
 function decisionsByFloor(){
   // floorId -> [{d, mids}]
   const out={};
@@ -1178,10 +1208,12 @@ function renderDeskSigns(){
     wrap.setAttribute("aria-label","今日決定標示");
     wrap.innerHTML=show.map(({d,mids})=>{
       const av=mids.filter(id=>id!=="council"&&NAMES[id]).slice(0,2)
-        .map(id=>`<img class="ds-av" src="${avatarURL(id)}" alt="" width="22" height="22">`).join("");
-      const due=String(d.due||"").trim();
+        .map(id=>`<img class="ds-av" src="${avatarURL(id)}" alt="" width="18" height="18">`).join("");
+      let due=String(d.due||"").trim();
+      // 桌上標籤空間小：期限超過 12 字就截
+      if([...due].length>10) due=[...due].slice(0,9).join("")+"…";
       const dueBit=due?`<span class="ds-due">${esc(due)}</span>`:"";
-      return `<button type="button" class="ds-item" data-goto-council="1"><span class="ds-avs">${av}</span><span class="ds-txt">${esc(shortDecisionTitle(d,16))}</span>${dueBit}</button>`;
+      return `<button type="button" class="ds-item" data-goto-council="1"><span class="ds-avs">${av}</span><span class="ds-txt">${esc(shortDecisionTitle(d,12))}</span>${dueBit}</button>`;
     }).join("");
     if(rows.length>2){
       wrap.innerHTML+=`<button type="button" class="ds-more" data-goto-council="1">還有 ${rows.length-2} 項 · 看 8F</button>`;
@@ -1204,6 +1236,11 @@ function decisionBoardHTML(){
   if(!dec.length) return emptySoon("今天還沒有已裁決的決定","會議結束後會出現在這裡");
   return `<div class="dboard">${dec.map((d,i)=>decisionRowHTML(d, i<3)).join("")}</div>`;
 }
+function decisionDetailBody(d){
+  const who=String((d&&d.dri)||"").trim()||"未指定";
+  const due=String((d&&d.due)||"期限未定").trim()||"期限未定";
+  return `負責：${who}。期限：${due}`;
+}
 function decisionRowHTML(d, open){
   const ids=driIds(d.dri); const st=dueStatus(d.due);
   const av=ids.length
@@ -1211,9 +1248,9 @@ function decisionRowHTML(d, open){
     :`<div class="davs"><div class="dav"></div></div>`;
   const title=shortDecisionTitle(d,18);
   const dueTxt=st.text||"—";
-  const body=esc(plainDecisionSentence(d));
+  const body=esc(decisionDetailBody(d));
   const openAttr=open?" open":"";
-  return `<details class="drow"${openAttr}><summary class="dcard dcard-compact">${av}<span class="dtitle">${esc(title)}</span><span class="ddue-tag ${st.cls}">${esc(dueTxt)}</span></summary><div class="drow-body">${body}<div class="ddri muted">負責人桌上也有標示</div></div></details>`;
+  return `<details class="drow"${openAttr}><summary class="dcard dcard-compact">${av}<span class="dtitle">${esc(title)}</span><span class="ddue-tag ${st.cls}">${esc(dueTxt)}</span></summary><div class="drow-body">${body}</div></details>`;
 }
 
 /* ---- 7F 交易室：投資先生風格分頁（原創版面，無元大商標／色票複製） ---- */
@@ -1376,9 +1413,10 @@ function focusCardsHTML(){
   const feedTxt = (sm.total!=null)?(`行情已連線 ${sm.ok||0}/${sm.total}`):"尚無行情檢查";
   const g=p.liveGate||{};
   const gateTxt = g.daysElapsed!=null?`往實盤 ${g.daysElapsed}/${g.targetDays||90} 天`:"往實盤進度 —";
-  const detail=rawLine&&rawLine!==headline?`<details class="focus-raw"><summary>詳細</summary><div class="muted" style="margin-top:6px;font-size:12px;word-break:break-word">${esc(rawLine)}</div></details>`:"";
+  const expandBtn = `<button type="button" class="focus-more" data-focus-expand="1" aria-expanded="false">展開</button>`;
+  const rawBit = rawLine && rawLine !== headline ? `<div class="focus-raw-inline muted" hidden>${esc(rawLine)}</div>` : "";
   return `<div class="focus-grid">
-    <div class="focus-card"><div class="focus-k">今日焦點</div><div class="focus-v">${esc(headline)}</div>${detail}</div>
+    <div class="focus-card" data-focus-card="1"><div class="focus-k">今日焦點</div><div class="focus-v">${esc(headline)}</div>${rawBit}${expandBtn}</div>
     <div class="focus-card"><div class="focus-k">行情連線</div><div class="focus-v">${esc(feedTxt)}</div><div class="muted" style="margin-top:4px;font-size:11px">${esc(gateTxt)} · 紙上模擬</div></div>
   </div>`;
 }
@@ -1557,6 +1595,17 @@ function bindTradeApp(root){
     app.outerHTML=tradeAppHTML();
     bindTradeApp(parent);
   }
+  app.querySelectorAll("[data-focus-expand]").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      const card=btn.closest("[data-focus-card]");
+      if(!card) return;
+      const open=card.classList.toggle("open");
+      btn.setAttribute("aria-expanded", open?"true":"false");
+      btn.textContent=open?"收合":"展開";
+      const raw=card.querySelector(".focus-raw-inline");
+      if(raw) raw.hidden=!open;
+    });
+  });
   app.querySelectorAll("[data-trade-tab]").forEach(btn=>{
     btn.onclick=()=>{
       tradeTab=btn.dataset.tradeTab;
@@ -1980,7 +2029,7 @@ function renderRoomDash(){
     el.innerHTML=`<div class="card"><h2>夾層 · 公關／財會</h2>${floorBriefHTML("沈沐禾（公關，只起草不上傳）與蒲小棠（財會核對）。例行已暫停，有需要才上班。")}${keyCardsHTML([{v:"沈沐禾",l:"公關"},{v:"蒲小棠",l:"財會"},{v:"有需要才上班",l:"狀態"}])}</div>`; return;
   }
   if(id==="lobby"){
-    el.innerHTML=`<div class="card"><h2>遊戲入口</h2>${floorBriefHTML("從這裡進遊戲，也可看待辦與排程。")}<div class="play"><div class="ver">目前版本 <b>${esc(D.game.version)}</b><br>${esc(D.game.subtitle)}</div><a class="btn" target="_blank" rel="noopener" href="${esc(D.game.url)}">進入遊戲</a></div></div>`; return;
+    el.innerHTML=`<div class="card"><h2>遊戲入口</h2>${floorBriefHTML("從這裡進遊戲，也可看待辦與排程。")}${playEntranceHTML()}</div>`; return;
   }
   if(id==="director"){
     const n=((D.director||{}).needYou||[]).length;
@@ -2064,7 +2113,7 @@ function renderBoard(){
     ? `<button type="button" class="hint-card muted" id="hint-usage"><span class="hint-ico">⚡</span><span>${esc(a.short||"網站資料停更")}（今日發布次數已用完），不代表員工失敗</span><span class="hint-go">去 9F →</span></button>`
     : `<button type="button" class="hint-card" id="hint-usage"><span class="hint-ico">⚡</span><span>用量與額度 · 在 9F 總裁辦公室看明細</span><span class="hint-go">去 9F →</span></button>`;
   board.innerHTML=`${decHint}${usageHint}
-  <div class="card"><h2>${iconSVG("lobby")}大廳 · 遊戲入口</h2><div class="play"><div class="ver">目前版本 <b>${esc(D.game.version)}</b><br>${esc(D.game.subtitle)}</div><a class="btn" target="_blank" rel="noopener" href="${esc(D.game.url)}">進入遊戲</a></div></div>
+  <div class="card"><h2>${iconSVG("lobby")}大廳 · 遊戲入口</h2>${playEntranceHTML()}</div>
   <div class="card"><h2>待辦進度</h2>${progressHTML()}</div>
   <div class="card"><h2>${iconSVG("schedule")}今日排程</h2>${timelineHTML()}</div>
   <div class="card"><h2>${iconSVG("roadmap")}上架路線圖 · 7 條</h2>${roadmapHTML()}</div>`;
@@ -2114,7 +2163,7 @@ function openFloor(id){const f=FLOORS.find(x=>x.id===id);let h=head(f);
       {v:adopt,l:"採納",note:"會開始做"},
       {v:reject,l:"不採納",note:"先不做"},
     ]);
-    h+=`<h4>${esc(c.title||"今日會議")}</h4><div class="muted">${esc(fmtAt(c.at))} · ${esc(c.attend||"")}</div>`;
+    h+=`<h4 class="mtitle">${esc(c.title||"今日會議")}</h4><div class="muted">${esc(fmtAt(c.at))} · ${esc(c.attend||"")}</div>`;
     h+=`<h4>今日決定</h4>${decisionBoardHTML()}`;
     if(ver.length){
       h+=`<h4>最新裁決</h4><div class="plain-list">`+listTopHTML(ver,3,v=>{
@@ -2228,7 +2277,7 @@ function openFloor(id){const f=FLOORS.find(x=>x.id===id);let h=head(f);
       {v:p+"%",l:"待辦完成",note:`還剩 ${b.open||0} 項`},
       {v:(D.schedule||[]).length,l:"今日排程段"},
     ]);
-    h+=`<div class="play" style="margin-top:10px"><div class="ver">目前版本 <b>${esc(D.game.version)}</b><br>${esc(D.game.subtitle)}</div><a class="btn" target="_blank" rel="noopener" href="${esc(D.game.url)}">進入遊戲</a></div>`;
+    h+=`<div style="margin-top:10px">${playEntranceHTML()}</div>`;
     h+=`<h4>待辦進度</h4>${progressHTML()}`;
     h+=`<h4>今日排程</h4>${timelineHTML()}`;
     h+=detailFoldHTML("上架路線圖（7 條）", roadmapHTML());
