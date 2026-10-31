@@ -99,7 +99,7 @@ h1{margin:0;font-size:20px;letter-spacing:1px;font-weight:750;color:var(--text)}
 .think{position:absolute;z-index:5;transform:translate(-50%,-100%);background:#15221c;color:#e8fff4;font-size:12px;line-height:1.35;padding:6px 9px;border-radius:14px;max-width:min(220px,60%);box-shadow:0 4px 12px #0009,0 0 0 1px #3fd8a044;pointer-events:none;animation:pop .35s ease-out}
 .think::before,.think::after{content:"";position:absolute;background:#15221c;border-radius:50%}.think::before{width:9px;height:9px;left:46%;bottom:-11px}.think::after{width:5px;height:5px;left:44%;bottom:-18px}
 @keyframes pop{from{transform:translate(-50%,-80%) scale(.85);opacity:0}to{transform:translate(-50%,-100%) scale(1);opacity:1}}
-.lobby-sign{position:absolute;z-index:3;left:50%;bottom:10px;transform:translateX(-50%);display:flex;gap:8px;align-items:center}
+.lobby-sign{position:absolute;z-index:4;right:8px;bottom:10px;left:auto;transform:none;display:flex;gap:8px;align-items:center;justify-content:flex-end;max-width:46%}.lobby-sign .btn{font-size:13px;padding:7px 12px;min-height:40px;white-space:nowrap}.room:has(> .lobby-sign) > .fviz{right:auto;max-width:calc(52% - 12px)}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:8px 16px;border-radius:10px;border:1px solid #3fd8a088;background:linear-gradient(180deg,#2a9e72,#1a6b4e);color:#e8fff4;font-weight:800;text-decoration:none;box-shadow:0 0 16px #3fd8a033,0 4px 0 #0d3d2c;font-size:15px}
 .btn:hover{filter:brightness(1.08)}
 .prep-banner{margin:10px 0;padding:14px 16px;border-radius:12px;border:1px dashed #5ab0ff66;background:#5ab0ff10;color:#b7dbff;font-size:13.5px;text-align:center}

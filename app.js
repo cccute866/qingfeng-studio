@@ -1169,10 +1169,12 @@ function todayHighlights(max){
   }
   return parts.join(" · ");
 }
-function playEntranceHTML(){
+function playEntranceHTML(opts){
   const g=(D&&D.game)||{};
   const hi=todayHighlights(4);
-  return `<div class="play"><div class="ver">目前版本 <b>${esc(g.version||"—")}</b><div class="today-hi"><span class="today-hi-k">今日亮點</span> ${esc(hi)}</div></div><a class="btn" target="_blank" rel="noopener" href="${esc(g.url||"#")}">進入遊戲</a></div>`;
+  // opts.btn===false：1F 主圖已有 lobby-sign「進入遊戲」，卡片不再重複
+  const btn=(opts&&opts.btn===false)?"":`<a class="btn" target="_blank" rel="noopener" href="${esc(g.url||"#")}">進入遊戲</a>`;
+  return `<div class="play"><div class="ver">目前版本 <b>${esc(g.version||"—")}</b><div class="today-hi"><span class="today-hi-k">今日亮點</span> ${esc(hi)}</div></div>${btn}</div>`;
 }
 function decisionsByFloor(){
   // floorId -> [{d, mids}]
@@ -2029,7 +2031,7 @@ function renderRoomDash(){
     el.innerHTML=`<div class="card"><h2>夾層 · 公關／財會</h2>${floorBriefHTML("沈沐禾（公關，只起草不上傳）與蒲小棠（財會核對）。例行已暫停，有需要才上班。")}${keyCardsHTML([{v:"沈沐禾",l:"公關"},{v:"蒲小棠",l:"財會"},{v:"有需要才上班",l:"狀態"}])}</div>`; return;
   }
   if(id==="lobby"){
-    el.innerHTML=`<div class="card"><h2>遊戲入口</h2>${floorBriefHTML("從這裡進遊戲，也可看待辦與排程。")}${playEntranceHTML()}</div>`; return;
+    el.innerHTML=`<div class="card"><h2>遊戲入口</h2>${floorBriefHTML("從這裡進遊戲，也可看待辦與排程。")}${playEntranceHTML({btn:false})}</div>`; return;
   }
   if(id==="director"){
     const n=((D.director||{}).needYou||[]).length;
@@ -2277,7 +2279,7 @@ function openFloor(id){const f=FLOORS.find(x=>x.id===id);let h=head(f);
       {v:p+"%",l:"待辦完成",note:`還剩 ${b.open||0} 項`},
       {v:(D.schedule||[]).length,l:"今日排程段"},
     ]);
-    h+=`<div style="margin-top:10px">${playEntranceHTML()}</div>`;
+    h+=`<div style="margin-top:10px">${playEntranceHTML({btn:false})}</div>`;
     h+=`<h4>待辦進度</h4>${progressHTML()}`;
     h+=`<h4>今日排程</h4>${timelineHTML()}`;
     h+=detailFoldHTML("上架路線圖（7 條）", roadmapHTML());
