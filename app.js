@@ -2108,6 +2108,7 @@ function timelineHTML(){
   const liveWork=Object.keys(SHORT).filter(i=>{const st=memberState(i);return st.live&&(st.cat==="work"||st.cat==="meet");});
   const names=[...new Set([...cur.map(s=>s.who==="council"?"全員會議（智雅主持）":(s.soft?s.chip:NAMES[s.who])),...liveWork.map(i=>NAMES[i])])];
   h+=`<div class="working">現在工作中：${names.length?esc(names.join("、")):"沒有排程（大家待命）"}</div>`;
+  if((D.scheduleMissing||[]).length) h+=`<div class="muted sched-miss" style="margin-top:6px;font-size:11.5px">時間缺：${D.scheduleMissing.map(x=>esc(x.what+"（缺）")).join("、")}</div>`;
   if(D.scheduleNote) h+=`<div class="muted sched-note" style="margin-top:6px;font-size:11.5px;line-height:1.4">${esc(D.scheduleNote)}</div>`;
   return h;}
 function roadmapHTML(){return '<div class="rm">'+D.roadmap.map(r=>`<div class="tr"><div class="hd"><span class="n">${r.n}</span>${esc(r.name)}<span class="st ${r.state}">${{doing:"進行中",todo:"未開始",blocked:"卡住"}[r.state]}</span></div><dl><dt>已完成</dt><dd>${esc(r.done)}</dd><dt>下一步</dt><dd>${esc(r.next)}</dd>${r.needYou?`<dt>${r.state==="blocked"?"卡在":"等你"}</dt><dd class="need">${esc(r.needYou.replace(/^無（(.*)）$/,"$1"))}</dd>`:""}</dl></div>`).join("")+"</div>";}
@@ -2287,7 +2288,7 @@ function openFloor(id){const f=FLOORS.find(x=>x.id===id);let h=head(f);
       <div class="vcard"><b>蒲小棠 · 青鋒財會</b><div class="muted">財會：核對用量與花費、對齊模擬帳；有異常會標在桌上。</div>${memberBtn("fin")}</div>
     </div>`;
     {const sc=(D.schedule||[]).filter(x=>x.who==="pr"||x.who==="fin");
-    h+=`<h4>今日排程</h4><ul class="plain-list">${sc.map(x=>`<li>${esc(x.from)} ${esc(x.what)}</li>`).join("")}</ul><div class="muted">時間約略，前後 15 分鐘內開始。</div>`;}
+    h+=`<h4>今日排程</h4><ul class="plain-list">${sc.map(x=>`<li>${esc(x.from)} ${esc(x.what)}</li>`).join("")}${(D.scheduleMissing||[]).filter(x=>x.who==="pr"||x.who==="fin").map(x=>`<li>缺 ${esc(x.what)}</li>`).join("")}</ul><div class="muted">時間約略，前後 15 分鐘內開始。</div>`;}
   }
   if(id==="lobby"){
     const b=D.backlog||{}; const p=b.total?Math.round(b.done/b.total*100):0;
