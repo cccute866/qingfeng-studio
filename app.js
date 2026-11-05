@@ -1267,16 +1267,31 @@ const TRADE_TABS = [
   {id:"book", label:"庫存"},
   {id:"log", label:"紀錄"},
 ];
-const CORE_TW = [
-  {code:"2330", name:"台積電"}, {code:"2317", name:"鴻海"}, {code:"2454", name:"聯發科"},
-  {code:"2303", name:"聯電"}, {code:"2382", name:"廣達"}, {code:"2308", name:"台達電"},
-  {code:"2412", name:"中華電"}, {code:"2881", name:"富邦金"}, {code:"2882", name:"國泰金"},
-  {code:"2891", name:"中信金"}, {code:"2002", name:"中鋼"}, {code:"1301", name:"台塑"}, {code:"00631L", name:"元大台灣50正2"},
-];
-const CORE_CRYPTO = [
-  {code:"BTC", name:"比特幣"}, {code:"ETH", name:"以太幣"},
-  {code:"SOL", name:"Solana"}, {code:"XRP", name:"瑞波幣"},
-];
+/** 動態宇宙：不再寫死核心十幾檔；名稱表僅作缺資料後備。 */
+const NAME_FALLBACK = {
+  "2330":"台積電","2317":"鴻海","2454":"聯發科","2303":"聯電","2382":"廣達","2308":"台達電",
+  "2412":"中華電","2881":"富邦金","2882":"國泰金","2891":"中信金","2002":"中鋼","1301":"台塑",
+  "00631L":"元大台灣50正2","BTC":"比特幣","ETH":"以太幣","SOL":"Solana","XRP":"瑞波幣",
+};
+function universeToday(){
+  const p=(D&&D.trade&&D.trade.perf)||{};
+  return p.universeToday || {};
+}
+function dynamicWatchTW(){
+  const u=universeToday();
+  const top=(u.twTop||[]).map(r=>({code:String(r.code||""), name:r.name||NAME_FALLBACK[r.code]||String(r.code||""), reason:r.reason||""})).filter(x=>x.code);
+  if(top.length) return top;
+  // 後備：報價 watchlist 鍵
+  const w=((p)=>((p.quotes||{}).watchlist||{}))((D&&D.trade&&D.trade.perf)||{});
+  return Object.keys(w).filter(k=>/^\d/.test(k)||k==="00631L").slice(0,12).map(c=>({code:c, name:(w[c]&&w[c].name)||NAME_FALLBACK[c]||c, reason:""}));
+}
+function dynamicWatchCrypto(){
+  const u=universeToday();
+  const top=(u.cryptoTop||[]).map(r=>({code:String(r.code||""), name:r.name||NAME_FALLBACK[r.code]||String(r.code||""), reason:r.reason||""})).filter(x=>x.code);
+  if(top.length) return top;
+  const w=((p)=>((p.quotes||{}).watchlist||{}))((D&&D.trade&&D.trade.perf)||{});
+  return Object.keys(w).filter(k=>!/^\d/.test(k)&&k!=="00631L").slice(0,12).map(c=>({code:c, name:(w[c]&&w[c].name)||NAME_FALLBACK[c]||c, reason:""}));
+}
 
 function quotesMap(){
   const p=(D&&D.trade&&D.trade.perf)||{};
@@ -1292,8 +1307,10 @@ function quotesMap(){
 function symName(code){
   const q=quotesMap()[code];
   if(q&&q.name) return q.name;
-  const tw=CORE_TW.find(x=>x.code===code); if(tw) return tw.name;
-  const cx=CORE_CRYPTO.find(x=>x.code===code); if(cx) return cx.name;
+  if(NAME_FALLBACK[code]) return NAME_FALLBACK[code];
+  const u=universeToday();
+  const hit=(u.twTop||[]).concat(u.cryptoTop||[]).find(x=>String(x.code)===String(code));
+  if(hit&&hit.name) return hit.name;
   if(code==="TAIEX") return "加權指數";
   if(code==="0050") return "元大台灣50";
   if(code==="00631L") return "元大台灣50正2";
@@ -1440,21 +1457,33 @@ function watchRowHTML(it){
   </button>`;
 }
 function watchHTML(){
-  const twMeta=groupAsOf(CORE_TW.concat([{code:"0050"}]));
-  const crMeta=groupAsOf(CORE_CRYPTO);
+  const twList=dynamicWatchTW();
+  const crList=dynamicWatchCrypto();
+  const twMeta=groupAsOf(twList.concat([{code:"0050"}]));
+  const crMeta=groupAsOf(crList);
   const asOfTw=twMeta.asOf?`資料時間 ${esc(twMeta.asOf)} 台北${twMeta.cached?" · 快取":""}`:`資料時間 —`;
   const asOfCr=crMeta.asOf?`資料時間 ${esc(crMeta.asOf)} 台北${crMeta.cached?" · 快取":""}`:`資料時間 —`;
   const perf=(D&&D.trade&&D.trade.perf)||{};
+  const u=universeToday();
   const sleeves=(perf.sleeves||[]).filter(s=>s&&s.name);
   const active=sleeves.filter(s=>/執行|等待|掛單/.test(String(s.status||"")));
   const sleeveTxt=active.length?active.map(s=>s.name).join("、"):(sleeves[0]?sleeves[0].name:"");
+  const rules=u.rulesSummary||"每日動態篩選（ADV20／上市天數／排除處置與變更交易；幣圈 OKX USDT 現貨）";
+  const counts=`台股通過 ${u.twCount!=null?u.twCount:"—"} 檔 · 幣圈通過 ${u.cryptoCount!=null?u.cryptoCount:"—"} 檔（有日K ${u.cryptoWithPriceCount!=null?u.cryptoWithPriceCount:"—"}）`;
+  const asofU=u.asof?`宇宙日 ${u.asof}`:"宇宙日 —";
+  const picks=(u.strategyPicks||[]);
+  const picksHTML=picks.length
+    ? `<div class="wl-group"><div class="wl-ghd">策略實際挑中</div>${picks.slice(0,12).map(p=>`<div class="wl-row" style="cursor:default"><div class="wl-meta"><div class="wl-name">${esc(p.name||p.code)} <span class="wl-codeinline">${esc(p.code||"")}</span></div><div class="wl-viewline">${esc((p.status||"")+" · "+(p.strategy||"")+" · "+(p.reason||""))}</div></div></div>`).join("")}</div>`
+    : `<div class="wl-group"><div class="wl-ghd">策略實際挑中</div><div class="muted" style="padding:8px 12px">目前沒有持倉／掛單／公開訊號</div></div>`;
   const explain=sleeveTxt
-    ?(`為什麼大多是「觀望」？目前配置看 ${sleeveTxt}；0050 只作對照基準。其餘策略驗證沒過或已淘汰，所以個股／幣圈先不建議進場。`)
-    :(`為什麼大多是「觀望」？目前沒有執行中的進場策略；0050 只作對照基準。其餘策略驗證沒過或已淘汰，所以個股／幣圈先不建議進場。`);
+    ?(`候選來自每日動態宇宙（非寫死名單）。目前配置看 ${sleeveTxt}；0050 只作對照基準。`)
+    :(`候選來自每日動態宇宙（非寫死名單）。目前沒有執行中的進場策略；0050 只作對照基準。`);
   return `<div class="wl-panel">
     <div class="wl-explain">${esc(explain)}</div>
-    <div class="wl-group"><div class="wl-ghd">台股核心</div><div class="wl-asof muted">${asOfTw}</div>${CORE_TW.map(watchRowHTML).join("")}</div>
-    <div class="wl-group"><div class="wl-ghd">幣圈</div><div class="wl-asof muted">${asOfCr}</div>${CORE_CRYPTO.map(watchRowHTML).join("")}</div>
+    <div class="wl-group"><div class="wl-ghd">今日篩選摘要</div><div class="wl-asof muted">${esc(asofU)} · ${esc(counts)}</div><div class="wl-viewline" style="padding:8px 12px">${esc(rules)}</div>${(u.twExcludedDisposalOrAltered!=null)?`<div class="muted" style="padding:0 12px 8px">今日排除處置／變更交易 ${esc(String(u.twExcludedDisposalOrAltered))} 檔</div>`:""}</div>
+    ${picksHTML}
+    <div class="wl-group"><div class="wl-ghd">台股候選（前 ${twList.length}）</div><div class="wl-asof muted">${asOfTw}</div>${twList.length?twList.map(watchRowHTML).join(""):`<div class="muted" style="padding:8px 12px">尚無宇宙檔</div>`}</div>
+    <div class="wl-group"><div class="wl-ghd">幣圈候選（前 ${crList.length}）</div><div class="wl-asof muted">${asOfCr}</div>${crList.length?crList.map(watchRowHTML).join(""):`<div class="muted" style="padding:8px 12px">尚無宇宙檔</div>`}</div>
     <div class="feed-disc">天氣＝策略觀點（晴看多／陰觀望／雨看空）。報價缺值顯示 —，不捏造。點進可看日 K 與模擬／回測標記。紙上模擬，非投資建議。</div>
   </div>`;
 }
