@@ -24,27 +24,17 @@ function iconSVG(kind){
   return `<svg class="ic" ${common}>${p}</svg>`;
 }
 
-const FLOORS=[
- {id:"director",no:"9F",name:"總裁辦公室",who:"偉翔 創辦人／總監",icon:"ic_director",room:"room_director",member:"weixiang",unit:"exec",band:"f9_top"},
- {id:"council",no:"8F",name:"決策會議室",who:"每日 09:47 Top-5 會議（DRI／新點子實驗；10:45 建版）",icon:"ic_council",room:"room_council",unit:"exec",band:"f8"},
- {id:"trade",no:"7F",name:"交易室",who:"青鋒交易 · 模擬營運中",icon:"ic_trade",room:"room_trade",unit:"trade",band:"f7"},
- {id:"dev",no:"6F",name:"開發部",who:"智雅 主程式／整合 · 遊戲事業部",icon:"ic_dev",room:"room_dev",member:"zhiya",unit:"game",band:"f6"},
- {id:"art",no:"5F",name:"美術部",who:"青鋒美術 · 遊戲事業部",icon:"ic_art",room:"room_art",member:"art",unit:"game",band:"f5"},
- {id:"num",no:"4F",name:"數值部",who:"青鋒數值 · 遊戲事業部",icon:"ic_num",room:"room_num",member:"num",unit:"game",band:"f4"},
- {id:"qa",no:"3F",name:"品管部",who:"青鋒監管 · 遊戲事業部",icon:"ic_qa",room:"room_qa",member:"qa",unit:"game",band:"f3"},
- {id:"eng",no:"2F",name:"工程部",who:"青鋒工程 修復／介面打磨 · 遊戲事業部",icon:"ic_eng",room:"room_eng",member:"eng",unit:"game",band:"f2"},
- {id:"mz",no:"夾層",name:"公關／財會",who:"青鋒公關 沈沐禾 · 青鋒財會 蒲小棠（有需要才上班）",icon:"ic_mz",room:"room_mz",unit:"ops",band:"mz"},
- {id:"lobby",no:"1F",name:"大廳",who:"遊戲入口 · 進度 · 路線圖",icon:"ic_lobby",room:"room_lobby",unit:"lobby",band:"lobby"}];
+/* 成員／樓層唯一來源：data/roster.json → build_site 產生 roster.js（window.QF_ROSTER）。勿在此硬編碼名單。 */
+const ROSTER=(typeof window!=="undefined"&&window.QF_ROSTER)||{members:[],floors:[],staleHours:48};
+const RM={};ROSTER.members.forEach(m=>{RM[m.id]=m;});
+const FLOORS=ROSTER.floors.map(f=>Object.assign({},f));
 /* tower.webp 900×1800 樓層 y 帶（manifest）；百分比相對整張圖 */
 /* LED 實測對齊：頂兩薄層併為 9F，其餘一層一帶；lobby 自 1439 */
 const BANDS={f9_top:[202,349],f8:[349,490],f7:[490,629],f6:[629,769],f5:[769,906],f4:[906,1042],f3:[1042,1178],f2:[1178,1360],mz:[1360,1455],lobby:[1455,1799]};
 const TOWER_H=1800;
 /* 座位：room2 floor_y/520；view back=背對螢幕 */
-const SPOT={weixiang:{f:"director",x:.30,y:.70,floor:.75},zhiya:{f:"dev",x:.52,y:.68,floor:.74},art:{f:"art",x:.34,y:.66,floor:.73},num:{f:"num",x:.44,y:.70,floor:.75},qa:{f:"qa",x:.58,y:.68,floor:.74},eng:{f:"eng",x:.48,y:.74,floor:.81},
-  /* 7F：坐近側圓桌椅（BR 椅墊）；站／需要你在椅旁地板。夾層：站桌前地板；公關卡住可坐懶骨頭 */
-  trade:{f:"trade",x:.535,y:.565,floor:.78,seatFrac:.50},
-  pr:{f:"mz",x:.57,y:.60,floor:.60,sitX:.290,sitY:.610,seatFrac:.52},
-  fin:{f:"mz",x:.64,y:.63,floor:.63}};
+/* 座位（roster spot）：room2 floor_y/520；7F 坐近側圓桌椅；夾層站桌前地板；公關卡住可坐懶骨頭；5F 音樂角在右側 */
+const SPOT={};ROSTER.members.forEach(m=>{SPOT[m.id]=Object.assign({f:m.floor},m.spot);});
 /* 半寫實比例：一般樓層＝房間高度比；等角 7F／夾層＝房間寬度比（站姿≈2.2×桌高＝242/源圖寬） */
 const ROOM_SCALE={director:.44,council:.42,trade:242/1761,mz:242/1630,lobby:.42,dev:.42,art:.41,num:.41,qa:.41,eng:.38};
 const ISO_SIT_RATIO=179/242; /* 坐姿／站姿（源圖 179px／242px） */
@@ -61,10 +51,11 @@ function isoAnchor(id, pose){
   return a.wave; /* present／stand → wave 立繪 */
 }
 const ISO_SCALE_BY_WIDTH={trade:1,mz:1}; /* 等角用寬度當基準 */
-const SEAT={weixiang:.29,zhiya:.37,art:.45,num:.53,qa:.61,eng:.69}; const TABLE_TOP=.62;
-const NAMES={weixiang:"偉翔",zhiya:"智雅",art:"青鋒美術",num:"青鋒數值",qa:"青鋒監管",eng:"青鋒工程",council:"全員會議",trade:"青鋒交易",pr:"沈沐禾",fin:"蒲小棠"};
-const SHORT={weixiang:"偉翔",zhiya:"智雅",art:"美術",num:"數值",qa:"監管",eng:"工程",trade:"交易",pr:"公關",fin:"財會"};
-const ROLES={eng:"工程師（修復／QA／介面）",pr:"青鋒公關（遊戲公關：商店上架、IG／脆小編；只起草不上傳）",fin:"青鋒財會（用量與花費、模擬帳核對）",trade:"青鋒交易（紙上模擬）"};
+const SEAT={};ROSTER.members.forEach(m=>{if(m.seat!=null)SEAT[m.id]=m.seat;}); const TABLE_TOP=.62;
+const NAMES={council:"全員會議"};ROSTER.members.forEach(m=>{NAMES[m.id]=m.name;});
+const SHORT={};ROSTER.members.forEach(m=>{SHORT[m.id]=m.short;});
+const ROLES={};ROSTER.members.forEach(m=>{ROLES[m.id]=m.role||"";});
+const HASCHAR=id=>!!(RM[id]&&RM[id].char);
 const CAT={work:"工作中",meet:"開會中",done:"完成",wait:"待命",you:"等你"};
 const LIVEMAP={"工作中":"work","開會中":"meet","完成":"done","待命":"wait","等你":"you"};
 let D=null, floorsEl={}, chars={}, thinking=null, view="city", activeFloor="lobby";
@@ -86,19 +77,24 @@ function meetingNow(){
   const c=(D&&D.schedule||[]).find(x=>x.who==="council");if(!c)return null;const min=nowMin();
   if(min>=mm(c.from)&&min<mm(c.to)){const d=tpNow();return{since:Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate(),0,0)-8*3600e3+mm(c.from)*60000};}
   return null;}
-function meeters(){return ["zhiya","art","num","qa","eng"].concat(D&&D.weixiangJoins?["weixiang"]:[]);}
+function meeters(){return ROSTER.members.filter(m=>m.meets).map(m=>m.id).concat(D&&D.weixiangJoins?["weixiang"]:[]);}
+function staleOf(id){return (D&&D.stale&&D.stale[id])||null;}
+function staleText(st){return st?("停更 "+(st.days>=1?st.days+" 天":st.hours+" 小時")+"（"+String(st.updatedAt).slice(5,16).replace("-","/")+" 後沒更新）"):"";}
 function memberState(id){
-  if(id==="pr"||id==="fin"){
-    const role=id==="pr"
-      ?"遊戲公關：商店上架、IG／脆小編（只起草，不上傳）"
-      :"財會：用量與花費、模擬帳核對";
-    // 例行已暫停：有需要才上班。即時「等你／工作中」才算在班，其餘閒晃
+  if(RM[id]&&RM[id].routine){
+    /* 有 routine 的部門（公關／財會／音樂）：即時狀態 → 今日排程 → routine＋STATE 一行；沒有就「無狀態」 */
+    const role=(RM[id].role||"");
     const lv=D&&D.live&&D.live[id];
     if(lv&&lv.status&&LIVEMAP[lv.status]){
       const age=(Date.now()-parseTP(lv.updatedAt))/60000;
       if(age>=0&&age<180) return{cat:LIVEMAP[lv.status],text:lv.task||lv.status,full:lv.task||role,where:"desk",live:true,updatedAt:lv.updatedAt,since:parseTP(lv.updatedAt)};
     }
-    return{cat:"wait",text:"有需要才上班",full:role+"（例行已暫停，有需要才上班）",where:"desk",live:false};
+    const min=nowMin(),sc=(D&&D.schedule||[]).filter(x=>x.who===id);
+    const cur=sc.find(x=>min>=mm(x.from)&&min<mm(x.to));
+    if(cur) return{cat:"work",text:cur.what,full:cur.what+"（"+cur.from+"–"+cur.to+"）",where:"desk",live:false};
+    const ds=D&&D.deptState&&D.deptState[id];
+    const stLine=ds&&ds.line?("STATE "+String(ds.at||"").slice(5).replace("-","/")+"："+ds.line):"";
+    return{cat:"wait",text:"待命 · "+RM[id].routine,full:role+"。例行："+RM[id].routine+(stLine?"。"+stLine:"；目前無狀態"),where:"desk",live:false};
   }
   if(id==="trade"){
     const tr=D&&D.trade||{}; const perf=tr.perf||{};
@@ -115,7 +111,7 @@ function memberState(id){
   const o=D&&D.office, m=o&&o.members[id];
   if(!m||typeof oStateAt!=="function"){const min=nowMin(),sc=(D&&D.schedule||[]).filter(x=>x.who===id);
     const cur=sc.find(x=>min>=mm(x.from)&&min<mm(x.to));if(cur)return{cat:"work",text:cur.what,full:cur.what+"（"+cur.from+"–"+cur.to+"）",where:"desk"};
-    const nx=sc.find(x=>min<mm(x.from));return{cat:"wait",text:nx?nx.from+" 開工":"待命",where:"desk"};}
+    const nx=sc.find(x=>min<mm(x.from));return{cat:"wait",text:nx?nx.from+" 開工":"無狀態",full:nx?"":"目前沒有即時狀態與排程（無狀態）",where:"desk",nostatus:!nx};}
   const min=nowMin(); const r=oStateAt(o,m,min); const st=r.st||{};
   let cat=st.tone||"wait";
   let text=st.short||CAT[cat],full=st.full;
@@ -141,7 +137,7 @@ function floorState(f){
     const pr=memberState("pr"), fin=memberState("fin");
     if(pr.cat==="you"||fin.cat==="you") return{cat:"you",label:"等你",text:pr.cat==="you"?pr.text:fin.text};
     if(pr.cat==="work"||fin.cat==="work") return{cat:"work",label:"處理中",text:pr.cat==="work"?pr.text:fin.text};
-    return{cat:"wait",label:"有需要才上班",text:"公關／財會例行已暫停"};
+    return{cat:"wait",label:"待命",text:"財會平日 18:00 核對；公關週一競品"};
   }
   if(f.id==="director"){const a=typeof usageAlert==="function"?usageAlert():{level:""};
     if(a.level==="red")return{cat:"you",label:"額度警示",text:a.short||"可能額度用完或例行失敗"};
@@ -229,7 +225,7 @@ function buildTower(){
     floorsEl[f.id]={el,cv:el.querySelector("canvas"),hits:el.querySelector(".hits"),room:el.querySelector(".room"),f,visible:false};
   }
   for(const id of Object.keys(SPOT)){
-    const b=document.createElement("button");b.className="hit";b.setAttribute("aria-label",NAMES[id]+"：看他在做什麼");b.innerHTML=`<span class="tag">${SHORT[id]}</span>`;
+    const b=document.createElement("button");b.className="hit";b.setAttribute("aria-label",NAMES[id]+"：看他在做什麼");b.innerHTML=`<span class="tag">${SHORT[id]}</span><span class="stale-tag" hidden>停更</span>`;
     b.addEventListener("click",e=>{e.stopPropagation();react(id);openMember(id);});
     chars[id]={id,btn:b,x:SPOT[id].x,y:SPOT[id].y,floor:SPOT[id].f,pose:"type",view:"back",bounce:0,wave:0,stroll:null,lastStroll:performance.now()+Math.random()*8000};
   }
@@ -367,7 +363,8 @@ function placeChar(c,now){
 // ---- 半寫實立繪（assets/chars/<id>_<idle|walk|wave>.webp，128×160，腳底 y=152）＋棚拍頭像 ----
 const SPR={};
 function sprite(id,pose){const k=id+"_"+pose;let im=SPR[k];if(!im){im=new Image();im.decoding="async";im.src="assets/chars/"+k+".webp";SPR[k]=im;}return im;}
-function preloadSprites(){for(const id of Object.keys(SPOT))for(const p of ["idle","walk","wave"])sprite(id,p);}
+function preloadSprites(){for(const id of Object.keys(SPOT)){if(!HASCHAR(id)){avImg(id);continue;}for(const p of ["idle","walk","wave"])sprite(id,p);}}
+const AVI={};function avImg(id){let im=AVI[id];if(!im){im=new Image();im.decoding="async";im.src=avatarURL(id,true);AVI[id]=im;}return im;}
 function avatarURL(id,lg){return lg?`assets/avatars/avatar_${id}_lg.webp`:`assets/avatars/avatar_${id}.webp`;}
 function spritePose(c,now){
   const iso=typeof IsoStates!=="undefined"&&IsoStates.ISO_IDS[c.id];
@@ -400,6 +397,7 @@ function loop(now){
       if(c.px!=null&&Math.abs(c.x-c.px)>1e-4)c.dir=c.x<c.px?-1:1;c.px=c.x;
       ctx.save();if(c.clip){ctx.beginPath();ctx.rect(0,0,cv.width,c.clip*cv.height);ctx.clip();}
       if(c.x<1.02&&c.x>-.02){ctx.fillStyle="rgba(0,0,0,.35)";if(!c.clip){ctx.beginPath();ctx.ellipse(x,y+u*.3,5*u,1.4*u,0,0,7);ctx.fill();}
+        if(!HASCHAR(c.id)){const av=avImg(c.id);if(av.complete&&av.naturalWidth){const r=Math.max(18,cv.height*.11);ctx.save();ctx.beginPath();ctx.arc(x,y-r,r,0,7);ctx.closePath();ctx.clip();ctx.drawImage(av,x-r,y-2*r,2*r,2*r);ctx.restore();ctx.strokeStyle="#3FD8A0";ctx.lineWidth=Math.max(2,u*.5);ctx.beginPath();ctx.arc(x,y-r,r,0,7);ctx.stroke();}ctx.restore();const px=c.x*100;c.btn.style.left=Math.min(96,Math.max(4,px))+"%";c.btn.style.top=(c.y*100)+"%";c.btn.style.display="";continue;}
         const im=sprite(c.id,spritePose(c,now));
         if(im.complete&&im.naturalWidth){const sc=ROOM_SCALE[k]||.42,iso=!!ISO_SCALE_BY_WIDTH[k],base=iso?sc*cv.width:sc*cv.height,sitMul=iso?ISO_SIT_RATIO:.78,dh=(c.pose==="sit"||c.pose==="type"?base*sitMul:base),dw=dh*(im.naturalWidth/im.naturalHeight);
           /* 等角：腳底／椅墊錨；其餘樓層維持圖框中心略上 */
@@ -1051,7 +1049,7 @@ function driIds(dri){
   const s=String(dri||"");
   const out=[];
   // 依出現順序收集，支援 工程＋監管／工程、智雅／工程/監管
-  const rules=[["eng",/工程/],["zhiya",/智雅/],["art",/美術/],["num",/數值/],["qa",/監管/],["weixiang",/偉翔|總監|總裁/],["trade",/交易/],["pr",/公關|沈沐禾/],["fin",/財會|蒲小棠/]];
+  const rules=[["eng",/工程/],["zhiya",/智雅/],["art",/美術/],["num",/數值/],["qa",/監管/],["weixiang",/偉翔|總監|總裁/],["trade",/交易/],["pr",/公關|沈沐禾/],["fin",/財會|蒲小棠/],["music",/音樂/]];
   // 用分隔符切開再對每段匹配，保留順序
   const parts=s.split(/[＋+、／/,，&與和]+/).map(x=>x.trim()).filter(Boolean);
   const src=parts.length?parts:[s];
@@ -2262,7 +2260,7 @@ function renderRoomDash(){
   }
   if(id==="art"){
     const a=D.art||{}; const n=a.todayCount||0;
-    el.innerHTML=`<div class="card"><h2>美術交件</h2>${floorBriefHTML("今天交了 "+n+" 張"+(a.integrated?"，已整合":"，待整合")+"。")}${keyCardsHTML([{v:n,l:"今日"},{v:a.baseCount||0,l:"最新批次"},{v:a.integrated?"已整合":"待整合",l:"狀態"}])}<div class="spark-wrap" style="margin-top:8px">${artTrendSVG(a.trend)}<span class="muted">近 7 日交件量</span></div></div>`; return;
+    el.innerHTML=`<div class="card"><h2>美術交件</h2>${floorBriefHTML("今天交了 "+n+" 張"+(a.integrated?"，已整合":"，待整合")+"。")}${keyCardsHTML([{v:n,l:"今日"},{v:a.baseCount||0,l:"最新批次"},{v:a.integrated?"已整合":"待整合",l:"狀態"}])}<div class="spark-wrap" style="margin-top:8px">${artTrendSVG(a.trend)}<span class="muted">近 7 日交件量</span></div></div>${musicCardHTML()}`; bindRosterCards(el); return;
   }
   if(id==="num"){
     const n=D.numbers||{}; const ser=n.series||[];
@@ -2276,24 +2274,38 @@ function renderRoomDash(){
     el.innerHTML=`<div class="card"><h2>${id==="dev"?"開發發版":"工程修復"}</h2>${floorBriefHTML(id==="dev"?("目前版本 "+v+"。"):"修 bug 與介面打磨。")}${pipeHTML((D.dev||{}).pipeline)}</div>`; return;
   }
   if(id==="mz"){
-    el.innerHTML=`<div class="card"><h2>夾層 · 公關／財會</h2>${floorBriefHTML("沈沐禾（公關，只起草不上傳）與蒲小棠（財會核對）。例行已暫停，有需要才上班。")}${keyCardsHTML([{v:"沈沐禾",l:"公關"},{v:"蒲小棠",l:"財會"},{v:"有需要才上班",l:"狀態"}])}</div>`; return;
+    el.innerHTML=`<div class="card"><h2>夾層 · 公關／財會</h2>${floorBriefHTML("沈沐禾（公關，只起草不上傳）與蒲小棠（財會核對）。")}${keyCardsHTML([{v:"沈沐禾",l:"公關",note:RM.pr?RM.pr.routine:""},{v:"蒲小棠",l:"財會",note:RM.fin?RM.fin.routine:""}])}${rosterCardsHTML(["pr","fin"])}</div>`; return;
   }
   if(id==="lobby"){
-    el.innerHTML=`<div class="card"><h2>遊戲入口</h2>${floorBriefHTML("從這裡進遊戲，也可看待辦與排程。")}${playEntranceHTML({btn:false})}</div>`; return;
+    el.innerHTML=`<div class="card"><h2>遊戲入口</h2>${floorBriefHTML("從這裡進遊戲，也可看待辦與排程。")}${playEntranceHTML({btn:false})}${scheduleMissingHTML()}</div><div class="card" id="roster-card-room"><h2>成員狀態 · ${ROSTER.members.length} 人</h2>${rosterCardsHTML()}</div>`; bindRosterCards(el); return;
   }
   if(id==="director"){
     const n=((D.director||{}).needYou||[]).length;
-    el.innerHTML=`<div class="card" id="usage-card-room" style="cursor:pointer"><h2>總裁辦公室</h2>${floorBriefHTML("今天有 "+n+" 件等你決定；用量明細點「看明細」。")}<div class="muted">點右上「看明細」打開完整面板</div></div>`;
+    el.innerHTML=`<div class="card" id="usage-card-room" style="cursor:pointer"><h2>總裁辦公室</h2>${floorBriefHTML("今天有 "+n+" 件等你決定；用量明細點「看明細」。")}<div class="muted">點這張卡或右上「看明細」打開用量明細</div></div>`;
+    /* SITE-ROSTER：#usage-card-room 原本只有 cursor:pointer、沒有點擊處理；補上→開總裁室並展開用量明細 */
+    const uc=$("#usage-card-room"); if(uc) uc.onclick=()=>openFloor("director",{usage:true});
     return;
   }
   el.innerHTML="";
 }
+/* ---- roster 卡片（SITE-ROSTER）：每位成員都有卡；沒有狀態顯示「無狀態」；>48h 未更新標 stale ---- */
+function rosterCardsHTML(ids){
+  const list=(ids||ROSTER.members.map(m=>m.id)).filter(id=>RM[id]);
+  return `<div class="roster-grid">${list.map(id=>{const m=RM[id],s=memberState(id),st=staleOf(id),f=FLOORS.find(x=>x.id===m.floor)||{};
+    const txt=noemo(s.text)||"無狀態";
+    return `<button type="button" class="rcard${st?" is-stale":""}${s.nostatus||txt==="無狀態"?" no-status":""}" data-m="${esc(id)}"><img class="mava" src="${avatarURL(id)}" alt="" width="28" height="28"><span class="rc-main"><b>${esc(m.short)}</b><span class="rc-fl">${esc((f.no||"")+(m.zone?" "+m.zone:""))}</span><span class="rc-st"><span class="dot ${s.cat}"></span>${esc(txt)}</span>${st?`<span class="stale-badge" title="${esc(staleText(st))}">stale · ${esc(staleText(st))}</span>`:""}</span></button>`;}).join("")}</div>`;}
+function bindRosterCards(root){(root||document).querySelectorAll(".rcard[data-m]").forEach(b=>b.onclick=e=>{e.stopPropagation();openMember(b.dataset.m);});}
+function scheduleMissingHTML(){const ms=(D&&D.scheduleMissing)||[];
+  return `<div class="sched-miss${ms.length?" has-miss":""}" style="margin-top:6px;font-size:11.5px">排程缺漏（scheduleMissing）：${ms.length?ms.map(x=>esc((x.chip?x.chip+" ":"")+x.what+"（時間缺）")).join("、"):"0 項（schedule.json 每項都有時間）"}</div>`;}
+function musicCardHTML(){const m=RM.music;if(!m)return"";const s=memberState("music"),c=(D.cards||{}).music||{},ds=(D.deptState||{}).music;
+  return `<div class="card music-zone" id="music-card"><h2>5F 音樂角 · ${esc(m.name)}</h2>${floorBriefHTML("音樂部門在 5F 美術部的子區（音樂角）。"+(ds&&ds.at?"STATE 更新 "+String(ds.at).slice(5).replace("-","/")+"。":"目前無狀態檔。"))}${keyCardsHTML([{v:s.cat==="work"?"工作中":"待命",l:"狀態",note:noemo(s.text)||"無狀態"},{v:"ch01–03",l:"原創 BGM",note:"已交，待接入／待試聽"}])}<div class="muted" style="margin-top:6px">剛完成：${esc(noemo(c.recent)||"無狀態")}</div>${rosterCardsHTML(["music"])}</div>`;}
 function renderFloors(){for(const f of FLOORS){const F=floorsEl[f.id],s=floorState(f);const b=F.el.querySelector(".bubble");
   b.querySelector(".dot").className="dot "+s.cat;b.querySelector("b").textContent=s.label;b.querySelector(".t").textContent=noemo(s.text);
   const fv=F.el.querySelector(".fviz"); if(fv) fv.innerHTML=D?floorVizHTML(f.id):"";
   if(f.id==="director"&&D){const a=usageAlert();F.el.classList.toggle("usage-alert",a.level==="red");F.el.classList.toggle("usage-warn",a.level==="yellow");F.el.classList.toggle("usage-stale",a.level==="gray");}}
   if(D&&D.game) document.querySelectorAll(".play-link").forEach(a=>{a.href=D.game.url;a.textContent="進入遊戲 "+D.game.version;});
   if(typeof renderDeskSigns==="function") renderDeskSigns();
+  for(const id in chars){const t=chars[id].btn.querySelector(".stale-tag");if(t){const st=staleOf(id);t.hidden=!st;chars[id].btn.classList.toggle("stale",!!st);if(st)t.title=staleText(st);}}
 }
 function chipOf(s){
   if(s.chip)return s.chip;
@@ -2338,7 +2350,7 @@ function timelineHTML(){
   const liveWork=Object.keys(SHORT).filter(i=>{const st=memberState(i);return st.live&&(st.cat==="work"||st.cat==="meet");});
   const names=[...new Set([...cur.map(s=>s.who==="council"?"全員會議（智雅主持）":(s.soft?s.chip:NAMES[s.who])),...liveWork.map(i=>NAMES[i])])];
   h+=`<div class="working">現在工作中：${names.length?esc(names.join("、")):"沒有排程（大家待命）"}</div>`;
-  if((D.scheduleMissing||[]).length) h+=`<div class="muted sched-miss" style="margin-top:6px;font-size:11.5px">時間缺：${D.scheduleMissing.map(x=>esc(x.what+"（缺）")).join("、")}</div>`;
+  h+=scheduleMissingHTML();
   if(D.scheduleNote) h+=`<div class="muted sched-note" style="margin-top:6px;font-size:11.5px;line-height:1.4">${esc(D.scheduleNote)}</div>`;
   return h;}
 function roadmapHTML(){return '<div class="rm">'+D.roadmap.map(r=>`<div class="tr"><div class="hd"><span class="n">${r.n}</span>${esc(r.name)}<span class="st ${r.state}">${{doing:"進行中",todo:"未開始",blocked:"卡住"}[r.state]}</span></div><dl><dt>已完成</dt><dd>${esc(r.done)}</dd><dt>下一步</dt><dd>${esc(r.next)}</dd>${r.needYou?`<dt>${r.state==="blocked"?"卡在":"等你"}</dt><dd class="need">${esc(r.needYou.replace(/^無（(.*)）$/,"$1"))}</dd>`:""}</dl></div>`).join("")+"</div>";}
@@ -2367,7 +2379,9 @@ function renderBoard(){
   <div class="card"><h2>${iconSVG("lobby")}大廳 · 遊戲入口</h2>${playEntranceHTML()}</div>
   <div class="card"><h2>待辦進度</h2>${progressHTML()}</div>
   <div class="card"><h2>${iconSVG("schedule")}今日排程</h2>${timelineHTML()}</div>
+  <div class="card" id="roster-card"><h2>${iconSVG("lobby")}成員狀態 · ${ROSTER.members.length} 人</h2>${rosterCardsHTML()}</div>
   <div class="card"><h2>${iconSVG("roadmap")}上架路線圖 · 7 條</h2>${roadmapHTML()}</div>`;
+  bindRosterCards(board);
   const hd=$("#hint-decisions"); if(hd) hd.onclick=()=>{setView("tower");};
   const hu=$("#hint-usage"); if(hu) hu.onclick=()=>{setView("room","director"); openFloor("director");};
 }
@@ -2388,7 +2402,7 @@ function sevHTML(c){const L=[["🔴","s1","致命"],["🟠","s2","重要"],["�
 function tradeHead(){return `<div class="who trade-who trade-brand"><img class="ava ava-trade" width="56" height="56" alt="AgentX+" src="${avatarURL("trade",true)}"><div class="trade-brand-txt"><div class="trade-wm" aria-label="AgentX+">AgentX+</div><div class="trade-sub">青鋒交易 · 紙上模擬</div></div></div>`;}
 function memberBtn(id){return `<div class="mbtn"><button data-m="${id}" class="mbtn-ava"><img class="mava" src="${avatarURL(id)}" alt="" width="28" height="28">看 ${esc(NAMES[id])} 在想什麼</button></div>`;}
 function head(f,extra){const s=floorState(f);return `<h3>${iconSVG(f.id)}<span class="no">${f.no}</span> ${f.name}</h3><div class="muted"><span class="dot ${s.cat}"></span> ${esc(s.label)} · ${esc(noemo(s.text))}${extra||""}</div>`;}
-function openFloor(id){const f=FLOORS.find(x=>x.id===id);let h=head(f);
+function openFloor(id,opt){opt=opt||{};const f=FLOORS.find(x=>x.id===id);let h=head(f);
   if(id==="director"){const d=D.director; const need=d.needYou||[]; const fb=d.feedback||[];
     h+=floorBriefHTML("這層是偉翔看全局與用量的地方。今天有 "+need.length+" 件等你本人決定或開通。");
     h+=keyCardsHTML([
@@ -2402,7 +2416,7 @@ function openFloor(id){const f=FLOORS.find(x=>x.id===id);let h=head(f);
       h+=detailFoldHTML("排隊中詳細（"+D.backlog.tiers.queue+" 項）", `<div class="muted">新建議先排在這裡，週一會議再挑進本週。</div>${queueHTML(null,8)}<div class="tiers"><span class="chip">長期／上架前 ${D.backlog.tiers.long}</span><span class="chip">已關閉 ${D.backlog.tiers.closed}</span></div>`);
     }
     h+=`<h4>你的回饋</h4>`+(fb.length?`<ul class="plain-list">${listTopHTML(fb,3,x=>`<li>${x.done?'<span class="chip ok">已處理</span>':'<span class="chip mid">處理中</span>'} ${esc(x.text)} <span class="muted">（${esc(x.from)}）</span></li>`)}</ul>`:emptySoon("還沒有回饋紀錄","試玩後的意見會出現在這裡"));
-    h+=detailFoldHTML("用量與額度詳細", usagePanelHTML());
+    h+=opt.usage?`<details class="detail-fold usage-fold" open><summary>用量與額度詳細</summary><div class="detail-body">${usagePanelHTML()}</div></details>`:detailFoldHTML("用量與額度詳細", usagePanelHTML());
     h+=memberBtn("weixiang");
   }
   if(id==="council"){const c=D.council;if(c){const dec=c.decisions||[]; const ver=c.verdicts||[];
@@ -2458,7 +2472,8 @@ function openFloor(id){const f=FLOORS.find(x=>x.id===id);let h=head(f);
     h+=(groups.length?`<ul class="plain-list">${listTopHTML(groups,3,g=>`<li><b>${esc(g.name)}</b>：${esc(g.desc)}</li>`)}</ul>`:emptySoon("還沒有分組說明","下次交件會寫進來"));
     h+=detailFoldHTML("已整合批次", `<div class="chips"><span class="chip">${esc((a.integratedBatches||[]).join("、")||"尚無")}</span></div><div class="muted">交件時間 ${esc(fmtAt(a.at))}</div>`);
     h+=memberBtn("art");
-  } else h+=emptySoon("尚無美術交件","有新批次時會出現");}
+  } else h+=emptySoon("尚無美術交件","有新批次時會出現");
+    h+=musicCardHTML()+memberBtn("music");}
   if(id==="num"){const n=D.numbers;if(n){const ser=n.series||[]; const st=n.stats||[]; const sug=n.suggestions||[];
     h+=floorBriefHTML("這層跑數值模擬與建議。建議 "+sug.length+" 條，已採納 "+(n.adopted||0)+"、未採納 "+(n.declined||0)+"。");
     h+=keyCardsHTML([
@@ -2507,11 +2522,11 @@ function openFloor(id){const f=FLOORS.find(x=>x.id===id);let h=head(f);
     h+=memberBtn("eng");
   }
   if(id==="mz"){
-    h+=floorBriefHTML("這層是夾層・公關／財會。左邊沈沐禾負責遊戲公關（商店上架、IG／脆小編，只起草不上傳）；右邊蒲小棠負責財會（用量與花費、模擬帳核對）。例行已暫停，有需要才上班。");
+    h+=floorBriefHTML("這層是夾層・公關／財會。左邊沈沐禾負責遊戲公關（商店上架、IG／脆小編，只起草不上傳）；右邊蒲小棠負責財會（用量與花費、模擬帳核對）。財會："+(RM.fin?RM.fin.routine:"")+"；公關："+(RM.pr?RM.pr.routine:"")+"。");
     h+=keyCardsHTML([
       {v:"沈沐禾",l:"青鋒公關",note:"只起草，不上傳"},
       {v:"蒲小棠",l:"青鋒財會",note:"用量／模擬帳"},
-      {v:"有需要才上班",l:"狀態",note:"例行已暫停"},
+      {v:memberState("fin").cat==="work"?"核對中":"待命",l:"狀態",note:"財會平日 18:00–18:30"},
     ]);
     h+=`<h4>兩位同事</h4><div class="plain-list">
       <div class="vcard"><b>沈沐禾 · 青鋒公關</b><div class="muted">遊戲公關：商店上架文案、IG／脆貼文——只起草，不上傳；等你拍板。</div>${memberBtn("pr")}</div>
@@ -2531,6 +2546,7 @@ function openFloor(id){const f=FLOORS.find(x=>x.id===id);let h=head(f);
     h+=`<div style="margin-top:10px">${playEntranceHTML({btn:false})}</div>`;
     h+=`<h4>待辦進度</h4>${progressHTML()}`;
     h+=`<h4>今日排程</h4>${timelineHTML()}`;
+    h+=`<h4>成員狀態</h4>${rosterCardsHTML()}`;
     h+=detailFoldHTML("上架路線圖（7 條）", roadmapHTML());
   }
   openSheet(h);document.querySelectorAll("#sheetbody [data-m]").forEach(b=>b.onclick=()=>openMember(b.dataset.m));bindUsageDetails($("#sheetbody"));bindStrategyFilters($("#sheetbody"));bindTradeApp($("#sheetbody"));
@@ -2539,7 +2555,7 @@ function openMember(id){let s=memberState(id);const ch=chars[id];if(ch&&ch.state
   const desk=((typeof decisionsByFloor==="function"?decisionsByFloor():{})[SPOT[id]?SPOT[id].f:""]||[]).filter(x=>(x.mids||[]).includes(id));
   const deskHint=desk.length?`<div class="floor-brief" style="margin-top:10px">桌上決定：${esc(plainDecisionSentence(desk[0].d))}${desk.length>1?`（還有 ${desk.length-1} 項）`:""}</div>`:"";
   const busy=noemo((ch&&ch.beh&&ch.beh.detail)||s.full||s.text);
-  openSheet(`<div class="who"><img id="ava" class="ava" width="96" height="96" alt="${esc(NAMES[id])}" src="${avatarURL(id,true)}" data-id="${id}"><div><div class="nm">${esc(NAMES[id])}</div><div class="rl">${esc(m.role||"")}</div><div class="stl"><span class="dot ${s.cat}"></span>${CAT[s.cat]} · <span class="muted">${s.live?esc(agoText(s.updatedAt)):"依每日排程"}</span></div></div></div>
+  openSheet(`<div class="who"><img id="ava" class="ava" width="96" height="96" alt="${esc(NAMES[id])}" src="${avatarURL(id,true)}" data-id="${id}"><div><div class="nm">${esc(NAMES[id])}</div><div class="rl">${esc(m.role||"")}</div><div class="stl"><span class="dot ${s.cat}"></span>${CAT[s.cat]} · <span class="muted">${s.live?esc(agoText(s.updatedAt)):"依每日排程"}</span></div>${staleOf(id)?`<div class="stale-badge">stale · ${esc(staleText(staleOf(id)))}</div>`:""}</div></div>
   <div class="thought">${esc(thoughtOf(id))}</div>
   ${deskHint}
   <div class="rows"><div class="r"><b>正在忙</b>${esc(busy)}</div><div class="r"><b>剛完成</b>${esc(noemo(c.recent)||"—")}</div><div class="r"><b>下一步</b>${esc(noemo(nextStep(id))||"目前沒寫下一步，有排程時會出現")}</div></div>
