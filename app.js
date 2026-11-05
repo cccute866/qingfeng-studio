@@ -771,8 +771,12 @@ function tradePerfHTML(){
   const vs=regime.vsSma200==="above"?"站上 SMA200":(regime.vsSma200==="below"?"跌破 SMA200":"均線未知");
   const dist=regime.distancePct!=null?` ${fmtPct(regime.distancePct)}`:" ";
   const sleeves=(p.sleeves||[]).map(s=>`<div class="feed-row"><span class="slite green"></span><span class="feed-src">${esc(s.name)}（目標 ${esc(String(s.targetPct))}%）</span><span class="feed-st ok">${esc(s.status||"")}</span></div>`).join("");
+  const posNote=p.positionsNote?`<div class="muted">${esc(p.positionsNote)}</div>`:"";
   const pos=(p.positions||[]).length
-    ? (p.positions||[]).map(x=>`<div class="feed-row"><span class="slite green"></span><span class="feed-src">${esc(symLabel(x.symbol)||x.symbol)}</span><span class="feed-st ok">權重 ${esc(String(x.weightPct))}%，未實現 ${fmtPct(x.unrealizedPct)}</span></div>`).join("")
+    ? (p.positions||[]).map(x=>{
+        const bit=[x.strategyZh,x.market==="crypto"?"幣圈":(x.market==="tw"?"台股":""),x.mark!=null?("現 "+fmtDash(x.mark,2)):""].filter(Boolean).join(" · ");
+        return `<div class="feed-row"><span class="slite green"></span><span class="feed-src">${esc(symLabel(x.symbol)||x.symbol)} <span class="muted">${esc(bit)}</span></span><span class="feed-st ok">未實現 ${fmtPct(x.unrealizedPct)}</span></div>`;
+      }).join("")
     : `<div class="muted">尚無持倉</div>`;
   const ev=(p.recentEvents||[]).length
     ? `<ul>${(p.recentEvents||[]).map(e=>`<li><span class="muted">${esc(e.date)}</span> ${esc(e.text)}</li>`).join("")}</ul>`
@@ -820,7 +824,7 @@ function tradePerfHTML(){
       <div class="muted">資料日 ${esc(regime.asOfDate||"—")} · 待成交單 ${esc(String(p.pendingOrderCount||0))} · 下次檢討 ${esc(p.nextReview||"—")}</div>
     </div>
     <div class="feed-mkt"><div class="feed-mhd">部位配置</div>${sleeves||'<div class="muted">—</div>'}</div>
-    <div class="feed-mkt"><div class="feed-mhd">持倉（權重）</div>${pos}</div>
+    <div class="feed-mkt"><div class="feed-mhd">持倉</div>${posNote}${pos}</div>
     ${trainHtml}
     <div class="feed-mkt"><div class="feed-mhd">近期事件</div>${ev}</div>
     ${st?`<div class="feed-mkt"><div class="feed-mhd">策略研究紀錄</div>${stHtml}</div>`:""}
@@ -1537,7 +1541,21 @@ function bookHTML(){
   const availRaw=cap.availableLabel||cap.label||"";
   const avail=String(availRaw).replace(/^可用資金[：:]\s*/,"");
   const vs = p.vs0050Sentence || `模擬獲利 ${fmtPct(p.equityReturnPct)}，同期買 0050 ${fmtPct(p.benchmark0050ReturnPct)}`;
-  const posRows=pos.length?pos.map(x=>`<div class="wl-row"><div class="wl-meta"><div class="wl-name">${esc(symLabel(x.symbol)||x.symbol)}</div></div><div class="wl-px"><div class="wl-close">權重 ${esc(fmtDash(x.weightPct,1))}%</div><div class="wl-chg">未實現 ${fmtPct(x.unrealizedPct)}</div></div></div>`).join(""):emptySoon("尚無紙上持倉","紙上掛單等開盤成交後會出現；0050／BTC 為對照線");
+  const posNote=p.positionsNote?`<div class="muted" style="margin-bottom:6px">${esc(p.positionsNote)}</div>`:"";
+  const posRows=pos.length?pos.map(x=>{
+    const mkt=x.market==="crypto"?"幣圈":(x.market==="tw"?"台股":(x.market||""));
+    const sub=[x.strategyZh,mkt,x.side==="long"?"多":x.side,x.entryDate?("進 "+x.entryDate):""].filter(Boolean).join(" · ");
+    const pxLine=[
+      x.entryPx!=null?("進 "+fmtDash(x.entryPx,2)):"",
+      x.mark!=null?("現 "+fmtDash(x.mark,2)):"",
+      x.markDate?("("+x.markDate+")"):""
+    ].filter(Boolean).join(" ");
+    const risk=[
+      x.stopPx!=null?("停 "+fmtDash(x.stopPx,2)):"",
+      x.targetPx!=null?("目標 "+fmtDash(x.targetPx,2)):""
+    ].filter(Boolean).join(" · ");
+    return `<div class="wl-row"><div class="wl-meta"><div class="wl-name">${esc(symLabel(x.symbol)||x.symbol)}</div><div class="wl-viewline">${esc(sub)}</div>${risk?`<div class="wl-viewline muted">${esc(risk)}</div>`:""}</div><div class="wl-px"><div class="wl-close">${esc(pxLine||"—")}</div><div class="wl-chg">未實現 ${fmtPct(x.unrealizedPct)}</div></div></div>`;
+  }).join(""):emptySoon("尚無紙上持倉","紙上掛單等開盤成交後會出現；0050／BTC 為對照線");
   const planned=(p.trades||[]).filter(t=>t&&t.planned);
   const planRows=planned.length?planned.map(t=>{
     const sym=normTradeSym(t.symbol);
@@ -1556,7 +1574,7 @@ function bookHTML(){
     <div class="feed-mkt" style="margin-top:10px"><div class="feed-mhd">策略簿</div>${strategyBookHTML()}</div>
     <div class="feed-mkt" style="margin-top:10px"><div class="feed-mhd">目標配置</div>${sleevesDonutHTML(sleeves)}</div>
     ${planRows?`<div class="feed-mkt"><div class="feed-mhd">預計進場</div>${planRows}</div>`:""}
-    <div class="feed-mkt"><div class="feed-mhd">持倉</div>${posRows}</div>
+    <div class="feed-mkt"><div class="feed-mhd">持倉</div>${posNote}${posRows}</div>
   </div>`;
 }
 function normTradeSym(sym){
