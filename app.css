@@ -392,6 +392,31 @@ ul.qu{margin:6px 0}ul.qu li{margin:3px 0}
 .strat-tap.open{border-color:#C9A22788;box-shadow:0 0 0 1px #C9A22733}
 .strat-body{margin-top:6px;padding-top:6px;border-top:1px dashed #C9A22744}
 .book-panel .sim-banner{margin-bottom:4px}
+/* 模擬庫存表（券商庫存風） */
+.inv-panel .inv-overview{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0}
+.inv-ov-card{background:#121a24;border:1px solid #ffffff14;border-radius:12px;padding:10px 12px}
+.inv-ov-lab{font-size:11.5px;color:#9aa8b8;font-weight:600}
+.inv-ov-val{font-size:22px;font-weight:800;letter-spacing:.2px;margin-top:2px}
+.inv-ov-val.up{color:#9ff0c6}.inv-ov-val.dn{color:#ffc6c6}
+.inv-ov-sub{font-size:11px;color:#7a8796;margin-top:2px}
+.inv-pulse{font-size:11.5px;min-height:1.2em}
+.inv-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid #ffffff12;border-radius:12px;margin-top:4px}
+.inv-table{width:100%;border-collapse:collapse;font-size:12px;min-width:760px}
+.inv-table th,.inv-table td{padding:8px 8px;border-bottom:1px solid #ffffff0d;vertical-align:middle}
+.inv-table th{font-size:10.5px;color:#9aa8b8;font-weight:700;text-align:left;white-space:nowrap;background:#0e141c}
+.inv-table th.num,.inv-table td.num{text-align:right;font-variant-numeric:tabular-nums}
+.inv-table tbody tr:last-child td{border-bottom:none}
+.inv-sym{font-weight:700;white-space:nowrap}
+.inv-mark{font-weight:700}
+.inv-unreal.up{color:#9ff0c6}.inv-unreal.dn{color:#ffc6c6}
+.inv-live{display:inline-block;margin-left:4px;font-size:10px;font-weight:700;color:#0b1a12;background:#9ff0c6;border-radius:999px;padding:1px 6px}
+.inv-stale{display:inline-block;margin-left:4px;font-size:10px;font-weight:700;color:#3a2a00;background:#C9A227;border-radius:999px;padding:1px 6px}
+.inv-qt{font-size:11px;color:#9aa8b8;white-space:nowrap}
+.inv-legend{font-size:11px;line-height:1.4;margin-top:6px}
+@media (max-width:480px){
+  .inv-panel .inv-overview{grid-template-columns:1fr}
+  .inv-ov-val{font-size:20px}
+}
 .donut-wrap{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
 .donut{width:110px;height:110px;flex:0 0 auto}
 .donut-legs{display:flex;flex-direction:column;gap:6px;font-size:12px}

@@ -1533,48 +1533,240 @@ function strategyBookHTML(){
     <div class="feed-disc">${disc}</div>`;
 }
 
+
+/* ---- 模擬庫存（券商庫存風；幣圈 OKX 公開 REST 約 10 秒；台股瀏覽器多半過不了 CORS） ---- */
+const INV_OKX_MAP = {"BTC-USD":"BTC-USDT","ETH-USD":"ETH-USDT","SOL-USD":"SOL-USDT","XRP-USD":"XRP-USDT","BTC":"BTC-USDT","ETH":"ETH-USDT","SOL":"SOL-USDT","XRP":"XRP-USDT"};
+let __invLiveTimer = null;
+let __invLiveMarks = {}; // symbol -> {mark, quoteTime, live, source}
+let __invTwLiveTried = false;
+let __invTwLiveOk = false;
+
+function invStopLive(){
+  if(__invLiveTimer){ clearInterval(__invLiveTimer); __invLiveTimer=null; }
+}
+function invOkxInst(sym){
+  const s=String(sym||"").toUpperCase();
+  if(INV_OKX_MAP[s]) return INV_OKX_MAP[s];
+  if(s.endsWith("-USD")) return s.replace(/-USD$/,"-USDT");
+  if(s.endsWith("-USDT")) return s;
+  return null;
+}
+function invFmtPx(v, sym){
+  if(v==null || v==="" || Number.isNaN(Number(v))) return "缺";
+  const n=Number(v);
+  const s=String(sym||"").toUpperCase();
+  if(s.includes("BTC")) return n.toLocaleString("en-US",{maximumFractionDigits:2});
+  if(s.includes("ETH")||s.includes("SOL")) return n.toLocaleString("en-US",{maximumFractionDigits:2});
+  if(n>=1000) return n.toLocaleString("en-US",{maximumFractionDigits:2});
+  return n.toFixed(2);
+}
+function invFmtPct(v){
+  if(v==null || v==="" || Number.isNaN(Number(v))) return "缺";
+  const n=Number(v);
+  return (n>0?"+":"")+n.toFixed(2)+"%";
+}
+function invPctTone(v){
+  if(v==null || Number.isNaN(Number(v))) return "";
+  const n=Number(v);
+  if(n>0) return "up";
+  if(n<0) return "dn";
+  return "";
+}
+function invDistStop(mark, stop, side){
+  if(mark==null || stop==null || !Number(mark)) return null;
+  const m=Number(mark), st=Number(stop);
+  if(String(side)==="short") return (st-m)/m*100;
+  return (m-st)/m*100;
+}
+function invUnreal(mark, entry){
+  if(mark==null || entry==null || !Number(entry)) return null;
+  return (Number(mark)/Number(entry)-1)*100;
+}
+function invTwseMisUrl(sym){
+  // 證交所 MIS 公開即時；瀏覽器端多半被 CORS 擋
+  let code=String(sym||"").replace(/\.TW$/i,"").replace(/\.TWO$/i,"");
+  if(!/^\d{4}[A-Z]?$/.test(code) && code!=="0050" && !/^\d{4,6}[A-Z]?$/.test(code)) return null;
+  const board = /^0/.test(code) ? "tse" : "tse"; // ETF 也走 tse_；失敗由呼叫端處理
+  // 上櫃簡判：常見 .TWO；此處僅試 tse，失敗則維持非即時
+  return `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${board}_${code}.tw&json=1&delay=0`;
+}
+async function invFetchOkx(sym){
+  const inst=invOkxInst(sym);
+  if(!inst) return null;
+  const r=await fetch(`https://www.okx.com/api/v5/market/ticker?instId=${encodeURIComponent(inst)}`,{cache:"no-store"});
+  if(!r.ok) throw new Error("okx http "+r.status);
+  const j=await r.json();
+  const row=(j.data&&j.data[0])||null;
+  if(!row || row.last==null) throw new Error("okx empty");
+  const ts=Number(row.ts);
+  let qt="";
+  if(ts){
+    const d=new Date(ts);
+    // 轉台北顯示
+    qt=d.toLocaleString("sv-SE",{timeZone:"Asia/Taipei",hour12:false}).replace("T"," ").slice(0,16);
+  }
+  return {mark:Number(row.last), quoteTime:qt||"", live:true, source:"OKX"};
+}
+async function invFetchTwse(sym){
+  const url=invTwseMisUrl(sym);
+  if(!url) return null;
+  const r=await fetch(url,{cache:"no-store"});
+  if(!r.ok) throw new Error("twse http "+r.status);
+  const j=await r.json();
+  const row=(j.msgArray&&j.msgArray[0])||null;
+  if(!row) throw new Error("twse empty");
+  const z=row.z && row.z!=="-" ? Number(row.z) : (row.pz?Number(row.pz):NaN);
+  if(!Number.isFinite(z)) throw new Error("twse no last");
+  const d=String(row.d||""); // YYYYMMDD
+  const t=String(row.t||""); // HH:MM:SS
+  let qt="";
+  if(/^\d{8}$/.test(d)){
+    qt=`${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}`;
+    if(t) qt+=" "+t.slice(0,5);
+  }
+  return {mark:z, quoteTime:qt, live:true, source:"TWSE MIS"};
+}
+async function invRefreshLiveMarks(positions){
+  const list=positions||[];
+  const tasks=[];
+  list.forEach(p=>{
+    const sym=p.symbol;
+    if(!sym) return;
+    if(p.market==="crypto" || invOkxInst(sym)){
+      tasks.push(invFetchOkx(sym).then(v=>{ if(v) __invLiveMarks[sym]=v; }).catch(()=>{}));
+    }else if(p.market==="tw" || /^\d/.test(String(sym))){
+      // 台股：只試一次，CORS 失敗就永遠走非即時
+      if(!__invTwLiveTried){
+        __invTwLiveTried=true;
+        tasks.push(invFetchTwse(sym).then(v=>{
+          if(v){ __invLiveMarks[sym]=v; __invTwLiveOk=true; }
+        }).catch(()=>{ __invTwLiveOk=false; }));
+      }else if(__invTwLiveOk){
+        tasks.push(invFetchTwse(sym).then(v=>{ if(v) __invLiveMarks[sym]=v; }).catch(()=>{}));
+      }
+    }
+  });
+  await Promise.all(tasks);
+}
+function invEffectiveRow(p){
+  const live=__invLiveMarks[p.symbol];
+  const entry=p.entryPx;
+  let mark=p.mark, quoteTime=p.quoteTime||p.markDate||"", liveFlag=!!p.quoteLive, source="";
+  if(live && live.mark!=null){
+    mark=live.mark; quoteTime=live.quoteTime||quoteTime; liveFlag=!!live.live; source=live.source||"";
+  }else{
+    liveFlag=false;
+    if(p.market==="crypto") source="建置快照";
+    else source="收盤／建置快照";
+  }
+  const unreal = invUnreal(mark, entry);
+  const dist = invDistStop(mark, p.stopPx, p.side);
+  return Object.assign({}, p, {mark, quoteTime, quoteLive:liveFlag, quoteSource:source, unrealizedPct:unreal, distToStopPct:dist});
+}
+function invOverviewHTML(p){
+  const tw = p.twEquityReturnPct!=null?p.twEquityReturnPct:p.equityReturnPct;
+  const cr = p.cryptoEquityReturnPct;
+  const twLab=p.twEquityReturnLabel||"台股";
+  const crLab=p.cryptoEquityReturnLabel||"幣圈";
+  return `<div class="inv-overview" role="group" aria-label="帳戶總覽">
+    <div class="inv-ov-card"><div class="inv-ov-lab">${esc(twLab)}累計</div><div class="inv-ov-val ${invPctTone(tw)}">${esc(invFmtPct(tw))}</div><div class="inv-ov-sub">對照 0050 ${esc(fmtPct(p.benchmark0050ReturnPct))}</div></div>
+    <div class="inv-ov-card"><div class="inv-ov-lab">${esc(crLab)}累計</div><div class="inv-ov-val ${invPctTone(cr)}">${esc(invFmtPct(cr))}</div><div class="inv-ov-sub">對照 BTC ${esc(fmtPct(p.benchmarkBtcReturnPct))}</div></div>
+  </div>`;
+}
+function invTableHTML(rows){
+  if(!rows.length) return `<div class="muted">尚無紙上持倉</div>`;
+  const head=`<thead><tr>
+    <th>標的</th><th>市場</th><th>策略</th><th>方向</th><th>進場日</th>
+    <th class="num">進場價</th><th class="num">現價</th><th class="num">未實現</th>
+    <th class="num">停損</th><th class="num">目標</th><th class="num">距停損</th><th>報價時間</th>
+  </tr></thead>`;
+  const body=rows.map(raw=>{
+    const x=invEffectiveRow(raw);
+    const mkt=x.market==="crypto"?"幣圈":(x.market==="tw"?"台股":(x.market||"—"));
+    const side=x.side==="long"?"多":(x.side==="short"?"空":(x.side||"—"));
+    const liveTag=x.quoteLive?`<span class="inv-live">即時</span>`:`<span class="inv-stale">非即時</span>`;
+    const qt=x.quoteTime?`${esc(x.quoteTime)} ${liveTag}`:`缺 ${liveTag}`;
+    const uTone=invPctTone(x.unrealizedPct);
+    return `<tr data-inv-sym="${esc(x.symbol)}">
+      <td class="inv-sym">${esc(symLabel(normTradeSym(x.symbol))||x.symbol)}</td>
+      <td>${esc(mkt)}</td>
+      <td>${esc(x.strategyZh||"—")}</td>
+      <td>${esc(side)}</td>
+      <td>${esc(x.entryDate||"—")}</td>
+      <td class="num" data-k="entry">${esc(invFmtPx(x.entryPx,x.symbol))}</td>
+      <td class="num inv-mark" data-k="mark">${esc(invFmtPx(x.mark,x.symbol))}</td>
+      <td class="num inv-unreal ${uTone}" data-k="unreal">${esc(invFmtPct(x.unrealizedPct))}</td>
+      <td class="num">${esc(x.stopPx!=null?invFmtPx(x.stopPx,x.symbol):"—")}</td>
+      <td class="num">${esc(x.targetPx!=null?invFmtPx(x.targetPx,x.symbol):"—")}</td>
+      <td class="num" data-k="dist">${esc(x.distToStopPct!=null?invFmtPct(x.distToStopPct):"—")}</td>
+      <td class="inv-qt" data-k="qt">${qt}</td>
+    </tr>`;
+  }).join("");
+  return `<div class="inv-table-wrap"><table class="inv-table">${head}<tbody>${body}</tbody></table></div>
+    <div class="inv-legend muted">幣圈現價：瀏覽器直連 OKX 公開 API（約 10 秒）。台股：證交所 MIS 若被瀏覽器 CORS 擋住，顯示建置時真實收盤／成交價並標「非即時」。去敏：不顯示股數、金額、權重。</div>`;
+}
+function invPatchDom(root, positions){
+  const tbl=(root||document).querySelector(".inv-table");
+  if(!tbl) return;
+  (positions||[]).forEach(raw=>{
+    const x=invEffectiveRow(raw);
+    const tr=tbl.querySelector(`tr[data-inv-sym="${CSS.escape(x.symbol)}"]`);
+    if(!tr) return;
+    const mark=tr.querySelector('[data-k="mark"]');
+    const unreal=tr.querySelector('[data-k="unreal"]');
+    const dist=tr.querySelector('[data-k="dist"]');
+    const qt=tr.querySelector('[data-k="qt"]');
+    if(mark) mark.textContent=invFmtPx(x.mark,x.symbol);
+    if(unreal){
+      unreal.textContent=invFmtPct(x.unrealizedPct);
+      unreal.classList.remove("up","dn");
+      const t=invPctTone(x.unrealizedPct); if(t) unreal.classList.add(t);
+    }
+    if(dist) dist.textContent=x.distToStopPct!=null?invFmtPct(x.distToStopPct):"—";
+    if(qt){
+      const liveTag=x.quoteLive?'<span class="inv-live">即時</span>':'<span class="inv-stale">非即時</span>';
+      qt.innerHTML=(x.quoteTime?esc(x.quoteTime)+" ":"缺 ")+liveTag;
+    }
+  });
+  const pulse=(root||document).querySelector("[data-inv-pulse]");
+  if(pulse){
+    const n=Object.keys(__invLiveMarks).length;
+    pulse.textContent=n?`幣圈即時報價已更新 · ${new Date().toLocaleTimeString("zh-TW",{timeZone:"Asia/Taipei",hour12:false})}`:"等待即時報價…";
+  }
+}
+function invStartLive(positions){
+  invStopLive();
+  const run=()=>invRefreshLiveMarks(positions).then(()=>{
+    const app=document.querySelector(".trade-app");
+    if(!app || tradeTab!=="book") return;
+    invPatchDom(app, positions);
+  });
+  run();
+  __invLiveTimer=setInterval(run, 10000);
+}
+
 function bookHTML(){
   const p=(D&&D.trade&&D.trade.perf)||{};
   const pos=p.positions||[];
-  const sleeves=p.sleeves||[];
-  const cap=p.capital||{};
-  const availRaw=cap.availableLabel||cap.label||"";
-  const avail=String(availRaw).replace(/^可用資金[：:]\s*/,"");
-  const vs = p.vs0050Sentence || `模擬獲利 ${fmtPct(p.equityReturnPct)}，同期買 0050 ${fmtPct(p.benchmark0050ReturnPct)}`;
   const posNote=p.positionsNote?`<div class="muted" style="margin-bottom:6px">${esc(p.positionsNote)}</div>`:"";
-  const posRows=pos.length?pos.map(x=>{
-    const mkt=x.market==="crypto"?"幣圈":(x.market==="tw"?"台股":(x.market||""));
-    const sub=[x.strategyZh,mkt,x.side==="long"?"多":x.side,x.entryDate?("進 "+x.entryDate):""].filter(Boolean).join(" · ");
-    const pxLine=[
-      x.entryPx!=null?("進 "+fmtDash(x.entryPx,2)):"",
-      x.mark!=null?("現 "+fmtDash(x.mark,2)):"",
-      x.markDate?("("+x.markDate+")"):""
-    ].filter(Boolean).join(" ");
-    const risk=[
-      x.stopPx!=null?("停 "+fmtDash(x.stopPx,2)):"",
-      x.targetPx!=null?("目標 "+fmtDash(x.targetPx,2)):""
-    ].filter(Boolean).join(" · ");
-    return `<div class="wl-row"><div class="wl-meta"><div class="wl-name">${esc(symLabel(x.symbol)||x.symbol)}</div><div class="wl-viewline">${esc(sub)}</div>${risk?`<div class="wl-viewline muted">${esc(risk)}</div>`:""}</div><div class="wl-px"><div class="wl-close">${esc(pxLine||"—")}</div><div class="wl-chg">未實現 ${fmtPct(x.unrealizedPct)}</div></div></div>`;
-  }).join(""):emptySoon("尚無紙上持倉","紙上掛單等開盤成交後會出現；0050／BTC 為對照線");
+  const disc=esc(p.disclaimer||"模擬結果，非投資建議");
+  // 保留策略簿／配置於下方摺疊，庫存表為主
   const planned=(p.trades||[]).filter(t=>t&&t.planned);
   const planRows=planned.length?planned.map(t=>{
     const sym=normTradeSym(t.symbol);
     return `<button type="button" class="wl-row wl-tap" data-sym="${esc(sym)}"><div class="wl-meta"><div class="wl-name">${esc(symLabel(sym)||sym)} <span class="chip mid">預計</span></div><div class="wl-viewline">${esc(t.strategyZh||t.label||"")} · ${esc(t.date||"")}</div></div><div class="wl-px"><div class="wl-close">${t.stopPx!=null?"停 "+fmtDash(t.stopPx,2):"—"}</div><div class="wl-chg">${t.targetPx!=null?"目標 "+fmtDash(t.targetPx,2):"—"}</div></div></button>`;
   }).join(""):"";
-  return `<div class="book-panel">
-    <div class="sim-banner">紙上模擬 · 非投資建議 · 不碰真錢</div>
-    ${avail?`<div class="capital-avail"><span class="ca-lab">可用資金</span><span class="ca-val">${esc(avail)}</span></div>`:""}
-    <div class="vs-bench">${esc(vs)}</div>
-    <div class="big" style="margin-top:8px">
-      <div><b>${fmtPct(p.equityReturnPct)}</b><span>模擬報酬</span><em>${Number(p.equityReturnPct)==0?"還沒開始漲跌":(Number(p.equityReturnPct)>0?"比開始好":"比開始差")}</em></div>
-      <div><b>${fmtPct(p.dailyChangePct)}</b><span>日變動</span><em>${p.dailyChangePct==null||Number(p.dailyChangePct)==0?"與昨天差不多":(Number(p.dailyChangePct)>0?"比昨天好":"比昨天差")}</em></div>
-      <div><b>${p.closedTrades==null?"—":esc(String(p.closedTrades))}</b><span>已平倉</span></div>
-      <div><b>${p.maxDrawdownPct==null?"—":(Number(p.maxDrawdownPct).toFixed(1)+"%")}</b><span>最大回撤</span></div>
-    </div>
-    <div class="feed-mkt" style="margin-top:10px"><div class="feed-mhd">策略簿</div>${strategyBookHTML()}</div>
-    <div class="feed-mkt" style="margin-top:10px"><div class="feed-mhd">目標配置</div>${sleevesDonutHTML(sleeves)}</div>
+  return `<div class="book-panel inv-panel">
+    <div class="sim-banner">紙上模擬庫存 · 非投資建議 · 不碰真錢</div>
+    ${invOverviewHTML(p)}
+    <div class="inv-pulse muted" data-inv-pulse>載入即時報價…</div>
+    <div class="feed-mkt" style="margin-top:8px"><div class="feed-mhd">模擬庫存</div>${posNote}${invTableHTML(pos)}</div>
     ${planRows?`<div class="feed-mkt"><div class="feed-mhd">預計進場</div>${planRows}</div>`:""}
-    <div class="feed-mkt"><div class="feed-mhd">持倉</div>${posNote}${posRows}</div>
+    <details class="focus-raw" style="margin-top:10px"><summary>策略簿與目標配置</summary>
+      <div class="feed-mkt" style="margin-top:8px"><div class="feed-mhd">策略簿</div>${strategyBookHTML()}</div>
+      <div class="feed-mkt" style="margin-top:10px"><div class="feed-mhd">目標配置</div>${sleevesDonutHTML(p.sleeves||[])}</div>
+    </details>
+    <div class="feed-disc">${disc}</div>
   </div>`;
 }
 function normTradeSym(sym){
@@ -1629,9 +1821,18 @@ function bindTradeApp(root){
   app.querySelectorAll("[data-trade-tab]").forEach(btn=>{
     btn.onclick=()=>{
       tradeTab=btn.dataset.tradeTab;
+      if(tradeTab!=="book") invStopLive();
       refresh();
+      if(tradeTab==="book"){
+        const pos=((D&&D.trade&&D.trade.perf)||{}).positions||[];
+        invStartLive(pos);
+      }
     };
   });
+  if(tradeTab==="book"){
+    const pos=((D&&D.trade&&D.trade.perf)||{}).positions||[];
+    invStartLive(pos);
+  }
   const stFilt=app.querySelector('[data-role="strat-status"]');
   if(stFilt){
     window.__stratStatusFilter=window.__stratStatusFilter||"全部";
