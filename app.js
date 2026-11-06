@@ -1328,6 +1328,18 @@ function dynamicWatchCrypto(){
   return Object.keys(w).filter(k=>!/^\d/.test(k)&&k!=="00631L").slice(0,12).map(c=>({code:c, name:(w[c]&&w[c].name)||NAME_FALLBACK[c]||c, reason:""}));
 }
 
+
+function quoteTimeLabel(q){
+  if(!q) return "";
+  const raw=q.dataTime||q.asOf||q.asof||"";
+  if(!raw) return q.notToday||q.label==="非今日"?"非今日":"";
+  const day=String(raw).slice(0,10);
+  const today=new Date().toLocaleDateString("en-CA",{timeZone:"Asia/Taipei"});
+  const stale=(q.notToday===true)||(q.label==="非今日")||(day && day<today);
+  const clock=String(raw).length>=16?String(raw).slice(0,16).replace("T"," "):day;
+  return stale?`${clock} · 非今日`:`${clock}`;
+}
+
 function quotesMap(){
   const p=(D&&D.trade&&D.trade.perf)||{};
   const q=p.quotes;
@@ -1461,9 +1473,10 @@ function indexStripHTML(){
     if(q&&q.source&&!src) src=q.source;
     const chgCls = chg==null?"":(Number(chg)>0?"up":(Number(chg)<0?"down":""));
     const cached=q&&q.cached?`<span class="idx-cached" title="沿用快取">快取</span>`:"";
-    return `<div class="idx-item" role="listitem"><div class="idx-name">${esc(it.code==="TAIEX"?"加權指數":symLabel(it.code))}</div><div class="idx-close">${esc(fmtPrice(close, it.code))}${cached}</div><div class="idx-chg ${chgCls}">${esc(fmtChg(chg))}</div></div>`;
+    const tlab=quoteTimeLabel(q);
+    return `<div class="idx-item" role="listitem"><div class="idx-name">${esc(it.code==="TAIEX"?"加權指數":symLabel(it.code))}</div><div class="idx-close">${esc(fmtPrice(close, it.code))}${cached}</div><div class="idx-chg ${chgCls}">${esc(fmtChg(chg))}</div><div class="idx-asof muted" style="font-size:10px">${esc(tlab||"—")}</div></div>`;
   }).join("")}</div>
-  <div class="idx-meta muted">${asOf?`截至 ${esc(asOf)} 台北`:"報價截至 —"}${src?` · ${esc(src)}`:""} · 缺值顯示 —，不捏造</div>`;
+  <div class="idx-meta muted">${asOf?`快照 ${esc(asOf)} 台北`:"報價截至 —"}${src?` · ${esc(src)}`:""} · 缺值顯示 —，不捏造；「非今日」＝資料日早於今天</div>`;
 }
 function stripEnglishIds(s){
   return String(s||"").replace(/\b[A-Z][A-Z0-9_]{3,}\b/g,"").replace(/[／/]\s*[／/]/g,"／").replace(/\s{2,}/g," ").replace(/^[／/\s；;，,：:]+|[／/\s；;，,：:]+$/g,"").trim();
@@ -1504,7 +1517,7 @@ function watchRowHTML(it){
   return `<button type="button" class="wl-row wl-tap" data-sym="${esc(it.code)}">
     <div class="wl-wx" title="${esc(w.label+(w.note?(" · "+w.note):""))}">${wxSVG(w.wx)}<span class="wl-wxlab">${esc(w.wx)}</span></div>
     <div class="wl-meta"><div class="wl-name">${esc(name)} <span class="wl-codeinline">${esc(it.code)}</span></div><div class="wl-viewline">${esc(w.label)}：${esc(w.note||"目前沒有策略建議進場")}</div></div>
-    <div class="wl-px"><div class="wl-close">${esc(fmtPrice(close, it.code))}</div><div class="wl-chg ${chgCls}">${esc(fmtChg(chg))}</div></div>
+    <div class="wl-px"><div class="wl-close">${esc(fmtPrice(close, it.code))}</div><div class="wl-chg ${chgCls}">${esc(fmtChg(chg))}</div><div class="wl-asof muted" style="font-size:10px">${esc(quoteTimeLabel(q)||"—")}</div></div>
   </button>`;
 }
 function watchHTML(){
@@ -1764,7 +1777,7 @@ function invTableHTML(rows){
     const x=invEffectiveRow(raw);
     const mkt=x.market==="crypto"?"幣圈":(x.market==="tw"?"台股":(x.market||"—"));
     const side=x.side==="long"?"多":(x.side==="short"?"空":(x.side||"—"));
-    const liveTag=x.quoteLive?`<span class="inv-live">即時</span>`:`<span class="inv-stale">非即時</span>`;
+    const liveTag=x.quoteLive?`<span class="inv-live">即時</span>`:(x.notToday||x.label==="非今日"?`<span class="inv-stale">非今日</span>`:`<span class="inv-stale">快照</span>`);
     const qt=x.quoteTime?`${esc(x.quoteTime)} ${liveTag}`:`缺 ${liveTag}`;
     const uTone=invPctTone(x.unrealizedPct);
     return `<tr data-inv-sym="${esc(x.symbol)}">
@@ -1783,7 +1796,7 @@ function invTableHTML(rows){
     </tr>`;
   }).join("");
   return `<div class="inv-table-wrap"><table class="inv-table">${head}<tbody>${body}</tbody></table></div>
-    <div class="inv-legend muted">幣圈現價：瀏覽器直連 OKX 公開 API（約 10 秒）。台股：證交所 MIS 若被瀏覽器 CORS 擋住，顯示建置時真實收盤／成交價並標「非即時」。去敏：不顯示股數、金額、權重。</div>`;
+    <div class="inv-legend muted">快照價＝建置時單一 asof（台股官方收盤／幣圈同次 OKX last），旁標資料時間；非今日會另標。瀏覽器直連 OKX 另標「即時」＋自己的時間，與快照分開。台股 MIS 若 CORS 失敗則只用快照。去敏：不顯示股數、金額、權重。</div>`;
 }
 function invPatchDom(root, positions){
   const tbl=(root||document).querySelector(".inv-table");
@@ -1811,7 +1824,7 @@ function invPatchDom(root, positions){
   const pulse=(root||document).querySelector("[data-inv-pulse]");
   if(pulse){
     const n=Object.keys(__invLiveMarks).length;
-    pulse.textContent=n?`幣圈即時報價已更新 · ${new Date().toLocaleTimeString("zh-TW",{timeZone:"Asia/Taipei",hour12:false})}`:"等待即時報價…";
+    pulse.textContent=n?`幣圈即時（OKX，與快照分開）· ${new Date().toLocaleTimeString("zh-TW",{timeZone:"Asia/Taipei",hour12:false})}`:"等待即時報價…";
   }
 }
 function invStartLive(positions){
