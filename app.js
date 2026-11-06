@@ -627,7 +627,7 @@ function usagePanelHTML(){
     <h4>近 7 天</h4>${hist}
     <h4>怎麼判斷「可能額度用完」</h4>
     <ul><li>排程時段結束後超過 ${u.graceMin||60} 分鐘，且該時段開始後仍無心跳／產出 → 紅燈</li>
-    <li>監管 11:00 時段：沒有新版上線（或已寫「無新版，略過實測」）就不算缺，不亮紅燈</li>
+    <li>監管 11:45 時段：沒有新版上線（或已寫「無新版，略過實測」）就不算缺，不亮紅燈</li>
     <li>今日任一證據（交件、提案、提交、心跳）都算活著；「最後見到」取全部門最新時間</li>
     <li>用量自檢：只認日期資料夾／檔名；異常標「待核對」並附計入清單，不必等你先質疑</li>
     <li>判斷在瀏覽器端算；真實餘額請到設定 → Usage & Billing；此頁從不顯示金額</li></ul>`;
@@ -2313,6 +2313,14 @@ function chipOf(s){
   if(s.who==="zhiya")return /補跑/.test(s.what||"")?"智雅補跑":"智雅建版";
   return SHORT[s.who]||NAMES[s.who]||"排程";
 }
+function auditForDisplay(s){
+  const a=s.audit||{state:"缺",detail:"今天狀態尚未稽核。",kind:"unknown"};
+  // 資料已帶排定+15分＋約30分執行窗；過窗不自動宣稱成功，須重新稽核。
+  return nowMin()<=mm(s.waitUntil||s.from)&&["upcoming","unknown","waiting"].includes(a.kind)
+    ? {...a,state:"時間窗內／等待中",kind:"waiting"} : a;
+}
+function scheduleAuditHTML(s){const a=auditForDisplay(s);
+  return `<span class="schedule-state ${esc(a.kind||"unknown")}">${esc(a.state||"缺")}</span><span class="schedule-detail">${esc(a.detail||"")}</span>`;}
 function timelineHTML(){
   const min=nowMin();
   const items=(D.schedule||[]).map(s=>{
@@ -2346,11 +2354,14 @@ function timelineHTML(){
   });
   if(min>=S&&min<=E)h+=`<div class="now${min>E-120?" r":""}" style="left:${pct(min)}"><span>現在 ${hm(tpNow())}</span></div>`;
   h+="</div>";
+  h+=`<div class="schedule-audit-asof">色帶表示工作時段，不是執行證明；左右滑可看整日。<br>今天狀態（人工稽核）：${esc((D.scheduleAudit||{}).asOf||"缺")}；非預估即時結果</div>`;
+  h+=`<ol class="schedule-status">${items.map(s=>`<li class="${esc(auditForDisplay(s).kind||"unknown")}"><span class="schedule-time">${esc(s.from)}</span><span><b>${esc(s.chip)}</b><span class="schedule-what">${esc(s.what)}</span>${scheduleAuditHTML(s)}</span></li>`).join("")}</ol>`;
   const cur=items.filter(s=>min>=s.a&&min<s.b);
   const liveWork=Object.keys(SHORT).filter(i=>{const st=memberState(i);return st.live&&(st.cat==="work"||st.cat==="meet");});
   const names=[...new Set([...cur.map(s=>s.who==="council"?"全員會議（智雅主持）":(s.soft?s.chip:NAMES[s.who])),...liveWork.map(i=>NAMES[i])])];
-  h+=`<div class="working">現在工作中：${names.length?esc(names.join("、")):"沒有排程（大家待命）"}</div>`;
+  h+=`<div class="working">排程時段／即時回報：${names.length?esc(names.join("、")):"無吻合的時段或即時回報；非失敗判定"}</div>`;
   h+=scheduleMissingHTML();
+  if((D.scheduleAudit||{}).method)h+=`<div class="schedule-audit-method muted">${esc(D.scheduleAudit.method)}</div>`;
   if(D.scheduleNote) h+=`<div class="muted sched-note" style="margin-top:6px;font-size:11.5px;line-height:1.4">${esc(D.scheduleNote)}</div>`;
   return h;}
 function roadmapHTML(){return '<div class="rm">'+D.roadmap.map(r=>`<div class="tr"><div class="hd"><span class="n">${r.n}</span>${esc(r.name)}<span class="st ${r.state}">${{doing:"進行中",todo:"未開始",blocked:"卡住"}[r.state]}</span></div><dl><dt>已完成</dt><dd>${esc(r.done)}</dd><dt>下一步</dt><dd>${esc(r.next)}</dd>${r.needYou?`<dt>${r.state==="blocked"?"卡在":"等你"}</dt><dd class="need">${esc(r.needYou.replace(/^無（(.*)）$/,"$1"))}</dd>`:""}</dl></div>`).join("")+"</div>";}
