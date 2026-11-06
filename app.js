@@ -906,15 +906,38 @@ function dailyLogHTML(){
   const pl=p.practiceLearning||{};
   const learnBlock=(()=>{
     const title=esc(pl.title||"練習紀錄與學習");
-    const lessons=(pl.lessons||[]).map(x=>`<li>${esc(withSymNames(x))}</li>`).join("");
-    const methods=(pl.methodNotes||[]).map(x=>`<li>${esc(x)}</li>`).join("");
-    const gaps=(pl.gaps||[]).map(x=>`<li>${esc(x)}</li>`).join("");
-    if(!lessons && !methods) return "";
+    const fmtPx=(v)=>{ if(v==null||v==="") return "—"; const n=Number(v); if(!isFinite(n)) return "—"; return n>=100?n.toFixed(2):n.toFixed(4).replace(/0+$/,"").replace(/\.$/,""); };
+    const fmtPct=(v)=>{ if(v==null||v==="") return "—"; const n=Number(v); if(!isFinite(n)) return "—"; return `${n>0?"+":""}${n.toFixed(2)}%`; };
+    const trades=(pl.paperTrades||[]).map(t=>{
+      const lab=`${esc(t.name||t.code||"")} ${esc(t.code||"")}`.trim();
+      const ent=t.entryDate?esc(t.entryDate):"—";
+      const ex=t.date?esc(t.date):"—";
+      const settle=t.settleDate?` · 結算 ${esc(t.settleDate)}`:"";
+      const path=(t.kind==="open")
+        ? `${ent} 進 ${fmtPx(t.entryPx)} → 現價 ${fmtPx(t.exitPx)}`
+        : (t.kind==="pending"
+          ? `${ent} 掛單參考 ${fmtPx(t.entryPx)}`
+          : `${ent} 進 ${fmtPx(t.entryPx)} → ${ex} 出 ${fmtPx(t.exitPx)}`);
+      return `<li><span class="muted">${ex}</span> ${lab} · ${esc(t.strategyZh||"")} · ${path} · ${fmtPct(t.resultPct)} · ${esc(t.status||"")}${settle}</li>`;
+    }).join("");
+    const blinds=(pl.blindTests||[]).map(b=>{
+      const n=b.n!=null?b.n:"—";
+      const wr=b.winRatePct!=null?`${Number(b.winRatePct).toFixed(1)}%`:"—";
+      const wil=(b.wilsonLowPct!=null&&b.wilsonHighPct!=null)?`（Wilson ${Number(b.wilsonLowPct).toFixed(1)}–${Number(b.wilsonHighPct).toFixed(1)}%）`:"";
+      const avg=b.avgReturnPct!=null?fmtPct(b.avgReturnPct):"—";
+      const bh=b.bhAvgReturnPct!=null?fmtPct(b.bhAvgReturnPct):"—";
+      const st=esc(b.sampleStatus|| (Number(b.n)<30?"樣本不足":""));
+      return `<li><span class="muted">${esc(b.date||"")}</span> ${esc(b.name||"")} · n=${esc(String(n))} · 勝率 ${esc(wr)}${esc(wil)} · 買進均報 ${esc(avg)} · B&H ${esc(bh)} · ${st}</li>`;
+    }).join("");
+    const learns=(pl.learnings||[]).map(x=>`<li><span class="muted">${esc(x.date||"")}</span> ${esc(withSymNames(x.text||""))}</li>`).join("")
+      || (pl.lessons||[]).map(x=>`<li>${esc(withSymNames(x))}</li>`).join("");
+    if(!trades && !blinds && !learns) return "";
     return `<div class="dlog-day" style="margin-bottom:12px">
       <div class="dlog-date">${title}</div>
-      ${lessons?`<div class="dlog-summary"><p class="dlog-plain">本週學到</p><ul>${lessons}</ul></div>`:""}
-      ${methods?`<div class="dlog-summary"><p class="dlog-plain">方法提醒</p><ul>${methods}</ul></div>`:""}
-      ${gaps?`<details class="dlog-detail"><summary>資料缺口</summary><ul>${gaps}</ul></details>`:""}
+      ${trades?`<div class="dlog-summary"><p class="dlog-plain">模擬交易歷史</p><ul>${trades}</ul></div>`:""}
+      ${blinds?`<div class="dlog-summary"><p class="dlog-plain">回測／盲測紀錄</p><ul>${blinds}</ul></div>`:""}
+      ${learns?`<div class="dlog-summary"><p class="dlog-plain">學到什麼</p><ul>${learns}</ul></div>`:""}
+      <div class="muted" style="padding:4px 0">模擬結果，非投資建議</div>
     </div>`;
   })();
   if(!log.length){
