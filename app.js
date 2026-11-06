@@ -903,8 +903,22 @@ function dailyLogHTML(){
   const tr=D&&D.trade||{}; const p=tr.perf||{};
   const log=(p.dailyLog||[]).filter(d=>d && !d.empty);
   const disc=esc(p.disclaimer||"模擬結果，非投資建議");
+  const pl=p.practiceLearning||{};
+  const learnBlock=(()=>{
+    const title=esc(pl.title||"練習紀錄與學習");
+    const lessons=(pl.lessons||[]).map(x=>`<li>${esc(withSymNames(x))}</li>`).join("");
+    const methods=(pl.methodNotes||[]).map(x=>`<li>${esc(x)}</li>`).join("");
+    const gaps=(pl.gaps||[]).map(x=>`<li>${esc(x)}</li>`).join("");
+    if(!lessons && !methods) return "";
+    return `<div class="dlog-day" style="margin-bottom:12px">
+      <div class="dlog-date">${title}</div>
+      ${lessons?`<div class="dlog-summary"><p class="dlog-plain">本週學到</p><ul>${lessons}</ul></div>`:""}
+      ${methods?`<div class="dlog-summary"><p class="dlog-plain">方法提醒</p><ul>${methods}</ul></div>`:""}
+      ${gaps?`<details class="dlog-detail"><summary>資料缺口</summary><ul>${gaps}</ul></details>`:""}
+    </div>`;
+  })();
   if(!log.length){
-    return `<div class="feed-panel"><div class="muted">尚無每日訓練紀錄</div><div class="feed-disc">${disc}</div></div>`;
+    return `<div class="feed-panel">${learnBlock||`<div class="muted">尚無每日訓練紀錄</div>`}<div class="feed-disc">${disc}</div></div>`;
   }
   const days=log.map(d=>{
     const pTw=d.plainTw&&d.plainTw.length?d.plainTw:(d.tw||[]);
@@ -929,7 +943,7 @@ function dailyLogHTML(){
       ${detail}
     </div>`;
   }).filter(Boolean).join("");
-  return `<div class="feed-panel"><div class="dlog-list">${days||`<div class="muted">尚無每日訓練紀錄</div>`}</div><div class="feed-disc">${disc}</div></div>`;
+  return `<div class="feed-panel">${learnBlock}<div class="dlog-list">${days||`<div class="muted">尚無每日訓練紀錄</div>`}</div><div class="feed-disc">${disc}</div></div>`;
 }
 function bindStrategyFilters(root){
   const panel=(root||document).querySelector("#strat-panel");
@@ -1263,7 +1277,7 @@ const TRADE_TABS = [
   {id:"watch", label:"自選"},
   {id:"strat", label:"策略中心"},
   {id:"book", label:"庫存"},
-  {id:"log", label:"紀錄"},
+  {id:"log", label:"練習紀錄與學習"},
 ];
 /** 動態宇宙：不再寫死核心十幾檔；名稱表僅作缺資料後備。 */
 const NAME_FALLBACK = {
@@ -1277,7 +1291,7 @@ function universeToday(){
 }
 function dynamicWatchTW(){
   const u=universeToday();
-  const top=(u.twTop||[]).map(r=>({code:String(r.code||""), name:r.name||NAME_FALLBACK[r.code]||String(r.code||""), reason:r.reason||""})).filter(x=>x.code);
+  const top=(u.twTop||[]).map(r=>{ const code=String(r.code||""); let name=r.name||NAME_FALLBACK[code]||""; if(!name||name===code) name=symName(code)||"(名稱缺)"; return {code, name, reason:r.reason||""}; }).filter(x=>x.code);
   if(top.length) return top;
   // 後備：報價 watchlist 鍵
   const w=((p)=>((p.quotes||{}).watchlist||{}))((D&&D.trade&&D.trade.perf)||{});
@@ -1302,23 +1316,35 @@ function quotesMap(){
   }
   return q;
 }
+function twNamesMap(){
+  const p=(D&&D.trade&&D.trade.perf)||{};
+  return p.twNames || {};
+}
 function symName(code){
   const q=quotesMap()[code];
-  if(q&&q.name) return q.name;
+  if(q&&q.name && q.name!==code) return q.name;
+  const tn=twNamesMap()[code];
+  if(tn && tn!==code) return tn;
   if(NAME_FALLBACK[code]) return NAME_FALLBACK[code];
   const u=universeToday();
   const hit=(u.twTop||[]).concat(u.cryptoTop||[]).find(x=>String(x.code)===String(code));
-  if(hit&&hit.name) return hit.name;
+  if(hit&&hit.name && hit.name!==code) return hit.name;
+  const pick=(u.strategyPicks||[]).find(x=>String(x.code)===String(code));
+  if(pick&&pick.name && pick.name!==code) return pick.name;
   if(code==="TAIEX") return "加權指數";
   if(code==="0050") return "元大台灣50";
   if(code==="00631L") return "元大台灣50正2";
+  // 台股代號缺名
+  if(/^\d{4}/.test(String(code||"")) || String(code||"").endsWith("L")) return "(名稱缺)";
   return "";
 }
 function symLabel(code){
   const n=symName(code);
   if(!code) return "—";
   if(code==="TAIEX") return n||"加權指數";
-  return n?`${code} ${n}`:`${code}`;
+  // 中文名在前、代號次要；幣圈若無中文名則只顯示代號
+  if(n) return `${n} ${code}`;
+  return `${code}`;
 }
 function quoteOf(code){
   return quotesMap()[code]||null;
@@ -1335,12 +1361,16 @@ function fmtPrice(v, code){
 /** 在文字中把已知代號補上中文名（避免重複加） */
 function withSymNames(text){
   let s=String(text||"");
-  const codes=["0050","00631L","2330","2317","2454","2303","2382","2308","2412","2881","2882","2891","2002","1301","BTC","ETH","SOL","XRP"];
+  const fromMap=Object.keys(twNamesMap()||{});
+  const codes=[...new Set(fromMap.concat(["0050","00631L","2330","2317","2454","2303","2382","2308","2412","2881","2882","2891","2002","1301","BTC","ETH","SOL","XRP"]))];
+  // 長代號先替換，避免部分重疊
+  codes.sort((a,b)=>String(b).length-String(a).length);
   codes.forEach(code=>{
-    const lab=symLabel(code);
-    if(lab===code) return;
-    // skip if already "code name"
-    const re=new RegExp(code+"(?!\\s*"+symName(code).replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+")","g");
+    const n=symName(code);
+    if(!n || n===code) return;
+    const lab=`${n} ${code}`;
+    if(s.indexOf(lab)>=0) return;
+    const re=new RegExp(code.replace(/[.*+?^${}()|[\]\\]/g,"\\$&"),"g");
     s=s.replace(re, lab);
   });
   return s;
@@ -1471,14 +1501,14 @@ function watchHTML(){
   const asofU=u.asof?`宇宙日 ${u.asof}`:"宇宙日 —";
   const picks=(u.strategyPicks||[]);
   const picksHTML=picks.length
-    ? `<div class="wl-group"><div class="wl-ghd">策略實際挑中</div>${picks.slice(0,12).map(p=>`<div class="wl-row" style="cursor:default"><div class="wl-meta"><div class="wl-name">${esc(p.name||p.code)} <span class="wl-codeinline">${esc(p.code||"")}</span></div><div class="wl-viewline">${esc((p.status||"")+" · "+(p.strategy||"")+" · "+(p.reason||""))}</div></div></div>`).join("")}</div>`
+    ? `<div class="wl-group"><div class="wl-ghd">策略實際挑中</div>${picks.slice(0,12).map(p=>`<div class="wl-row" style="cursor:default"><div class="wl-meta"><div class="wl-name">${esc((p.name&&p.name!==p.code)?p.name:(symName(p.code)||p.code))} <span class="wl-codeinline">${esc(p.code||"")}</span></div><div class="wl-viewline">${esc((p.status||"")+" · "+(p.strategy||"")+" · "+(p.reason||""))}</div></div></div>`).join("")}</div>`
     : `<div class="wl-group"><div class="wl-ghd">策略實際挑中</div><div class="muted" style="padding:8px 12px">目前沒有持倉／掛單／公開訊號</div></div>`;
   const explain=sleeveTxt
     ?(`候選來自每日動態宇宙（非寫死名單）。目前配置看 ${sleeveTxt}；0050 只作對照基準。`)
     :(`候選來自每日動態宇宙（非寫死名單）。目前沒有執行中的進場策略；0050 只作對照基準。`);
   return `<div class="wl-panel">
     <div class="wl-explain">${esc(explain)}</div>
-    <div class="wl-group"><div class="wl-ghd">今日篩選摘要</div><div class="wl-asof muted">${esc(asofU)} · ${esc(counts)}</div><div class="wl-viewline" style="padding:8px 12px">${esc(rules)}</div>${(u.twExcludedDisposalOrAltered!=null)?`<div class="muted" style="padding:0 12px 8px">今日排除處置／變更交易 ${esc(String(u.twExcludedDisposalOrAltered))} 檔</div>`:""}</div>
+    <div class="wl-group"><div class="wl-ghd">今日篩選摘要</div><div class="wl-asof muted">${esc(asofU)} · ${esc(counts)}</div><div class="wl-viewline" style="padding:8px 12px">${esc(rules)}</div>${(u.twExcludedDisposalOrAltered!=null)?`<div class="muted" style="padding:0 12px 8px">今日排除處置／變更交易 ${esc(String(u.twExcludedDisposalOrAltered))} 檔${(u.twExcludedSample&&u.twExcludedSample.length)?`：${u.twExcludedSample.slice(0,8).map(x=>{ const code=typeof x==="string"?x:(x.code||""); const name=(typeof x==="object"&&x.name&&x.name!==code)?x.name:symName(code); return esc((name?name+" ":"")+code); }).join("、")}`:""}</div>`:""}</div>
     ${picksHTML}
     <div class="wl-group"><div class="wl-ghd">台股候選（前 ${twList.length}）</div><div class="wl-asof muted">${asOfTw}</div>${twList.length?twList.map(watchRowHTML).join(""):`<div class="muted" style="padding:8px 12px">尚無宇宙檔</div>`}</div>
     <div class="wl-group"><div class="wl-ghd">幣圈候選（前 ${crList.length}）</div><div class="wl-asof muted">${asOfCr}</div>${crList.length?crList.map(watchRowHTML).join(""):`<div class="muted" style="padding:8px 12px">尚無宇宙檔</div>`}</div>
