@@ -999,23 +999,48 @@ function bindStrategyFilters(root){
 }
 function feedStatusHTML(){
   const tr=D&&D.trade||{};
+  const kinds=tr.kinds||[];
   const markets=tr.markets||[];
   const sm=tr.summary||{};
   const checked=tr.checkedAt?`最後檢查 ${esc(tr.checkedAt)}（台北）`:"";
   const disc=esc(tr.disclaimer||"模擬交易，非投資建議、不碰真錢");
-  if(!markets.length){
-    return `<div class="feed-panel"><div class="muted">尚無行情檢查資料</div><div class="feed-disc">${disc}</div></div>`;
+  const note=tr.note?`<div class="feed-note">${esc(tr.note)}</div>`:"";
+  const blocksSrc=kinds.length?kinds:markets;
+  if(!blocksSrc.length){
+    return `<div class="feed-panel"><div class="muted">尚無行情資料中心狀態</div>${note}<div class="feed-disc">${disc}</div></div>`;
   }
-  const blocks=markets.map(m=>{
+  const blocks=blocksSrc.map(m=>{
     const rows=(m.feeds||[]).map(f=>{
       const ok=f.status==="ok";
-      const lite=ok?"green":(f.status==="blocked"?"yellow":"red");
+      const lite=ok?"green":(f.status==="need_key"?"yellow":"red");
+      const qt=f.quoteType?`<span class="feed-qt">${esc(f.quoteType)}</span>`:"";
+      const use=(f.usedToday!=null)?`<span class="feed-use muted">今日 ${esc(String(f.usedToday))}${f.budget!=null?("/"+esc(String(f.budget))):""}</span>`:"";
       const why=(!ok && f.reason)?`<span class="feed-why">${esc(f.reason)}</span>`:"";
-      return `<div class="feed-row"><span class="slite ${lite}"></span><span class="feed-src">${esc(f.source)}</span><span class="feed-st ${ok?"ok":"no"}">${esc(f.label|| (ok?"已連線":"未連線"))}</span>${why}</div>`;
+      return `<div class="feed-row"><span class="slite ${lite}"></span><span class="feed-src">${esc(f.source)}</span>${qt}<span class="feed-st ${ok?"ok":"no"}">${esc(f.label|| (ok?"啟用":"未啟用"))}</span>${use}${why}</div>`;
     }).join("");
-    return `<div class="feed-mkt"><div class="feed-mhd">${esc(m.name)} <span class="muted">${m.ok||0}/${m.total||0} 已連線</span></div>${rows}</div>`;
+    return `<div class="feed-mkt"><div class="feed-mhd">${esc(m.name)} <span class="muted">${m.ok||0}/${m.total||0} 啟用 · 換檔順序</span></div>${rows}</div>`;
   }).join("");
-  const chips=[`<span class="chip ok">已連線 ${sm.ok||0}</span>`]; if(sm.need_key) chips.push(`<span class="chip mid">需金鑰 ${sm.need_key}</span>`); chips.push(`<span class="chip no">封鎖／離線 ${(sm.blocked||0)+(sm.down||0)}</span>`); return `<div class="feed-panel"><div class="chips" style="margin-bottom:8px">${chips.join("")}</div>${blocks}<div class="feed-meta muted">${checked}</div><div class="feed-disc">${disc}</div></div>`;
+  const chips=[`<span class="chip ok">啟用 ${sm.ok||0}/${sm.total||0}</span>`];
+  if(sm.need_key) chips.push(`<span class="chip mid">未啟用 ${sm.need_key}</span>`);
+  const intel=tr.intel||[];
+  const intelBlock=intel.length?`<details class="list-more"><summary>非行情來源（情報／舊路徑 ${intel.length}）</summary><div class="feed-mkt">${intel.map(f=>{
+    const ok=f.status==="ok";
+    return `<div class="feed-row"><span class="slite ${ok?"green":"yellow"}"></span><span class="feed-src">${esc(f.source)}</span><span class="feed-st">${esc(f.note||"非行情來源")}</span></div>`;
+  }).join("")}</div></details>`:"";
+  const pipe=tradeDailyPipeHTML(tr.dailyPipeline);
+  return `<div class="feed-panel"><div class="chips" style="margin-bottom:8px">${chips.join("")}</div>${blocks}${intelBlock}${pipe}<div class="feed-meta muted">${checked}</div>${note}<div class="feed-disc">${disc}</div></div>`;
+}
+function tradeDailyPipeHTML(p){
+  if(!p) return `<div class="feed-mkt"><div class="feed-mhd">每日關卡</div><div class="muted">尚無今日跑程</div></div>`;
+  const st=esc(p.status||"—");
+  const stop=p.stoppedAt?` · 停在 ${esc(p.stoppedAt)}`:"";
+  const when=p.ended||p.started||"";
+  const rows=(p.stages||[]).map(s=>{
+    const ok=s.status==="通過";
+    const lite=ok?"green":(s.status==="未實作"?"yellow":"red");
+    return `<div class="feed-row"><span class="slite ${lite}"></span><span class="feed-src">${esc(s.name)}</span><span class="feed-st">${esc(s.status||"")}</span><span class="feed-why">${esc(s.reason||"")}</span></div>`;
+  }).join("");
+  return `<div class="feed-mkt"><div class="feed-mhd">每日關卡 ${esc(p.date||"")} <span class="muted">${st}${stop}${when?(" · "+esc(when)+" 台北"):""}</span></div>${rows||`<div class="muted">${esc(p.reason||p.summary||"")}</div>`}</div>`;
 }
 function floorVizHTML(id){
   if(!D)return"";
@@ -1497,7 +1522,8 @@ function focusCardsHTML(){
   headline=jargonToPlain(headline);
   if(log&&log.date&&headline&&!headline.startsWith(log.date)) headline=log.date+" · "+headline;
   const sm=(D.trade&&D.trade.summary)||{};
-  const feedTxt = (sm.total!=null)?(`行情已連線 ${sm.ok||0}/${sm.total}`):"尚無行情檢查";
+  const pipe=((D.trade||{}).dailyPipeline)||null;
+  const feedTxt = (sm.total!=null)?(`行情中心 ${sm.ok||0}/${sm.total} 啟用`):(pipe?`每日關卡 ${pipe.status||"—"}`:"尚無行情中心狀態");
   const g=p.liveGate||{};
   const gateTxt = g.daysElapsed!=null?`往實盤 ${g.daysElapsed}/${g.targetDays||90} 天`:"往實盤進度 —";
   const expandBtn = `<button type="button" class="focus-more" data-focus-expand="1" aria-expanded="false">展開</button>`;
@@ -2281,6 +2307,7 @@ function tradeHomeHTML(){
   return `<div class="trade-home">
     ${indexStripHTML()}
     ${focusCardsHTML()}
+    <div class="card" style="margin-top:10px"><h2>行情資料中心</h2>${feedStatusHTML()}</div>
     <div class="card" style="margin-top:10px"><h2>往實盤進度圖</h2>${liveGateHTML()}</div>
     <div class="card" style="margin-top:10px"><h2>模擬績效摘要</h2>
       <div class="vs-bench">${esc(vs)}</div>
@@ -2438,6 +2465,20 @@ function weekHTML(filter){const w=(D.backlog.week||[]).filter(x=>!filter||x.owne
   return `<ol class="wk">${w.map(x=>`<li class="${x.done?"dn":""}">${ownerChip(x.owner)}<b>${esc(x.text)}</b>${x.done?' <span class="chip ok">完成</span>':""}<div class="muted">${esc(x.detail)}</div></li>`).join("")}</ol>`;}
 function queueHTML(filter,max){const q=(D.backlog.queue||[]).filter(x=>!filter||x.owner===filter);const sh=q.slice(0,max||99);
   return `<ul class="qu">${sh.map(x=>`<li>${ownerChip(x.owner)}${x.sev?`<span class="sev ${x.sev==="🔴"?"s1":x.sev==="🟠"?"s2":"s3"}"><i></i></span>`:""}${esc(x.text)}</li>`).join("")}</ul>${q.length>sh.length?`<div class="muted">還有 ${q.length-sh.length} 項</div>`:""}`;}
+function boardHTML(){
+  const b=(D&&D.board)||{};
+  const st=b.stats||{};
+  const open=b.open||[];
+  const done=b.doneRecent||[];
+  const dec=b.decisions||[];
+  const chips=`<div class="chips" style="margin-bottom:8px"><span class="chip mid">未完成 ${st.open||0}</span><span class="chip">${st.stuck?("卡住 "+st.stuck):("逾期 "+(st.overdue||0))}</span><span class="chip ok">已完成 ${st.done||0}</span></div>`;
+  const statusCls=s=>(s==="卡住"||s==="逾期")?"no":(s==="完成"?"ok":"mid");
+  const row=it=>`<div class="brow"><span class="bstatus ${statusCls(it.status)}">${esc(it.status||"")}</span><span class="bid">#${esc(String(it.id||""))}</span><span class="bdept">${esc(it.dept||"")}</span><span class="btask">${esc(it.task||"")}</span><span class="bdue muted">${it.due?("期限 "+esc(it.due)):""}</span>${it.acceptance?`<div class="bacc muted">驗收：${esc(it.acceptance)}</div>`:""}</div>`;
+  const openBlock=open.length?open.map(row).join(""):`<div class="muted">目前沒有未完成事項</div>`;
+  const doneBlock=done.length?`<details class="list-more"><summary>最近完成（${done.length}）</summary>${done.map(row).join("")}</details>`:"";
+  const decBlock=dec.length?`<details class="list-more"><summary>最新裁決（${dec.length}）</summary>${dec.map(d=>`<div class="brow"><span class="bdue muted">${esc(d.at||"")}</span><span class="btask">${esc(d.text||"")}</span></div>`).join("")}</details>`:"";
+  return `<div class="board-panel">${chips}<div class="feed-mhd" style="margin:4px 0 6px">未完成</div>${openBlock}${doneBlock}${decBlock}<div class="feed-disc">來源：布告欄（去敏摘要；不含路徑／金鑰）</div></div>`;
+}
 function renderBoard(){
   const a=usageAlert();
   const board=$("#board"); if(!board) return;
@@ -2452,8 +2493,10 @@ function renderBoard(){
     : a.level==="gray"
     ? `<button type="button" class="hint-card muted" id="hint-usage"><span class="hint-ico">⚡</span><span>${esc(a.short||"網站資料停更")}（今日發布次數已用完），不代表員工失敗</span><span class="hint-go">去 9F →</span></button>`
     : `<button type="button" class="hint-card" id="hint-usage"><span class="hint-ico">⚡</span><span>用量與額度 · 在 9F 總裁辦公室看明細</span><span class="hint-go">去 9F →</span></button>`;
+  const bOpen=((D.board||{}).stats||{}).open;
   board.innerHTML=`${decHint}${usageHint}
   <div class="card"><h2>${iconSVG("lobby")}大廳 · 遊戲入口</h2>${playEntranceHTML()}</div>
+  <div class="card"><h2>布告欄${bOpen!=null?(" · 未完成 "+bOpen):""}</h2>${boardHTML()}</div>
   <div class="card"><h2>待辦進度</h2>${progressHTML()}</div>
   <div class="card"><h2>${iconSVG("schedule")}今日排程</h2>${timelineHTML()}</div>
   <div class="card" id="roster-card"><h2>${iconSVG("lobby")}成員狀態 · ${ROSTER.members.length} 人</h2>${rosterCardsHTML()}</div>
@@ -2621,6 +2664,7 @@ function openFloor(id,opt){opt=opt||{};const f=FLOORS.find(x=>x.id===id);let h=h
       {v:(D.schedule||[]).length,l:"今日排程段"},
     ]);
     h+=`<div style="margin-top:10px">${playEntranceHTML({btn:false})}</div>`;
+    h+=`<h4>布告欄</h4>${boardHTML()}`;
     h+=`<h4>待辦進度</h4>${progressHTML()}`;
     h+=`<h4>今日排程</h4>${timelineHTML()}`;
     h+=`<h4>成員狀態</h4>${rosterCardsHTML()}`;
