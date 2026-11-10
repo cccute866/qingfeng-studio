@@ -2507,10 +2507,9 @@ function deptBlocksHTML(){
     const whyLine=why?`<span class="dw">${esc(why)}</span>`:"";
     const whyAria=why?`，${esc(why)}`:"";
     return `<button type="button" class="dblk tone-${esc(d.tone||"green")}" data-dept="${esc(d.name)}" aria-expanded="false" aria-label="${esc(d.name)} 未完成 ${open}，${deptToneLabel(d.tone)}燈${whyAria}，技能 ${sk}，點名 ${ck}">
-      <span class="dn">${esc(d.name)}</span>
-      <span class="dv">${esc(open)}</span>
+      <span class="dtop"><span class="dn">${esc(d.name)}</span><span class="dv">${esc(open)}</span></span>
       ${whyLine}
-      <span class="di"><span>技能 ${esc(sk)}</span><span>${esc(ck)}</span></span>
+      <span class="di">技能 ${esc(sk)}・${esc(ck)}</span>
     </button>`;
   }).join("")}</div><div class="dept-panel" id="dept-panel" hidden></div>`;
 }
