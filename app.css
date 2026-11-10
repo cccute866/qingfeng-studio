@@ -136,7 +136,7 @@ h1{margin:0;font-size:20px;letter-spacing:1px;font-weight:750;color:var(--text)}
 .slite{width:10px;height:10px;border-radius:50%;display:inline-block;box-shadow:0 0 8px currentColor}
 .slite.green{background:var(--jade);color:#3fd8a088}.slite.yellow{background:var(--yel);color:#f2d04b88}.slite.red{background:var(--red);color:#ff5d5d88}
 
-.tl{position:relative;min-height:120px;margin:4px 4px 10px}.tl .axis{position:absolute;left:0;right:0;height:2px;background:#243040}
+.tl{position:relative;min-height:120px;margin:4px 0 8px;overflow-x:auto;-webkit-overflow-scrolling:touch;overflow-y:hidden;max-width:100%}.tl .axis{position:absolute;left:0;right:0;height:2px;background:#243040}
 .tl .seg{background:var(--seg-bg,#52667a);border:1px solid rgba(179,202,224,.55);position:absolute;height:24px;border-radius:7px;font-size:10px;line-height:24px;text-align:center;color:#06120c;font-weight:700;overflow:hidden;white-space:nowrap;min-width:96px;box-sizing:border-box;padding:0 6px;display:flex;align-items:center;justify-content:center;gap:3px}
 .tl .seg .tm{font-size:9px;font-weight:600;opacity:.75;flex:none}
 .tl .seg .sg{display:inline-block;overflow:visible;flex:none;letter-spacing:0}
@@ -721,7 +721,7 @@ button.wl-row:active{background:#ffffff08}
 
 /* 布告欄＋行情資料中心（2026-11-10） */
 .board-panel{display:flex;flex-direction:column;gap:6px}
-.brow{display:grid;grid-template-columns:52px 40px 72px minmax(0,1fr);gap:4px 8px;padding:8px 10px;background:#0b121a;border:1px solid var(--line);border-radius:10px;font-size:12.5px;line-height:1.4}
+.brow{display:grid;grid-template-columns:44px 36px 56px minmax(0,1fr);gap:2px 6px;padding:6px 8px;background:#0b121a;border:1px solid var(--line);border-radius:8px;font-size:12px;line-height:1.35;min-width:0}
 .brow .bstatus{font-weight:700;font-size:11px}
 .brow .bstatus.ok{color:#9ff0c6}.brow .bstatus.no{color:#ff9a9a}.brow .bstatus.mid{color:#ffe29a}
 .brow .bid{color:var(--mute);font-variant-numeric:tabular-nums}
@@ -743,3 +743,24 @@ button.wl-row:active{background:#ffffff08}
 .skname{display:block;font-weight:650;font-size:13px;line-height:1.4;color:var(--text);overflow-wrap:anywhere;word-break:break-word}
 .skwhen{display:block;margin-top:3px;font-size:12px;line-height:1.45;color:#b1bfce;overflow-wrap:anywhere;word-break:break-word}
 .skempty{padding:8px 10px}
+
+/* 首頁收合（2026-11-10）：少數區塊、大樓圖不撐長、長清單預設收合 */
+.play-slim{padding:8px 12px;border:1px solid var(--line2);border-radius:var(--radius);background:linear-gradient(180deg,#141c28f2,#0e1520f2);min-width:0}
+.play-slim .play{gap:8px}
+.play-slim .btn{min-height:40px;padding:6px 12px;font-size:14px}
+.play-slim .today-hi{font-size:12px;line-height:1.35;overflow-wrap:anywhere;word-break:break-word}
+.extras-fold{margin:0}
+#board-card,#sched-card,#skills-card{min-width:0}
+.board{min-width:0}
+@media(max-width:420px){
+  .top{padding:8px 12px 4px}
+  .city,.city-img{min-height:168px;max-height:168px;object-fit:cover;object-position:50% 38%}
+  .city-caption{margin-top:6px;font-size:11px}
+  .board{margin-top:10px;gap:8px}
+  .layout{gap:10px;padding-bottom:16px}
+  .side .feed,.side .hist{max-height:200px}
+  .side .feed-card{max-height:none;padding:10px}
+  .skills-dept>summary{padding:8px 10px;font-size:13px}
+  .card{padding:12px}
+  .foot{padding:8px 10px 20px}
+}
