@@ -3136,7 +3136,7 @@ function usageBarsHTML(){
 function skillsTotalHTML(){
   const n=((D&&D.deptWall)||{}).skillTotal;
   const v=(n==null||n==="缺")?"缺":String(n);
-  return `<div class="meter-card meter-skills"><div class="meter-k">技能</div><div class="meter-v">${esc(v)}</div></div>`;
+  return `<button type="button" class="meter-card meter-skills" id="open-skills" aria-label="查看全部 ${esc(v)} 個技能"><div class="meter-k">技能</div><div class="meter-v">${esc(v)}</div><div class="meter-sub">點進去看內容</div></button>`;
 }
 function deptBlocksHTML(){
   const depts=((D&&D.deptWall)||{}).depts||[];
@@ -3166,7 +3166,7 @@ function deptPanelHTML(d){
     ? sched.map(s=>`<div class="pline"><span class="ptime">${esc(s.from||"")}–${esc(s.to||"")}</span><span class="ptask">${esc(s.what||"缺")}${s.soft?"（略過）":""}</span></div>`).join("")
     : `<div class="muted">今日無行程</div>`;
   const sk=skills.length
-    ? skills.map(it=>`<div class="skrow"><span class="skname">${esc(it.name||"缺")}</span><span class="skwhen">${esc(it.when||"缺")}</span></div>`).join("")
+    ? skills.map(it=>skillRowHTML(it)).join("")
     : `<div class="muted skempty">尚無技能</div>`;
   const wait=d.waitWei?`<div class="pflag">等偉翔決定</div>`:"";
   const fatal=d.fatal?`<div class="pflag red">有致命紅燈</div>`:"";
@@ -3200,6 +3200,76 @@ function bindDeptWall(root){
     b.onclick=()=>open(b.dataset.dept);
   });
 }
+
+function skillMeta(it){
+  const bits=[];
+  if(it&&it.dept) bits.push(it.dept);
+  const used=(it&&it.used!=null)?it.used:0;
+  const missed=(it&&it.missed!=null)?it.missed:0;
+  bits.push("回報用過 "+used+" 次");
+  bits.push("可能漏用 "+missed+" 次");
+  return bits.join(" · ");
+}
+function skillRowHTML(it, body){
+  it=it||{};
+  const meta=skillMeta(it);
+  const inner=body?`<div class="skbody">${esc(body)}</div>`:(it.body?`<div class="skbody">${esc(it.body)}</div>`:`<div class="skbody muted" data-sid="${esc(it.id||"")}">點開後載入完整內容</div>`);
+  return `<details class="skitem" data-sid="${esc(it.id||"")}"><summary><span class="skname">${esc(it.name||"缺")}</span><span class="skwhen">${esc(it.when||"缺")}</span><span class="skmeta">${esc(meta)}</span></summary>${inner}</details>`;
+}
+let skillsCatalogCache=null;
+function loadSkillsCatalog(){
+  if(skillsCatalogCache) return Promise.resolve(skillsCatalogCache);
+  return fetch("skills_catalog.json?t="+Date.now(),{cache:"no-store"}).then(r=>r.ok?r.json():null).then(j=>{skillsCatalogCache=j;return j;}).catch(()=>null);
+}
+function fillSkillBodies(root, cat){
+  if(!root||!cat) return;
+  const by={};
+  (cat.skills||[]).forEach(s=>{if(s.id) by[s.id]=s; if(s.name) by[s.name]=s;});
+  root.querySelectorAll("details.skitem").forEach(el=>{
+    const sid=el.dataset.sid||"";
+    const name=(el.querySelector(".skname")||{}).textContent||"";
+    const hit=by[sid]||by[name];
+    const box=el.querySelector(".skbody");
+    if(hit&&box){ box.classList.remove("muted"); box.textContent=hit.body||"內文缺"; }
+    if(hit){
+      const meta=el.querySelector(".skmeta");
+      if(meta) meta.textContent=skillMeta(hit);
+    }
+  });
+}
+function skillsCatalogHTML(cat){
+  const skills=(cat&&cat.skills)||[];
+  const gen=(cat&&cat.generatedAt)||"缺";
+  const tz=(cat&&cat.timezone)||"台北時間";
+  const total=cat&&cat.total!=null?cat.total:skills.length;
+  const head=`<div class="skills-asof">目錄最後重建：${esc(gen)}（${esc(tz)}） · 共 ${esc(String(total))} 項 · 點技能展開完整內容</div>`;
+  if(!skills.length) return `${head}<div class="muted skempty">尚無技能</div>`;
+  const groups={};
+  skills.forEach(s=>{
+    const d=s.dept||"共用";
+    (groups[d]=groups[d]||[]).push(s);
+  });
+  const order=["智雅","工程","美術","音樂","數值","監管","交易","公關","財會","共用"];
+  const names=Object.keys(groups).sort((a,c)=>(order.indexOf(a)+99)-(order.indexOf(c)+99)||a.localeCompare(c,"zh"));
+  const blocks=names.map(d=>{
+    const items=groups[d];
+    const body=items.map(it=>skillRowHTML(it, it.body||"內文缺")).join("");
+    return `<details class="list-more skills-dept" open><summary>${esc(d)}（${items.length}）</summary><div class="skills-list">${body}</div></details>`;
+  }).join("");
+  return `${head}${blocks}`;
+}
+function openSkillsCatalog(){
+  try{history.replaceState(null,"", "#skills");}catch(e){}
+  openSheet(`<div class="skills-panel skills-catalog"><h2>技能目錄</h2><div id="skills-catalog-body">${skillsHTML()}</div></div>`);
+  const host=$("#skills-catalog-body");
+  loadSkillsCatalog().then(cat=>{
+    const el=$("#skills-catalog-body");
+    if(!el) return;
+    if(cat&&(cat.skills||[]).length){ el.innerHTML=skillsCatalogHTML(cat); }
+    else { fillSkillBodies(el, cat); }
+  });
+}
+
 function skillsHTML(){
   const s=(D&&D.skills)||{};
   const gen=s.generatedAt||"缺";
@@ -3212,7 +3282,7 @@ function skillsHTML(){
     const n=g.count!=null?g.count:(g.skills||[]).length;
     const items=g.skills||[];
     const body=items.length
-      ? items.map(it=>`<div class="skrow"><span class="skname">${esc(it.name||"缺")}</span><span class="skwhen">${esc(it.when||"缺")}</span></div>`).join("")
+      ? items.map(it=>skillRowHTML(it)).join("")
       : `<div class="muted skempty">尚無技能</div>`;
     return `<details class="list-more skills-dept"><summary>${esc(g.dept||"缺")}（${n}）</summary><div class="skills-list">${body}</div></details>`;
   }).join("");
@@ -3262,6 +3332,7 @@ function renderBoard(){
   <div class="meters" id="home-meters">${ringHTML(br.done, br.total)}${usageBarsHTML()}${skillsTotalHTML()}</div>
   <div class="card wall-card"><h2>部門積木</h2>${deptBlocksHTML()}</div>`;
   bindDeptWall(board);
+  const sko=$("#open-skills"); if(sko) sko.onclick=()=>openSkillsCatalog();
   const hd=$("#hint-decisions"); if(hd) hd.onclick=()=>{setView("tower");};
   const hu=$("#hint-usage"); if(hu) hu.onclick=()=>{setView("room","director"); openFloor("director");};
 }
@@ -3473,7 +3544,7 @@ function showTab(t){histTab=t==="hist";document.querySelectorAll(".tab").forEach
   $("#feed").hidden=histTab;$("#nowline").hidden=histTab;$("#hist").hidden=!histTab;if(histTab){renderHist();loadHist();}}
 document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>{showTab(b.dataset.tab);history.replaceState(null,"",b.dataset.tab==="hist"?"#history":location.pathname+location.search);}));
 if(location.hash==="#history")showTab("hist");
-async function load(){try{const r=await fetch("data.json?t="+Date.now(),{cache:"no-store"});if(!r.ok)return;D=await r.json();renderAll();if(histTab)loadHist();}catch(e){console.warn("資料暫時讀不到，稍後重試");}}
+async function load(){try{const r=await fetch("data.json?t="+Date.now(),{cache:"no-store"});if(!r.ok)return;D=await r.json();renderAll();if(histTab)loadHist();if((location.hash||"")==="#skills")openSkillsCatalog();}catch(e){console.warn("資料暫時讀不到，稍後重試");}}
 buildTower();tick();load().then(()=>requestAnimationFrame(loop));
 setInterval(load,60000);setInterval(tick,30000);
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)load();});

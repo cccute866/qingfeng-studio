@@ -756,6 +756,16 @@ button.wl-row:active{background:#ffffff08}
 .skname{display:block;font-weight:650;font-size:13px;line-height:1.4;color:var(--text);overflow-wrap:anywhere;word-break:break-word}
 .skwhen{display:block;margin-top:3px;font-size:12px;line-height:1.45;color:#b1bfce;overflow-wrap:anywhere;word-break:break-word}
 .skempty{padding:8px 10px}
+.skitem{background:#0b121a;border:1px solid var(--line);border-radius:10px;min-width:0;padding:0}
+.skitem>summary{list-style:none;cursor:pointer;padding:8px 10px;min-width:0}
+.skitem>summary::-webkit-details-marker{display:none}
+.skitem>summary:after{content:"展開";float:right;font-size:11px;color:#8aa0b5;padding-top:2px}
+.skitem[open]>summary:after{content:"收合"}
+.skmeta{display:block;margin-top:3px;font-size:11px;line-height:1.4;color:#8aa0b5;overflow-wrap:anywhere}
+.skbody{white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;padding:0 10px 10px;font-size:13px;line-height:1.55;color:var(--text);max-height:60vh;overflow:auto}
+button.meter-skills{font:inherit;color:inherit;cursor:pointer;appearance:none;-webkit-appearance:none}
+button.meter-skills:focus-visible{outline:2px solid var(--jade);outline-offset:2px}
+.skills-catalog h2{font-size:18px;margin:0 0 8px}
 
 /* 首頁收合（2026-11-10）：少數區塊、大樓圖不撐長、長清單預設收合 */
 .play-slim{padding:8px 12px;border:1px solid var(--line2);border-radius:var(--radius);background:linear-gradient(180deg,#141c28f2,#0e1520f2);min-width:0}
