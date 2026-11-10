@@ -2467,6 +2467,94 @@ function weekHTML(filter){const w=(D.backlog.week||[]).filter(x=>!filter||x.owne
   return `<ol class="wk">${w.map(x=>`<li class="${x.done?"dn":""}">${ownerChip(x.owner)}<b>${esc(x.text)}</b>${x.done?' <span class="chip ok">完成</span>':""}<div class="muted">${esc(x.detail)}</div></li>`).join("")}</ol>`;}
 function queueHTML(filter,max){const q=(D.backlog.queue||[]).filter(x=>!filter||x.owner===filter);const sh=q.slice(0,max||99);
   return `<ul class="qu">${sh.map(x=>`<li>${ownerChip(x.owner)}${x.sev?`<span class="sev ${x.sev==="🔴"?"s1":x.sev==="🟠"?"s2":"s3"}"><i></i></span>`:""}${esc(x.text)}</li>`).join("")}</ul>${q.length>sh.length?`<div class="muted">還有 ${q.length-sh.length} 項</div>`:""}`;}
+function deptToneLabel(tone){
+  return tone==="red"?"紅":tone==="yellow"?"黃":"綠";
+}
+function ringHTML(done, total){
+  if(done==null||total==null||total==="缺"||done==="缺"||!(+total)){
+    return `<div class="meter-card"><div class="meter-k">布告欄</div><div class="meter-v">缺</div></div>`;
+  }
+  const d=+done, n=+total, p=Math.round(d/n*100);
+  const ang=Math.max(0,Math.min(100,p))*3.6;
+  return `<div class="meter-card meter-ring-wrap"><div class="ring" style="--ang:${ang}deg" aria-label="布告欄完成率 ${p}%"><span class="ring-num">${p}%</span></div><div class="meter-k">布告欄</div><div class="meter-sub">${d}/${n} 已完成</div></div>`;
+}
+function usageBarsHTML(){
+  const wall=(D&&D.deptWall)||{};
+  const prefer=["提案","會議","遊戲提交"];
+  const all=wall.usageBars||[];
+  const bars=prefer.map(l=>all.find(b=>b.label===l)).filter(Boolean);
+  const show=bars.length?bars:all.slice(0,3);
+  if(!show.length) return `<div class="meter-card"><div class="meter-k">用量</div><div class="meter-v">缺</div></div>`;
+  return `<div class="meter-card"><div class="meter-k">用量</div>${show.map(b=>{
+    const cap=+b.cap||0, used=+b.used||0, pct=cap?Math.min(100,Math.round(used/cap*100)):0;
+    return `<div class="ubar"><span class="ubar-l">${esc(b.label)} ${used}/${cap}</span><span class="ubar-track" aria-hidden="true"><i style="width:${pct}%"></i></span></div>`;
+  }).join("")}</div>`;
+}
+function skillsTotalHTML(){
+  const n=((D&&D.deptWall)||{}).skillTotal;
+  const v=(n==null||n==="缺")?"缺":String(n);
+  return `<div class="meter-card meter-skills"><div class="meter-k">技能</div><div class="meter-v">${esc(v)}</div></div>`;
+}
+function deptBlocksHTML(){
+  const depts=((D&&D.deptWall)||{}).depts||[];
+  if(!depts.length) return `<div class="muted">部門積木缺</div>`;
+  return `<div class="dept-wall" id="dept-wall">${depts.map(d=>{
+    const open=(d.open==null||d.open==="缺")?"缺":String(d.open);
+    const sk=(d.skills==null||d.skills==="缺")?"缺":String(d.skills);
+    const ck=d.checkin||"缺";
+    return `<button type="button" class="dblk tone-${esc(d.tone||"green")}" data-dept="${esc(d.name)}" aria-expanded="false" aria-label="${esc(d.name)} 未完成 ${open}，${deptToneLabel(d.tone)}燈，技能 ${sk}，點名 ${ck}">
+      <span class="dn">${esc(d.name)}</span>
+      <span class="dv">${esc(open)}</span>
+      <span class="di"><span>技能 ${esc(sk)}</span><span>${esc(ck)}</span></span>
+    </button>`;
+  }).join("")}</div><div class="dept-panel" id="dept-panel" hidden></div>`;
+}
+function deptPanelHTML(d){
+  if(!d) return "";
+  const items=d.items||[];
+  const sched=d.schedule||[];
+  const skills=d.skillList||[];
+  const board=items.length
+    ? items.map(it=>`<div class="pline"><span class="pstat ${it.status==="卡住"||it.status==="逾期"?"no":"mid"}">${esc(it.status||"")}</span><span class="pid">#${esc(String(it.id||""))}</span><span class="ptask">${esc(it.task||"缺")}${it.due?` <span class="pdue">期限 ${esc(it.due)}</span>`:""}</span></div>`).join("")
+    : `<div class="muted">沒有未完成事項</div>`;
+  const trips=sched.length
+    ? sched.map(s=>`<div class="pline"><span class="ptime">${esc(s.from||"")}–${esc(s.to||"")}</span><span class="ptask">${esc(s.what||"缺")}${s.soft?"（略過）":""}</span></div>`).join("")
+    : `<div class="muted">今日無行程</div>`;
+  const sk=skills.length
+    ? skills.map(it=>`<div class="skrow"><span class="skname">${esc(it.name||"缺")}</span><span class="skwhen">${esc(it.when||"缺")}</span></div>`).join("")
+    : `<div class="muted skempty">尚無技能</div>`;
+  const wait=d.waitWei?`<div class="pflag">等偉翔決定</div>`:"";
+  const fatal=d.fatal?`<div class="pflag red">有致命紅燈</div>`:"";
+  return `<div class="panel-hd"><div><b>${esc(d.name)}</b><span class="tone-tag tone-${esc(d.tone||"green")}">${deptToneLabel(d.tone)}燈 · 未完成 ${d.open==null?"缺":d.open}</span></div><button type="button" class="panel-close" id="dept-panel-close" aria-label="收合">收合</button></div>${wait}${fatal}<h3>布告欄</h3>${board}<h3>今日行程</h3>${trips}<h3>技能（${skills.length}）</h3><div class="skills-list">${sk}</div>`;
+}
+function bindDeptWall(root){
+  const wall=(root||document).querySelector("#dept-wall");
+  const panel=(root||document).querySelector("#dept-panel");
+  if(!wall||!panel) return;
+  const depts=(((D&&D.deptWall)||{}).depts)||[];
+  const by={}; depts.forEach(d=>{by[d.name]=d;});
+  const close=()=>{
+    panel.hidden=true; panel.innerHTML="";
+    wall.querySelectorAll(".dblk").forEach(b=>{b.classList.remove("on"); b.setAttribute("aria-expanded","false");});
+  };
+  const open=name=>{
+    const d=by[name]; if(!d) return;
+    const already=wall.querySelector(`.dblk[data-dept="${CSS.escape(name)}"]`);
+    if(already&&already.classList.contains("on")){ close(); return; }
+    wall.querySelectorAll(".dblk").forEach(b=>{
+      const on=b.dataset.dept===name;
+      b.classList.toggle("on",on);
+      b.setAttribute("aria-expanded", on?"true":"false");
+    });
+    panel.hidden=false;
+    panel.innerHTML=deptPanelHTML(d);
+    const c=$("#dept-panel-close"); if(c) c.onclick=e=>{e.preventDefault(); close();};
+    panel.scrollIntoView({block:"nearest"});
+  };
+  wall.querySelectorAll(".dblk").forEach(b=>{
+    b.onclick=()=>open(b.dataset.dept);
+  });
+}
 function skillsHTML(){
   const s=(D&&D.skills)||{};
   const gen=s.generatedAt||"缺";
@@ -2513,22 +2601,22 @@ function renderBoard(){
   if(view==="room") return;
   const decN=decisionsList().length;
   const decHint = decN
-    ? `<button type="button" class="hint-card" id="hint-decisions"><span class="hint-ico">📋</span><span>今天有 <b>${decN}</b> 項決定 · 點進大樓，會掛在負責人桌上</span><span class="hint-go">看大樓 →</span></button>`
+    ? `<button type="button" class="hint-card" id="hint-decisions"><span class="hint-ico">📋</span><span>今天有 <b>${decN}</b> 項決定，掛在負責人桌上</span><span class="hint-go">看大樓</span></button>`
     : "";
   const usageHint = a.level==="red"||a.level==="yellow"
-    ? `<button type="button" class="hint-card warn" id="hint-usage"><span class="hint-ico">⚡</span><span>${esc(a.short||"用量需要留意")} · 到 9F 總裁辦公室看</span><span class="hint-go">去 9F →</span></button>`
+    ? `<button type="button" class="hint-card warn" id="hint-usage"><span class="hint-ico">⚡</span><span>${esc(a.short||"用量需要留意")}</span><span class="hint-go">9F</span></button>`
     : a.level==="gray"
-    ? `<button type="button" class="hint-card muted" id="hint-usage"><span class="hint-ico">⚡</span><span>${esc(a.short||"網站資料停更")}（今日發布次數已用完），不代表員工失敗</span><span class="hint-go">去 9F →</span></button>`
-    : `<button type="button" class="hint-card" id="hint-usage"><span class="hint-ico">⚡</span><span>用量與額度 · 在 9F 總裁辦公室看明細</span><span class="hint-go">去 9F →</span></button>`;
-  const bOpen=((D.board||{}).stats||{}).open;
-  const bStuck=((D.board||{}).stats||{}).stuck||0;
-  const rmN=((D.roadmap||[]).length);
+    ? `<button type="button" class="hint-card muted" id="hint-usage"><span class="hint-ico">⚡</span><span>${esc(a.short||"網站資料停更")}</span><span class="hint-go">9F</span></button>`
+    : "";
+  const g=(D&&D.game)||{};
+  const playLine=`<div class="play-line"><span>版本 <b>${esc(g.version||"—")}</b></span>${g.url?`<a class="btn play-mini" target="_blank" rel="noopener" href="${esc(g.url)}">進入遊戲</a>`:""}</div>`;
+  const wall=(D&&D.deptWall)||{};
+  const br=wall.board||{};
   board.innerHTML=`${decHint}${usageHint}
-  <div class="play-slim">${playEntranceHTML()}</div>
-  <div class="card" id="board-card"><h2>布告欄${bOpen!=null?(" · 未完成 "+bOpen):""}${bStuck?(" · 卡住 "+bStuck):""}</h2>${boardHTML()}</div>
-  <div class="card" id="sched-card"><h2>${iconSVG("schedule")}每日行程</h2>${timelineHTML()}</div>
-  <div class="card" id="skills-card"><h2>${iconSVG("skills")}技能目錄${((D.skills||{}).total!=null)?(" · "+D.skills.total):""}</h2>${skillsHTML()}</div>
-  ${rmN?`<details class="list-more extras-fold"><summary>上架路線圖 · ${rmN} 條</summary><div class="detail-body">${roadmapHTML()}</div></details>`:""}`;
+  ${playLine}
+  <div class="meters" id="home-meters">${ringHTML(br.done, br.total)}${usageBarsHTML()}${skillsTotalHTML()}</div>
+  <div class="card wall-card"><h2>部門積木</h2>${deptBlocksHTML()}</div>`;
+  bindDeptWall(board);
   const hd=$("#hint-decisions"); if(hd) hd.onclick=()=>{setView("tower");};
   const hu=$("#hint-usage"); if(hu) hu.onclick=()=>{setView("room","director"); openFloor("director");};
 }
