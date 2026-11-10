@@ -2720,9 +2720,17 @@ function brMarketSegHTML(counts, aria){
     ${BR_MARKET_TABS.map(t=>`<button type="button" role="tab" data-br-mkt="${t.id}" class="${fil===t.id?"on":""}" aria-selected="${fil===t.id?"true":"false"}">${t.label}<span class="br-seg-n">${c[t.id]||0}</span></button>`).join("")}
   </div>`;
 }
+function marketsBook(fil){
+  const tr=(D&&D.trade)||{};
+  const mb=tr.marketsBooks||(tr.perf&&tr.perf.marketsBooks)||{};
+  return (mb&&mb[fil])||{};
+}
 function brMarketEmpty(fil){
-  if(fil==="mtx"||fil==="us") return `<div class="br-empty">尚未開始模擬</div>`;
+  const b=marketsBook(fil);
+  if((fil==="mtx"||fil==="us") && !b.started) return `<div class="br-empty">尚未開始模擬</div>`;
   if(fil==="crypto") return `<div class="br-empty">幣圈目前空手</div>`;
+  if(fil==="mtx") return `<div class="br-empty">台指期目前空手</div>`;
+  if(fil==="us") return `<div class="br-empty">美股目前空手</div>`;
   return `<div class="br-empty">台股目前空手</div>`;
 }
 let posMktFilter = "tw";
@@ -2820,10 +2828,14 @@ function brokerPosRowHTML(raw){
 }
 function brokerPosGroups(p){
   const list=(p.positions||[]).slice();
+  const mbExtra=(fil, fallback)=>{
+    const b=marketsBook(fil);
+    return (b.started && Array.isArray(b.positions) && b.positions.length)?b.positions:fallback;
+  };
   const tw=list.filter(x=>brMarketId(x)==="tw");
   const cr=list.filter(x=>brMarketId(x)==="crypto");
-  const mtx=list.filter(x=>brMarketId(x)==="mtx");
-  const us=list.filter(x=>brMarketId(x)==="us");
+  const mtx=mbExtra("mtx", list.filter(x=>brMarketId(x)==="mtx"));
+  const us=mbExtra("us", list.filter(x=>brMarketId(x)==="us"));
   return {list, tw, cr, mtx, us};
 }
 function brokerPosFilterDefault(p){
