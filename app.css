@@ -732,3 +732,14 @@ button.wl-row:active{background:#ffffff08}
 .feed-qt{display:inline-block;margin:0 6px;padding:1px 6px;border-radius:6px;background:rgba(90,176,255,.14);color:#9ec9ff;font-size:11px;font-weight:650}
 .feed-use{margin-left:6px;font-size:11px}
 .feed-note{margin-top:6px;font-size:12px;color:#ffe29a}
+
+/* 技能目錄（2026-11-10） */
+.skills-panel{display:flex;flex-direction:column;gap:6px;min-width:0}
+.skills-asof{font-size:12px;line-height:1.45;color:#b1bfce;overflow-wrap:anywhere;word-break:break-word}
+.skills-dept{min-width:0}
+.skills-dept>summary{word-break:break-word;overflow-wrap:anywhere}
+.skills-list{padding:0 10px 10px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.skrow{padding:8px 10px;background:#0b121a;border:1px solid var(--line);border-radius:10px;min-width:0}
+.skname{display:block;font-weight:650;font-size:13px;line-height:1.4;color:var(--text);overflow-wrap:anywhere;word-break:break-word}
+.skwhen{display:block;margin-top:3px;font-size:12px;line-height:1.45;color:#b1bfce;overflow-wrap:anywhere;word-break:break-word}
+.skempty{padding:8px 10px}

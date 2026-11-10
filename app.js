@@ -18,7 +18,8 @@ function iconSVG(kind){
     lobby:'<path d="M4 20V9.5L12 4l8 5.5V20"/><path d="M10 20v-6h4v6"/>',
     mz:'<rect x="4" y="8" width="7" height="10" rx="1"/><rect x="13" y="8" width="7" height="10" rx="1"/><path d="M11 10h2M11 13h2M11 16h2"/>',
     schedule:'<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3.5v3M16 3.5v3M4 10h16"/>',
-    roadmap:'<circle cx="6" cy="7" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="18" cy="17" r="2"/><path d="M8 8l2.5 2.5M14 13.5l2.5 2.5"/>'
+    roadmap:'<circle cx="6" cy="7" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="18" cy="17" r="2"/><path d="M8 8l2.5 2.5M14 13.5l2.5 2.5"/>',
+    skills:'<path d="M5 4.5h9.5A1.5 1.5 0 0 1 16 6v13.5H6.5A1.5 1.5 0 0 1 5 18V4.5z"/><path d="M16 6h3v13.5H16"/><path d="M7.5 8h6M7.5 11h6"/>'
   };
   const p=paths[kind]||paths.lobby;
   return `<svg class="ic" ${common}>${p}</svg>`;
@@ -2465,6 +2466,24 @@ function weekHTML(filter){const w=(D.backlog.week||[]).filter(x=>!filter||x.owne
   return `<ol class="wk">${w.map(x=>`<li class="${x.done?"dn":""}">${ownerChip(x.owner)}<b>${esc(x.text)}</b>${x.done?' <span class="chip ok">完成</span>':""}<div class="muted">${esc(x.detail)}</div></li>`).join("")}</ol>`;}
 function queueHTML(filter,max){const q=(D.backlog.queue||[]).filter(x=>!filter||x.owner===filter);const sh=q.slice(0,max||99);
   return `<ul class="qu">${sh.map(x=>`<li>${ownerChip(x.owner)}${x.sev?`<span class="sev ${x.sev==="🔴"?"s1":x.sev==="🟠"?"s2":"s3"}"><i></i></span>`:""}${esc(x.text)}</li>`).join("")}</ul>${q.length>sh.length?`<div class="muted">還有 ${q.length-sh.length} 項</div>`:""}`;}
+function skillsHTML(){
+  const s=(D&&D.skills)||{};
+  const gen=s.generatedAt||"缺";
+  const tz=s.timezone||"台北時間";
+  const total=s.total;
+  const groups=s.groups||[];
+  const head=`<div class="skills-asof">目錄最後重建：${esc(gen)}（${esc(tz)}）${total!=null?` · 共 ${esc(String(total))} 項`:""}</div>`;
+  if(!groups.length) return `<div class="skills-panel">${head}<div class="muted skempty">尚無技能</div></div>`;
+  const blocks=groups.map(g=>{
+    const n=g.count!=null?g.count:(g.skills||[]).length;
+    const items=g.skills||[];
+    const body=items.length
+      ? items.map(it=>`<div class="skrow"><span class="skname">${esc(it.name||"缺")}</span><span class="skwhen">${esc(it.when||"缺")}</span></div>`).join("")
+      : `<div class="muted skempty">尚無技能</div>`;
+    return `<details class="list-more skills-dept"><summary>${esc(g.dept||"缺")}（${n}）</summary><div class="skills-list">${body}</div></details>`;
+  }).join("");
+  return `<div class="skills-panel">${head}${blocks}</div>`;
+}
 function boardHTML(){
   const b=(D&&D.board)||{};
   const st=b.stats||{};
@@ -2497,6 +2516,7 @@ function renderBoard(){
   board.innerHTML=`${decHint}${usageHint}
   <div class="card"><h2>${iconSVG("lobby")}大廳 · 遊戲入口</h2>${playEntranceHTML()}</div>
   <div class="card"><h2>布告欄${bOpen!=null?(" · 未完成 "+bOpen):""}</h2>${boardHTML()}</div>
+  <div class="card" id="skills-card"><h2>${iconSVG("skills")}技能目錄${((D.skills||{}).total!=null)?(" · "+D.skills.total):""}</h2>${skillsHTML()}</div>
   <div class="card"><h2>待辦進度</h2>${progressHTML()}</div>
   <div class="card"><h2>${iconSVG("schedule")}今日排程</h2>${timelineHTML()}</div>
   <div class="card" id="roster-card"><h2>${iconSVG("lobby")}成員狀態 · ${ROSTER.members.length} 人</h2>${rosterCardsHTML()}</div>
