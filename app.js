@@ -2487,7 +2487,8 @@ function usageBarsHTML(){
   if(!show.length) return `<div class="meter-card"><div class="meter-k">用量</div><div class="meter-v">缺</div></div>`;
   return `<div class="meter-card"><div class="meter-k">用量</div>${show.map(b=>{
     const cap=+b.cap||0, used=+b.used||0, pct=cap?Math.min(100,Math.round(used/cap*100)):0;
-    return `<div class="ubar"><span class="ubar-l">${esc(b.label)} ${used}/${cap}</span><span class="ubar-track" aria-hidden="true"><i style="width:${pct}%"></i></span></div>`;
+    const tone=pct>=90?"red":pct>=70?"yellow":"green";
+    return `<div class="ubar tone-${tone}"><span class="ubar-l">${esc(b.label)} ${used}/${cap}</span><span class="ubar-track" aria-hidden="true"><i style="width:${pct}%"></i></span></div>`;
   }).join("")}</div>`;
 }
 function skillsTotalHTML(){
@@ -2502,9 +2503,13 @@ function deptBlocksHTML(){
     const open=(d.open==null||d.open==="缺")?"缺":String(d.open);
     const sk=(d.skills==null||d.skills==="缺")?"缺":String(d.skills);
     const ck=d.checkin||"缺";
-    return `<button type="button" class="dblk tone-${esc(d.tone||"green")}" data-dept="${esc(d.name)}" aria-expanded="false" aria-label="${esc(d.name)} 未完成 ${open}，${deptToneLabel(d.tone)}燈，技能 ${sk}，點名 ${ck}">
+    const why=(d.tone&&d.tone!=="green"&&d.reason)?String(d.reason):"";
+    const whyLine=why?`<span class="dw">${esc(why)}</span>`:"";
+    const whyAria=why?`，${esc(why)}`:"";
+    return `<button type="button" class="dblk tone-${esc(d.tone||"green")}" data-dept="${esc(d.name)}" aria-expanded="false" aria-label="${esc(d.name)} 未完成 ${open}，${deptToneLabel(d.tone)}燈${whyAria}，技能 ${sk}，點名 ${ck}">
       <span class="dn">${esc(d.name)}</span>
       <span class="dv">${esc(open)}</span>
+      ${whyLine}
       <span class="di"><span>技能 ${esc(sk)}</span><span>${esc(ck)}</span></span>
     </button>`;
   }).join("")}</div><div class="dept-panel" id="dept-panel" hidden></div>`;

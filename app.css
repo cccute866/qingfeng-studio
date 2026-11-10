@@ -767,7 +767,7 @@ button.wl-row:active{background:#ffffff08}
 
 /* 部門積木牆（2026-11-10 13:01）正文 ≥15px，390 寬 3×3 一屏看完 */
 #board{font-size:15px;line-height:1.45}
-#board .muted,#board .meter-k,#board .meter-sub,#board .ubar-l,#board .di,#board .pdue,#board .skwhen{font-size:15px;line-height:1.4}
+#board .muted,#board .meter-k,#board .meter-sub,#board .ubar-l,#board .di,#board .dw,#board .pdue,#board .skwhen{font-size:15px;line-height:1.4}
 .play-line{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px;border:1px solid var(--line2);border-radius:var(--radius);background:linear-gradient(180deg,#141c28f2,#0e1520f2);min-width:0}
 .play-line span{font-size:15px;color:var(--text);min-width:0;overflow-wrap:anywhere}
 .play-line b{color:var(--jade);font-size:18px}
@@ -785,19 +785,24 @@ button.wl-row:active{background:#ffffff08}
 .ubar-l{color:var(--text);overflow-wrap:anywhere;word-break:break-word}
 .ubar-track{display:block;height:10px;border-radius:6px;background:#1a2433;border:1px solid var(--line);overflow:hidden}
 .ubar-track>i{display:block;height:100%;background:linear-gradient(90deg,var(--jade2),var(--jade));border-radius:6px}
+.ubar.tone-yellow .ubar-track>i{background:linear-gradient(90deg,#d4b44a,#e8c547)}
+.ubar.tone-red .ubar-track>i{background:linear-gradient(90deg,#e25b5b,#ff6b6b)}
+.ubar.tone-yellow .ubar-l{color:#ffe29a}
+.ubar.tone-red .ubar-l{color:#ffb3b3}
 .wall-card{padding:12px 10px}
 .wall-card>h2{margin:0 0 8px;font-size:16px}
-.dept-wall{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;min-width:0}
-.dblk{appearance:none;-webkit-appearance:none;margin:0;min-width:0;min-height:100px;padding:8px 4px 6px;border-radius:14px;border:1.5px solid var(--line2);background:#121a26;color:var(--text);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;text-align:center;font:inherit}
-.dblk .dn{font-size:15px;font-weight:800;letter-spacing:.5px}
-.dblk .dv{font-size:36px;font-weight:800;line-height:1.05;font-variant-numeric:tabular-nums}
-.dblk .di{display:flex;flex-direction:column;gap:0;color:#d5deea;font-weight:600}
+.dept-wall{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;min-width:0}
+.dblk{appearance:none;-webkit-appearance:none;margin:0;min-width:0;min-height:0;padding:5px 4px 4px;border-radius:14px;border:1.5px solid var(--line2);background:#121a26;color:var(--text);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;text-align:center;font:inherit}
+.dblk .dn{font-size:15px;font-weight:800;letter-spacing:.5px;line-height:1.2}
+.dblk .dv{font-size:32px;font-weight:800;line-height:1.05;font-variant-numeric:tabular-nums}
+.dblk .dw{font-weight:700;line-height:1.2;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dblk .di{display:flex;flex-direction:column;gap:0;color:#d5deea;font-weight:600;line-height:1.2}
 .dblk.tone-green{background:#10261c;border-color:#3fd8a088;color:#e8fff4}
 .dblk.tone-green .dv{color:#9ff0c6}
 .dblk.tone-yellow{background:#2a2210;border-color:#e6c56d99;color:#fff6d8}
-.dblk.tone-yellow .dv{color:#ffe29a}
+.dblk.tone-yellow .dv,.dblk.tone-yellow .dw{color:#ffe29a}
 .dblk.tone-red{background:#2a1214;border-color:#ff6b6b99;color:#ffe8e8}
-.dblk.tone-red .dv{color:#ff9a9a}
+.dblk.tone-red .dv,.dblk.tone-red .dw{color:#ffc6c6}
 .dblk.on{box-shadow:0 0 0 2px #fff,0 0 16px #3fd8a044}
 .dblk:focus-visible{outline:2px solid var(--jade);outline-offset:2px}
 .dept-panel{margin-top:10px;padding:12px 10px;background:#0b121a;border:1px solid var(--line2);border-radius:14px;min-width:0}
@@ -824,10 +829,10 @@ button.wl-row:active{background:#ffffff08}
   .city-caption{display:none}
   .hint-card{font-size:15px}
   .meters{gap:6px}
-  .dblk{min-height:100px;padding:6px 4px}
-  .dblk .dv{font-size:34px}
-  .wall-card{padding:8px 8px 10px}
-  .wall-card>h2{margin:0 0 6px}
+  .dblk{min-height:0;padding:4px 3px}
+  .dblk .dv{font-size:30px}
+  .wall-card{padding:6px 8px 6px}
+  .wall-card>h2{margin:0 0 4px}
   .layout{gap:8px}
-  .board{margin-top:8px;gap:8px}
+  .board{margin-top:8px;gap:4px}
 }
