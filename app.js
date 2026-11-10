@@ -2476,7 +2476,7 @@ function ringHTML(done, total){
   }
   const d=+done, n=+total, p=Math.round(d/n*100);
   const ang=Math.max(0,Math.min(100,p))*3.6;
-  return `<div class="meter-card meter-ring-wrap"><div class="ring" style="--ang:${ang}deg" aria-label="布告欄完成率 ${p}%"><span class="ring-num">${p}%</span></div><div class="meter-k">布告欄</div><div class="meter-sub">${d}/${n} 已完成</div></div>`;
+  return `<div class="meter-card meter-ring-wrap"><div class="meter-k">布告欄</div><div class="ring" style="--ang:${ang}deg" aria-label="布告欄完成率 ${p}%"><span class="ring-num">${p}%</span></div><div class="meter-sub">${d}/${n} 已完成</div></div>`;
 }
 function usageBarsHTML(){
   const wall=(D&&D.deptWall)||{};
@@ -2504,12 +2504,11 @@ function deptBlocksHTML(){
     const sk=(d.skills==null||d.skills==="缺")?"缺":String(d.skills);
     const ck=d.checkin||"缺";
     const why=(d.tone&&d.tone!=="green"&&d.reason)?String(d.reason):"";
-    const whyLine=why?`<span class="dw">${esc(why)}</span>`:"";
+    const foot=why?`<span class="dw">${esc(why)}</span>`:`<span class="di">技能 ${esc(sk)}・${esc(ck)}</span>`;
     const whyAria=why?`，${esc(why)}`:"";
     return `<button type="button" class="dblk tone-${esc(d.tone||"green")}" data-dept="${esc(d.name)}" aria-expanded="false" aria-label="${esc(d.name)} 未完成 ${open}，${deptToneLabel(d.tone)}燈${whyAria}，技能 ${sk}，點名 ${ck}">
       <span class="dtop"><span class="dn">${esc(d.name)}</span><span class="dv">${esc(open)}</span></span>
-      ${whyLine}
-      <span class="di">技能 ${esc(sk)}・${esc(ck)}</span>
+      ${foot}
     </button>`;
   }).join("")}</div><div class="dept-panel" id="dept-panel" hidden></div>`;
 }
@@ -2627,7 +2626,12 @@ function renderBoard(){
 function renderFeed(){$("#feed").innerHTML=D.feed.map(e=>`<li><time>${esc(fmtAt(e.at))}<small>${esc(e.at.slice(0,10)===todayStr()?"今天":"")}</small></time><div><span class="k ${esc(e.kind)}">${esc(e.kind)}</span>${esc(noemo(e.text))}</div></li>`).join("");
   const ws=Object.keys(SHORT).map(i=>[i,memberState(i)]).filter(x=>x[1].cat==="work"||x[1].cat==="meet");
   $("#nowline").textContent="台北 "+hm(tpNow())+" · "+(ws.length?ws.map(x=>SHORT[x[0]]+CAT[x[1].cat]).join("、"):"目前沒人在趕工");}
-function renderAll(){if(!D)return;const U=D.updatedAt||D.builtAt;const LA=D.lastActivity||"";$("#updated").textContent="更新時間 "+U.slice(5).replace("-","/")+(LA?" · 最後進度 "+LA.slice(5).replace("-","/"):"")+(D.notice?" · "+D.notice:"");$("#foot-upd").textContent="資料更新時間 "+U+"（台北時間）";
+function shortStamp(s){return (s||"").slice(5).replace("-","/");}
+function renderAll(){if(!D)return;const U=D.updatedAt||D.builtAt;const LA=D.lastActivity||"";
+  const u=shortStamp(U); let meta="更新 "+u;
+  if(LA){const la=shortStamp(LA); meta+=" · 進度 "+(u.slice(0,5)===la.slice(0,5)?la.slice(6):la);}
+  if(D.notice) meta+=" · "+D.notice;
+  $("#updated").textContent=meta;$("#foot-upd").textContent="資料更新時間 "+U+"（台北時間）";
   const cap=document.querySelector(".city-caption");
   if(cap){const n=decisionsList().length; cap.textContent=n?(`點大樓進入 · 今天有 ${n} 項決定會掛在負責人桌上 · 遊戲／交易／總裁`):"點大樓進入 · 遊戲事業部 · 交易事業部（模擬）· 總裁辦公室";}
   renderFloors();renderBoard();renderFeed();renderUsageBanner();if(view==="room")renderRoomDash();if(view==="tower")renderBands();}
