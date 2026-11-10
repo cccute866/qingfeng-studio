@@ -187,7 +187,7 @@ table{width:100%;border-collapse:collapse;font-size:12.5px}th,td{text-align:left
 .sev{display:inline-flex;align-items:center;gap:4px;font-size:12px;margin-right:10px}.sev i{width:10px;height:10px;border-radius:50%;display:inline-block}.s1 i{background:var(--red)}.s2 i{background:var(--org)}.s3 i{background:var(--yel)}
 .big{display:flex;gap:10px;flex-wrap:wrap}.big div{flex:1;min-width:90px;background:#0b121a;border:1px solid var(--line);border-radius:10px;padding:8px;text-align:center}.big b{display:block;font-size:22px;color:var(--jade)}.big span{font-size:11.5px;color:var(--mute)}
 .thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}.thumbs figure{margin:0}.thumbs img{width:100%;border-radius:8px;display:block;background:#000}.thumbs figcaption{font-size:11.5px;color:var(--mute);text-align:center}
-.who{display:flex;gap:12px;align-items:center}.who .ava{width:96px;height:96px;object-fit:cover;object-position:50% 20%;background:#121820;border-radius:50%;border:2px solid var(--jade);flex:none;box-shadow:0 0 0 1px #0008,0 4px 16px #0006}
+.who{display:flex;gap:12px;align-items:center}.who .ava{width:96px;height:96px;object-fit:cover;object-position:50% 20%;background:#121820;border-radius:50%;border:1px solid #2A2E35;flex:none;box-shadow:none}
 .who .ava.hop{animation:hop .7s ease-out}
 @keyframes hop{0%,100%{transform:translateY(0)}30%{transform:translateY(-10px)}60%{transform:translateY(0)}80%{transform:translateY(-4px)}}
 @media (prefers-reduced-motion:reduce){.who .ava.hop{animation:none}}
@@ -195,7 +195,7 @@ table{width:100%;border-collapse:collapse;font-size:12.5px}th,td{text-align:left
 .rows{display:grid;gap:8px;margin-top:12px}.rows .r{background:#0b121a;border:1px solid var(--line);border-radius:10px;padding:8px 10px}.rows .r b{display:block;font-size:11.5px;color:var(--jade);margin-bottom:2px}
 .thought{position:relative;margin-top:14px;background:#eef6f2;color:#122a20;border-radius:16px;padding:10px 14px;font-size:14px}.thought::before{content:"想法";position:absolute;top:-9px;left:12px;font-size:10.5px;background:var(--jade);color:#04140e;border-radius:6px;padding:0 6px;font-weight:700}
 .mbtn{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap}.mbtn button{min-height:40px;border-radius:10px;border:1px solid var(--line2);background:#1a2433;color:var(--text);padding:6px 12px;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
-.mbtn .mava{width:28px;height:28px;border-radius:50%;object-fit:cover;object-position:50% 20%;border:1.5px solid var(--jade);flex:none}
+.mbtn .mava{width:28px;height:28px;border-radius:50%;object-fit:cover;object-position:50% 20%;border:1px solid #2A2E35;flex:none}
 .foot{text-align:center;color:var(--mute);font-size:11.5px;padding:10px 10px 30px}
 @media(max-width:420px){.plate img{width:22px;height:22px}.plate .nm{font-size:12px}.bubble{font-size:11px;max-width:52%}h1{font-size:17px}.tower-hit{left:46%;width:18%}}
 @media(prefers-reduced-motion:reduce){.dot{animation:none!important}}
@@ -348,17 +348,22 @@ ul.qu{margin:6px 0}ul.qu li{margin:3px 0}
   .strat-list{max-height:420px}
 }
 
-.trade-who{display:flex;gap:10px;align-items:center;margin:0 0 10px}.ava-trade{border-radius:12px;box-shadow:0 0 0 2px #C9A227,0 0 16px #C9A22755}
-.dav[src*="avatar_trade"],.mava[src*="avatar_trade"]{box-shadow:0 0 0 2px #C9A227}
-.dav[src*="avatar_pr"],.mava[src*="avatar_pr"]{box-shadow:0 0 0 2px #D8C3A0}
-.dav[src*="avatar_fin"],.mava[src*="avatar_fin"]{box-shadow:0 0 0 2px #9AA3AD}
+.trade-who{display:flex;gap:8px;align-items:center;margin:0}.ava-trade{width:36px;height:36px;border-radius:50%;border:1px solid #2A2E35;box-shadow:none}
+.dav,.mava{border-radius:50%;border:1px solid #2A2E35;box-shadow:none}
+.dav[src*="avatar_trade"],.mava[src*="avatar_trade"],.dav[src*="avatar_pr"],.mava[src*="avatar_pr"],.dav[src*="avatar_fin"],.mava[src*="avatar_fin"]{box-shadow:none;border:1px solid #2A2E35}
 
 /* ---- 7F 交易室分頁（原創版面；強調色 trade gold #C9A227） ---- */
-.trade-app{display:flex;flex-direction:column;gap:10px;position:relative;padding-bottom:64px}
+.trade-app{display:flex;flex-direction:column;gap:8px;position:relative;padding:10px;border-radius:14px;background:#0c1218;border:1px solid #8a6a2c55}
+.trade-corners{position:absolute;inset:5px;pointer-events:none;z-index:2}
+.trade-corners i{position:absolute;width:11px;height:11px;border-color:var(--gold);border-style:solid}
+.trade-corners i:nth-child(1){top:0;left:0;border-width:1.5px 0 0 1.5px}
+.trade-corners i:nth-child(2){top:0;right:0;border-width:1.5px 1.5px 0 0}
+.trade-corners i:nth-child(3){bottom:0;left:0;border-width:0 0 1.5px 1.5px}
+.trade-corners i:nth-child(4){bottom:0;right:0;border-width:0 1.5px 1.5px 0}
 .trade-app .sim-banner{font-size:11.5px;color:#C9A227;border:1px dashed #C9A22766;background:#C9A22714;border-radius:10px;padding:6px 10px;text-align:center;font-weight:600}
-.trade-brand{gap:12px;margin:0 0 6px}
+.trade-brand{gap:8px;margin:0;padding:7px 10px;border-radius:10px;background:linear-gradient(180deg,#4a3824 0%,#2a1e12 100%);border:1px solid #d8b25a88}
 .trade-brand-txt{display:flex;flex-direction:column;gap:2px;min-width:0}
-.trade-wm{font:800 22px/1.1 var(--font);letter-spacing:.02em;color:#C9A227;text-shadow:0 0 18px #C9A22755;font-variant-ligatures:none}
+.trade-wm{font:750 17px/1.15 var(--font);letter-spacing:.04em;color:#f3e6c4;text-shadow:none;font-variant-ligatures:none}
 .trade-sub{font-size:12px;color:var(--mute);font-weight:600}
 
 .trade-body{min-height:200px}
@@ -848,3 +853,311 @@ button.wl-row:active{background:#ffffff08}
   .layout{gap:8px}
   .board{margin-top:8px;gap:4px}
 }
+
+/* 7F 交易室積木（2026-11-10）：與首頁部門積木同一套字級／高度 */
+.twall{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;min-width:0}
+.twall-idx{grid-template-columns:repeat(2,minmax(0,1fr))}
+.twall-pos{grid-template-columns:repeat(2,minmax(0,1fr))}
+.tblk{position:relative;cursor:default;width:100%}
+.tblk .dtop{flex-direction:column-reverse;align-items:flex-start;gap:0;width:100%}
+.tblk .dn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;width:100%;min-width:0}
+.tblk .dv{font-size:var(--fs-num);font-weight:var(--fw-num);margin-left:0;text-align:left;width:100%;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.t-stale{display:inline-block;font-size:var(--fs-meta);font-weight:700;line-height:1.2;padding:1px 6px;border-radius:999px;background:#4f4219;color:#ffe29a;border:1px solid #e6c56d99;margin-right:4px;vertical-align:middle}
+.t-stale.miss{background:#5a2323;color:#ffc6c6;border-color:#ff6b6b99}
+.trade-home,.book-panel,.log-panel{min-width:0}
+.trade-home .feed-mhd,.log-panel .feed-mhd{margin:10px 0 6px;font-size:var(--fs-title);font-weight:var(--fw-title);color:var(--text)}
+.trade-more{margin-top:8px}
+.trade-more>summary{font-size:var(--fs-title);font-weight:var(--fw-title);cursor:pointer;list-style:none;padding:8px 0;color:var(--text)}
+.trade-more>summary::-webkit-details-marker{display:none}
+.plain-list{margin:0;padding-left:1.1em;font-size:var(--fs-meta);font-weight:var(--fw-meta);color:var(--c-meta);line-height:1.4}
+.plain-list li{margin:4px 0}
+.learn-top{color:var(--text);font-size:var(--fs-title);font-weight:var(--fw-title);padding-left:1.15em}
+.learn-top li{margin:8px 0;overflow-wrap:anywhere}
+.idx-meta,.inv-pulse,.trade-app .sim-banner{font-size:var(--fs-meta);font-weight:var(--fw-meta);color:var(--c-meta)}
+.trade-app .sim-banner{font-size:var(--fs-meta)}
+.wl-asof{font-size:var(--fs-meta);font-weight:var(--fw-meta);color:var(--c-meta)}
+@media(min-width:720px){
+  .twall-idx{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .twall-pos{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media(max-width:420px){
+  .twall,.twall-idx,.twall-pos{gap:6px}
+}
+
+.tblk .dw,.tblk .di{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;text-overflow:ellipsis;line-height:1.25;max-height:calc(var(--fs-meta)*1.25*2)}
+.ttab{white-space:nowrap;font-size:12px;line-height:1.2}
+@media(max-width:420px){
+  .ttab{font-size:12px;padding:8px 1px}
+}
+
+/* 7F 積木去滿版綠／紅：沿用首頁積木深底，只讓數字上色；標題玉色、金角已在 .trade-app */
+.trade-sub{color:#c9b48a;font-size:13px;font-weight:500}
+.trade-app .twall{gap:8px}
+.trade-app .tblk,
+.trade-app .dblk.tblk,
+.trade-app .dblk.tblk.tone-green,
+.trade-app .dblk.tblk.tone-red,
+.trade-app .dblk.tblk.tone-yellow{
+  background:#141c28;
+  border:1px solid #2a3a4e;
+  box-shadow:none;
+}
+.trade-app .dblk.tblk.tone-green .dv{color:var(--jade)}
+.trade-app .dblk.tblk.tone-red .dv{color:#d9a3a3}
+.trade-app .dblk.tblk.tone-yellow .dv{color:#e8c547}
+.trade-app .dblk.tblk .dn,
+.trade-app .dblk.tblk .dw,
+.trade-app .dblk.tblk .di,
+.trade-app .dblk.tblk.tone-green .dw,
+.trade-app .dblk.tblk.tone-green .di,
+.trade-app .dblk.tblk.tone-red .dw,
+.trade-app .dblk.tblk.tone-red .di,
+.trade-app .dblk.tblk.tone-yellow .dw,
+.trade-app .dblk.tblk.tone-yellow .di{color:var(--c-meta)}
+.trade-home .feed-mhd,.log-panel .feed-mhd,.book-panel .feed-mhd{
+  margin:4px 0 6px;color:var(--jade);font-size:var(--fs-title);font-weight:var(--fw-title)
+}
+.trade-app .feed-disc{margin:2px 0 0;color:var(--c-meta);font-size:var(--fs-meta);text-align:center;border:0;background:transparent;padding:4px 0}
+.trade-app .idx-meta{margin:2px 0 0}
+.trade-tabs{margin:4px -4px -4px;border-top-color:#8a6a2c55}
+
+.trade-app .who .ava.ava-trade,.trade-app .ava-trade{
+  width:36px;height:36px;flex:none;object-fit:cover;object-position:50% 20%;
+  border-radius:50%;border:1px solid #2A2E35;box-shadow:none;
+}
+.trade-app .tblk .dv{font-size:26px;letter-spacing:-0.02em}
+
+/* 7F 美術收斂：勝率條、底欄不換行、長數字不截斷 */
+.t-winbar{
+  margin:0;padding:8px 10px;border-radius:10px;
+  background:#141c28;border:1px solid #8a6a2c55;
+  color:#f3e6c4;font-size:13px;line-height:1.3;font-weight:600;
+  text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.twall-kpi .tblk .dw,.twall-kpi .tblk .di{
+  white-space:nowrap;-webkit-line-clamp:unset;max-height:none;
+}
+.trade-tabs{margin:0;gap:0;padding:6px 2px calc(6px + env(safe-area-inset-bottom,0));}
+.ttab,.ttab span{white-space:nowrap;overflow:hidden;text-overflow:clip;max-width:100%;font-size:11px;line-height:1.2}
+.ttab{padding:8px 0;gap:3px}
+.trade-app .tblk .dv{font-size:24px;letter-spacing:-0.03em;overflow:visible;text-overflow:clip}
+.trade-app .twall-pos .tblk .dv{font-size:20px;letter-spacing:-0.02em;white-space:nowrap}
+.trade-app .feed-disc{margin:4px 0 0}
+.trade-home,.book-panel,.log-panel{display:flex;flex-direction:column;gap:8px}
+.trade-home .feed-mhd,.log-panel .feed-mhd,.book-panel .feed-mhd{margin:0;color:var(--jade)}
+.trade-app{gap:8px}
+
+
+/* ---- 7F broker A/B (2026-11-10): 券商排版，不改預設積木 ---- */
+ .trade-app.trade-app--br{
+  gap:0;
+  padding:0;
+  border-radius:16px;
+  overflow:hidden;
+  background:#0B0D10;
+  border:1px solid #2A2E35;
+}
+.trade-app.trade-app--br .trade-corners{display:none}
+.trade-app--br .trade-brand{
+  gap:8px;margin:0;padding:10px 16px 8px;
+  background:transparent;border:0;border-radius:0;
+  box-shadow:none;
+}
+.trade-app--br .ava-trade,.trade-app--br .who .ava.ava-trade{width:22px;height:22px;border-radius:50%;border:1px solid #2A2E35;box-shadow:none}
+.trade-app--br .trade-wm{font:650 13px/1.2 var(--font);letter-spacing:.02em;color:#C5CAD3;text-shadow:none}
+.trade-app--br .trade-sub{font-size:11px;color:#8B93A0;font-weight:500}
+.trade-app--br .trade-body{padding:0 0 8px;min-height:0}
+.trade-app--br .trade-tabs{
+  margin:0;padding:8px 8px calc(8px + env(safe-area-inset-bottom,0));
+  background:#0B0D10;border-top:1px solid #2A2E35;border-radius:0;
+  backdrop-filter:none;gap:0;
+}
+.trade-app--br .ttab{color:#8B93A0;padding:8px 0;gap:4px;min-height:44px}
+.trade-app--br .ttab .ttab-ic{width:16px;height:2px;background:#2A2E35}
+.trade-app--br .ttab.on{color:#F2F4F7}
+.trade-app--br .ttab.on .ttab-ic{background:#F2F4F7;box-shadow:none}
+
+/* 台灣紅漲綠跌：只上色數字 */
+.trade-app--br .br-up{color:#E64545}
+.trade-app--br .br-dn{color:#1FA97A}
+.trade-app--br .br-flat{color:#F2F4F7}
+
+.br-home,.br-book{display:flex;flex-direction:column;gap:0;padding:0 0 4px}
+.br-hero{
+  padding:18px 16px 16px;
+  min-height:168px;
+  display:flex;flex-direction:column;justify-content:center;
+  text-align:left;
+}
+.br-hero-k{
+  font-size:13px;font-weight:600;color:#8B93A0;letter-spacing:.04em;
+  margin:0 0 8px;
+}
+.br-hero-v{
+  font-size:44px;font-weight:800;line-height:1;letter-spacing:-0.04em;
+  font-variant-numeric:tabular-nums;
+}
+.br-hero-v.br-miss{color:#C9A227;font-size:36px;font-weight:700;letter-spacing:0}
+.br-hero-sub{
+  margin-top:10px;font-size:13px;color:#8B93A0;font-weight:500;
+  font-variant-numeric:tabular-nums;
+}
+
+.br-idx{
+  display:flex;gap:0;overflow-x:auto;-webkit-overflow-scrolling:touch;
+  padding:0;margin:0 16px 8px;
+  border:1px solid #2A2E35;border-radius:10px;background:#14161A;
+  scrollbar-width:none;
+}
+.br-idx::-webkit-scrollbar{display:none}
+.br-idx-item{
+  flex:1 1 0;min-width:0;padding:8px 8px;
+  border-right:1px solid #2A2E35;
+}
+.br-idx-item:last-child{border-right:0}
+.br-idx-name{font-size:12px;color:#8B93A0;white-space:nowrap}
+.br-idx-close{font-size:14px;font-weight:700;color:#F2F4F7;font-variant-numeric:tabular-nums;margin-top:2px;letter-spacing:-0.02em;white-space:nowrap}
+.br-idx-chg{font-size:12px;font-weight:600;font-variant-numeric:tabular-nums;margin-top:2px}
+.br-idx-item.is-miss .br-idx-close{color:#C9A227}
+
+.br-seg{
+  display:flex;gap:8px;padding:4px 16px 8px;align-items:center;
+}
+.br-seg button{
+  appearance:none;border:0;background:transparent;color:#8B93A0;
+  font:600 13px/1.2 var(--font);padding:8px 2px;min-height:36px;
+  border-bottom:2px solid transparent;cursor:pointer;
+}
+.br-seg button.on{color:#F2F4F7;border-bottom-color:#F2F4F7}
+.br-seg-n{font-weight:500;color:#6B7380;margin-left:2px;font-size:12px}
+.br-seg-4{gap:0;padding:4px 8px 8px;justify-content:space-between}
+.br-seg-4 button{flex:1 1 0;min-width:0;padding:8px 0;font-size:12px;white-space:nowrap}
+
+.br-list{display:flex;flex-direction:column;border-top:1px solid #2A2E35}
+.br-pos{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  width:100%;appearance:none;background:transparent;border:0;
+  border-bottom:1px solid #2A2E35;color:inherit;font:inherit;text-align:left;
+  padding:10px 16px;min-height:52px;cursor:pointer;
+}
+.br-pos:active{background:#ffffff08}
+.br-pos-l{min-width:0;flex:1}
+.br-pos-name{font-size:15px;font-weight:650;color:#F2F4F7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.br-pos-code{font-size:12px;color:#8B93A0;margin-top:2px;font-variant-numeric:tabular-nums}
+.br-pos-r{text-align:right;flex-shrink:0;font-variant-numeric:tabular-nums}
+.br-pos-pct{font-size:18px;font-weight:750;letter-spacing:-0.02em}
+.br-pos-pct.br-miss{color:#C9A227;font-size:14px;font-weight:650;letter-spacing:0}
+.br-pos-mark{font-size:12px;color:#8B93A0;margin-top:2px}
+.br-empty{padding:16px;font-size:13px;color:#8B93A0}
+
+.br-meta{
+  margin:10px 16px 4px;font-size:12px;line-height:1.45;color:#8B93A0;
+  font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.br-disc{
+  margin:4px 16px 8px;font-size:12px;line-height:1.4;color:#6B7380;
+}
+.br-more{
+  margin:4px 16px 8px;font-size:13px;color:#8B93A0;
+}
+.br-more summary{cursor:pointer;padding:8px 0;min-height:36px;color:#8B93A0}
+
+/* B：券商排版 + 卷軸外框（米色／玉色標題／金角），內頁仍是乾淨深底 */
+.trade-app.trade-app--br-b{
+  background:linear-gradient(180deg,#F3E6C8 0%,#E4D3A8 100%);
+  border:1px solid #C9A227;
+  padding:8px 7px 6px;
+  box-shadow:inset 0 0 0 1px #f8efd8, 0 0 0 1px #8a6a2c55;
+  position:relative;
+}
+.trade-app.trade-app--br-b .trade-corners{display:block;inset:4px;z-index:3}
+.trade-app--br-b .br-shell{
+  background:#0B0D10;border-radius:12px;overflow:hidden;
+  border:1px solid #2A2E35;
+}
+.trade-app--br-b .trade-brand{
+  background:linear-gradient(180deg,#4a3824 0%,#2a1e12 100%);
+  border-bottom:1px solid #d8b25a88;
+  padding:8px 14px;
+}
+.trade-app--br-b .trade-wm{color:#f3e6c4;font-weight:750;font-size:14px}
+.trade-app--br-b .trade-sub{color:#c4b48a}
+.trade-app--br-b .br-hero-k{color:#3FD8A0}
+.trade-app--br-b .br-seg button.on{color:#3FD8A0;border-bottom-color:#3FD8A0}
+.trade-app--br-b .ttab.on{color:#C9A227}
+.trade-app--br-b .ttab.on .ttab-ic{background:#C9A227}
+.trade-app--br-b .trade-tabs{background:#0B0D10}
+
+@media (max-width:420px){
+  .br-hero{min-height:168px;padding:16px 16px 14px}
+  .br-hero-v{font-size:44px}
+}
+
+.trade-app--br .trade-tabs,
+.trade-app--br .ttab,
+.trade-app--br .ttab span{font-size:12px;line-height:1.2}
+@media (max-width:420px){
+  .trade-app--br .trade-tabs,
+  .trade-app--br .ttab,
+  .trade-app--br .ttab span{font-size:12px}
+}
+.trade-app.trade-app--br-b{padding:10px 9px 8px}
+
+/* A 版子頁（自選／策略／練習）：同一套深底、紅漲綠跌、列表列 */
+.trade-app--br .wl-panel,.trade-app--br .feed-panel,.trade-app--br .log-panel{padding:0 0 8px}
+.trade-app--br .wl-explain,.trade-app--br .vs-bench{
+  margin:8px 16px;padding:8px 0;background:transparent;border:0;border-radius:0;
+  color:#8B93A0;font-size:12px;font-weight:500;
+}
+.trade-app--br .wl-group,.trade-app--br .inv-table-wrap{
+  margin:0 16px 8px;border:1px solid #2A2E35;border-radius:10px;background:#14161A;
+}
+.trade-app--br .wl-ghd,.trade-app--br .feed-mhd{
+  color:#8B93A0;background:transparent;border-bottom:1px solid #2A2E35;
+  font-size:12px;font-weight:650;padding:8px 12px;
+}
+.trade-app--br .wl-chg.up,.trade-app--br .inv-unreal.up{color:#E64545}
+.trade-app--br .wl-chg.down,.trade-app--br .inv-unreal.dn{color:#1FA97A}
+.trade-app--br .wl-name,.trade-app--br .wl-close{color:#F2F4F7}
+.trade-app--br .wl-asof,.trade-app--br .wl-codeinline,.trade-app--br .wl-viewline{color:#8B93A0}
+.trade-app--br .twall{display:flex;flex-direction:column;gap:0;margin:0 16px;border:1px solid #2A2E35;border-radius:10px;overflow:hidden;background:#14161A}
+.trade-app--br .twall .tblk,.trade-app--br .dblk.tblk{
+  height:auto;min-height:52px;margin:0;border:0;border-bottom:1px solid #2A2E35;border-radius:0;
+  background:transparent;box-shadow:none;padding:10px 12px;
+}
+.trade-app--br .twall .tblk:last-child{border-bottom:0}
+.trade-app--br .tblk .dn,.trade-app--br .feed-mhd{color:#8B93A0}
+.trade-app--br .tblk .dv{font-size:18px;font-weight:750;letter-spacing:-0.02em}
+.trade-app--br .tblk.tone-green .dv,.trade-app--br .up .dv{color:#E64545}
+.trade-app--br .tblk .dv{color:#F2F4F7}
+.trade-app--br .plain-list{margin:0 16px 8px;padding-left:20px;color:#C5CAD3;font-size:13px;line-height:1.5}
+.trade-app--br .list-more summary,.trade-app--br .br-more summary,.trade-app--br .focus-raw summary{
+  color:#8B93A0;font-size:13px;padding:8px 16px;
+}
+.trade-app--br .strat-card{
+  margin:0;border:0;border-bottom:1px solid #2A2E35;border-radius:0;background:transparent;padding:10px 12px;
+}
+.trade-app--br .strat-list,.trade-app--br #strat-panel .feed-mkt{margin:0 16px;border:1px solid #2A2E35;border-radius:10px;background:#14161A;overflow:hidden}
+.trade-app--br .feed-disc,.trade-app--br .inv-legend{margin:4px 16px 8px;color:#6B7380;font-size:12px}
+.trade-app--br .chip{border-color:#2A2E35;background:#14161A;color:#8B93A0}
+
+/* A 版自選／策略／練習：與庫存同一套左名右數字列表 */
+.trade-app--br .br-watch,.trade-app--br .br-strat,.trade-app--br .br-log{padding:0 0 8px}
+.trade-app--br details.br-more,.trade-app--br details.br-acc{margin:0 16px 8px}
+.trade-app--br .br-acc{margin:0;border:0;border-bottom:1px solid #2A2E35;border-radius:0;background:transparent}
+.trade-app--br .br-acc:last-child{border-bottom:0}
+.trade-app--br .br-acc>summary{list-style:none;cursor:pointer;padding:0;display:block}
+.trade-app--br .br-acc>summary::-webkit-details-marker{display:none}
+.trade-app--br .br-acc .br-pos{width:100%;border:0;padding:10px 12px}
+.trade-app--br .br-acc-body{padding:0 12px 12px;color:#8B93A0;font-size:12px;line-height:1.5}
+.trade-app--br .br-tag{
+  display:inline-block;margin-left:6px;padding:1px 6px;border:1px solid #2A2E35;border-radius:4px;
+  color:#C5CAD3;font-size:11px;font-weight:650;vertical-align:middle;
+}
+.trade-app--br .br-pos-px{font-size:16px;font-weight:750;color:#F2F4F7;font-variant-numeric:tabular-nums;letter-spacing:-0.02em;text-align:right}
+.trade-app--br .br-learn{margin:8px 16px 0;padding:0;list-style:none}
+.trade-app--br .br-learn li{color:#C5CAD3;font-size:13px;line-height:1.55;padding:8px 0;border-bottom:1px solid #2A2E35}
+.trade-app--br .br-learn li:last-child{border-bottom:0}
+.trade-app--br .br-soft{margin:8px 16px;color:#8B93A0;font-size:12px}
+
+.trade-app--br .br-pos-miss{font-size:12px;font-weight:500;color:#8B93A0;text-align:right;line-height:1.3}

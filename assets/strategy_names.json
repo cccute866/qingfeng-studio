@@ -1,7 +1,7 @@
 {
   "_meta": {
     "note": "策略中文顯示名／白話狀態理由；0050 為對照基準非抱緊主策略；供 7F AgentX+ 手機版；已合併 paper/strategies/names_zh.json v2／對照線",
-    "updatedAt": "2026-10-30"
+    "updatedAt": "2026-11-10"
   },
   "statusMap": {
     "執行中": "執行中",
@@ -133,6 +133,14 @@
     "BENCH_BTC": {
       "displayName": "對照：比特幣虛擬線",
       "plainReason": "只記績效、不占模擬資金"
+    },
+    "TW_CB_NEAR_PAR_v0": {
+      "displayName": "台股近面額可轉債",
+      "plainReason": "篩接近面額、流動性尚可的轉換公司債做觀察；規格見策略文件，目前只觀察不開新倉"
+    },
+    "CRYPTO_GRID_v2": {
+      "displayName": "BTC 震盪網格",
+      "plainReason": "樣本外通過的 BTC 現貨網格（±20%、15 格）；偉翔批准撥 5% 紙上試跑，專吃震盪、突破就停"
     }
   }
 }

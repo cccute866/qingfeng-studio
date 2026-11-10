@@ -838,8 +838,30 @@ function stratStatusCls(st){
   if(st==="已拒絕"||st==="已淘汰") return "no";
   return "";
 }
+function looksLikeStratId(s){
+  const t=String(s||"").trim();
+  if(!t) return false;
+  if(/[\u4e00-\u9fff]/.test(t)) return false;
+  return /_/.test(t) || /^[A-Za-z][A-Za-z0-9]+$/.test(t);
+}
+function stratIdOf(s){
+  if(!s) return "";
+  for(const v of [s.id,s.name,s.displayName]){
+    if(looksLikeStratId(v)) return String(v);
+  }
+  return s.id?String(s.id):"";
+}
 function stratDisplayName(s){
-  return (s&& (s.displayName||s.name)) || "—";
+  const id=stratIdOf(s);
+  const raw=(s&& (s.displayName||s.name))||"";
+  if(raw && !looksLikeStratId(raw)) return raw;
+  const list=((D&&D.trade&&D.trade.perf)||{}).strategyList||[];
+  const hit=list.find(x=>x&&(x.name===id||x.id===id||x.name===raw));
+  if(hit&&hit.displayName&&!looksLikeStratId(hit.displayName)) return hit.displayName;
+  const fb={"TW_CB_NEAR_PAR_v0":"台股近面額可轉債","CRYPTO_GRID_v2":"BTC 震盪網格"};
+  if(fb[id]||fb[raw]) return fb[id]||fb[raw];
+  if(/CB|NEAR_PAR|可轉債/.test(id||raw)) return "可轉債接近面額";
+  return raw||id||"—";
 }
 function stratStatusLabel(s){
   if(!s) return "—";
@@ -900,74 +922,113 @@ function strategyListHTML(){
     <div class="feed-disc">${disc}</div>
   </div>`;
 }
+function shortDate(s){
+  const t=String(s||"");
+  const m=t.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if(m) return Number(m[2])+"/"+Number(m[3]);
+  return t.slice(0,10);
+}
+function practiceTradeRows(){
+  const p=(D&&D.trade&&D.trade.perf)||{};
+  const raw=((p.practiceLearning||{}).paperTrades||[]).slice();
+  const posBy=new Map();
+  (p.positions||[]).forEach(x=>{ posBy.set(normTradeSym(x.symbol), x); });
+  const groups=new Map();
+  raw.forEach(t=>{
+    const k=String(t.code||normTradeSym(t.symbol)||"");
+    if(!k) return;
+    if(!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(t);
+  });
+  const out=[];
+  groups.forEach((arr, code)=>{
+    const closed=arr.filter(t=>t.kind==="closed");
+    const opens=arr.filter(t=>t.kind==="open");
+    const pending=arr.filter(t=>t.kind==="pending");
+    if(closed.length){
+      closed.forEach(t=>{ t.market=t.market||brMarketId(Object.assign({}, t, {symbol:t.code||code})); out.push(t); });
+      return;
+    }
+    if(opens.length){
+      opens.forEach(t=>{
+        const pos=posBy.get(normTradeSym(code));
+        const row=Object.assign({}, t, {kind:"open", status:"持倉中"});
+        if(pos && pos.unrealizedPct!=null) row.resultPct=pos.unrealizedPct;
+        const dt=pos&&(pos.entryDate||pos.entry_date||String(pos.opened_at||"").slice(0,10));
+        if(dt) row.date=row.date||dt;
+        row.market=row.market||(pos&&pos.market)||brMarketId(Object.assign({}, t, {code:code, symbol:code}));
+        out.push(row);
+      });
+      return;
+    }
+    pending.forEach(t=>{ t.market=t.market||brMarketId(Object.assign({}, t, {symbol:t.code||code})); out.push(t); });
+  });
+  out.sort((a,b)=>String(b.date||b.entryDate||"").localeCompare(String(a.date||a.entryDate||"")));
+  return out;
+}
+function practiceRowHTML(t){
+  const lab=(t.name&&t.name!==t.code)?t.name:(t.name||t.code||"—");
+  const code=t.code||"";
+  const pending=t.kind==="pending";
+  const open=t.kind==="open";
+  const result=t.resultPct;
+  const missing=result==null||result==="";
+  const pct=pending?"掛單":(open&&missing?"持倉中":(missing?"—":invFmtPct(result)));
+  const tone=pending|| (open&&missing)?"br-flat":brokerToneClass(result, missing);
+  const reason=open?"持倉中":(t.status||(pending?"掛單中":"已平倉"));
+  const sub=[code, reason, t.date?shortDate(t.date):(t.entryDate?shortDate(t.entryDate):"")].filter(Boolean).join(" · ");
+  return `<div class="br-pos">
+    <div class="br-pos-l"><div class="br-pos-name">${esc(lab)}</div><div class="br-pos-code">${esc(sub)}</div></div>
+    <div class="br-pos-r"><div class="br-pos-pct ${tone}">${esc(pct)}</div></div>
+  </div>`;
+}
 function dailyLogHTML(){
   const tr=D&&D.trade||{}; const p=tr.perf||{};
-  const log=(p.dailyLog||[]).filter(d=>d && !d.empty);
   const disc=esc(p.disclaimer||"模擬結果，非投資建議");
   const pl=p.practiceLearning||{};
-  const learnBlock=(()=>{
-    const title=esc(pl.title||"練習紀錄與學習");
-    const fmtPx=(v)=>{ if(v==null||v==="") return "—"; const n=Number(v); if(!isFinite(n)) return "—"; return n>=100?n.toFixed(2):n.toFixed(4).replace(/0+$/,"").replace(/\.$/,""); };
-    const fmtPct=(v)=>{ if(v==null||v==="") return "—"; const n=Number(v); if(!isFinite(n)) return "—"; return `${n>0?"+":""}${n.toFixed(2)}%`; };
-    const trades=(pl.paperTrades||[]).map(t=>{
-      const lab=`${esc(t.name||t.code||"")} ${esc(t.code||"")}`.trim();
-      const ent=t.entryDate?esc(t.entryDate):"—";
-      const ex=t.date?esc(t.date):"—";
-      const settle=t.settleDate?` · 結算 ${esc(t.settleDate)}`:"";
-      const path=(t.kind==="open")
-        ? `${ent} 進 ${fmtPx(t.entryPx)} → 現價 ${fmtPx(t.exitPx)}`
-        : (t.kind==="pending"
-          ? `${ent} 掛單參考 ${fmtPx(t.entryPx)}`
-          : `${ent} 進 ${fmtPx(t.entryPx)} → ${ex} 出 ${fmtPx(t.exitPx)}`);
-      return `<li><span class="muted">${ex}</span> ${lab} · ${esc(t.strategyZh||"")} · ${path} · ${fmtPct(t.resultPct)} · ${esc(t.status||"")}${settle}</li>`;
-    }).join("");
-    const blinds=(pl.blindTests||[]).map(b=>{
-      const n=b.n!=null?b.n:"—";
-      const wr=b.winRatePct!=null?`${Number(b.winRatePct).toFixed(1)}%`:"—";
-      const wil=(b.wilsonLowPct!=null&&b.wilsonHighPct!=null)?`（Wilson ${Number(b.wilsonLowPct).toFixed(1)}–${Number(b.wilsonHighPct).toFixed(1)}%）`:"";
-      const avg=b.avgReturnPct!=null?fmtPct(b.avgReturnPct):"—";
-      const bh=b.bhAvgReturnPct!=null?fmtPct(b.bhAvgReturnPct):"—";
-      const st=esc(b.sampleStatus|| (Number(b.n)<30?"樣本不足":""));
-      return `<li><span class="muted">${esc(b.date||"")}</span> ${esc(b.name||"")} · n=${esc(String(n))} · 勝率 ${esc(wr)}${esc(wil)} · 買進均報 ${esc(avg)} · B&H ${esc(bh)} · ${st}</li>`;
-    }).join("");
-    const learns=(pl.learnings||[]).map(x=>`<li><span class="muted">${esc(x.date||"")}</span> ${esc(withSymNames(x.text||""))}</li>`).join("")
-      || (pl.lessons||[]).map(x=>`<li>${esc(withSymNames(x))}</li>`).join("");
-    if(!trades && !blinds && !learns) return "";
-    return `<div class="dlog-day" style="margin-bottom:12px">
-      <div class="dlog-date">${title}</div>
-      ${trades?`<div class="dlog-summary"><p class="dlog-plain">模擬交易歷史</p><ul>${trades}</ul></div>`:""}
-      ${blinds?`<div class="dlog-summary"><p class="dlog-plain">回測／盲測紀錄</p><ul>${blinds}</ul></div>`:""}
-      ${learns?`<div class="dlog-summary"><p class="dlog-plain">學到什麼</p><ul>${learns}</ul></div>`:""}
-      <div class="muted" style="padding:4px 0">模擬結果，非投資建議</div>
-    </div>`;
-  })();
-  if(!log.length){
-    return `<div class="feed-panel">${learnBlock||`<div class="muted">尚無每日訓練紀錄</div>`}<div class="feed-disc">${disc}</div></div>`;
-  }
-  const days=log.map(d=>{
-    const pTw=d.plainTw&&d.plainTw.length?d.plainTw:(d.tw||[]);
-    const pCr=d.plainCrypto&&d.plainCrypto.length?d.plainCrypto:(d.crypto||[]);
-    const hasPlain=(pTw&&pTw.length)||(pCr&&pCr.length);
-    if(!hasPlain && !(d.tw||[]).length && !(d.crypto||[]).length) return "";
-    const sentences=[];
-    (pTw||[]).slice(0,3).forEach(x=>sentences.push(withSymNames(x)));
-    (pCr||[]).slice(0,3).forEach(x=>sentences.push(withSymNames(x)));
-    const plain=sentences.slice(0,3).map(x=>`<p class="dlog-plain">${esc(x)}</p>`).join("")||`<p class="muted">這天沒有特別紀錄</p>`;
-    const rawTw=(d.tw||[]).map(x=>`<li>${esc(withSymNames(x))}</li>`).join("");
-    const rawCr=(d.crypto||[]).map(x=>`<li>${esc(withSymNames(x))}</li>`).join("");
-    const detail=(rawTw||rawCr)?`<details class="dlog-detail"><summary>詳細</summary>
-      <div class="dlog-cols">
-        <div class="dlog-col"><div class="feed-mhd">台股</div>${rawTw?`<ul>${rawTw}</ul>`:`<div class="muted">無</div>`}</div>
-        <div class="dlog-col"><div class="feed-mhd">幣圈</div>${rawCr?`<ul>${rawCr}</ul>`:`<div class="muted">無</div>`}</div>
-      </div>
-    </details>`:"";
-    return `<div class="dlog-day">
-      <div class="dlog-date">${esc(d.date)}</div>
-      <div class="dlog-summary">${plain}</div>
-      ${detail}
-    </div>`;
-  }).filter(Boolean).join("");
-  return `<div class="feed-panel">${learnBlock}<div class="dlog-list">${days||`<div class="muted">尚無每日訓練紀錄</div>`}</div><div class="feed-disc">${disc}</div></div>`;
+  const allTrades=practiceTradeRows();
+  const fil=brMarketFilter();
+  const counts={tw:0,mtx:0,us:0,crypto:0};
+  allTrades.forEach(t=>{ const m=brMarketId(t); if(counts[m]!=null) counts[m]++; });
+  const trades=allTrades.filter(t=>brMarketId(t)===fil);
+  const segs=brMarketSegHTML(counts, "練習市場");
+  const tradeBlock=trades.length
+    ? `<div class="feed-mhd" style="margin:8px 16px 0">模擬交易歷史</div><div class="br-list">${trades.map(practiceRowHTML).join("")}</div>`
+    : brMarketEmpty(fil);
+  const blinds=pl.blindTests||[];
+  const blindMkt=b=>{
+    const n=String((b&&b.name)||"");
+    if(/^幣圈/.test(n)||/幣圈/.test(n)) return "crypto";
+    if(/^台股/.test(n)||/台股/.test(n)) return "tw";
+    if(/台指|期貨/.test(n)) return "mtx";
+    if(/美股/.test(n)) return "us";
+    return "";
+  };
+  const blindsM=blinds.filter(b=>!blindMkt(b)||blindMkt(b)===fil);
+  const thin=blindsM.filter(b=>!b.n || Number(b.n)<30 || b.sampleStatus==="樣本不足");
+  const ready=blindsM.filter(b=>thin.indexOf(b)<0);
+  const blindLine=(b)=>{
+    const n=b.n!=null?b.n:"—";
+    const wr=b.winRatePct!=null?`${Number(b.winRatePct).toFixed(1)}%`:"—";
+    const st=b.sampleStatus|| (Number(b.n)<30?"樣本不足":"");
+    return `<li>${esc((b.name||"")+" · n="+n+" · 勝率 "+wr+(st?" · "+st:""))}</li>`;
+  };
+  const readyRows=ready.map(b=>{
+    const wr=b.winRatePct==null?"—":invFmtPct(b.winRatePct);
+    return `<div class="br-pos"><div class="br-pos-l"><div class="br-pos-name">${esc(b.name||"盲測")}</div><div class="br-pos-code">樣本 ${esc(String(b.n==null?"—":b.n))}</div></div><div class="br-pos-r"><div class="br-pos-pct ${brokerToneClass(b.winRatePct,b.winRatePct==null)}">${esc(wr)}</div></div></div>`;
+  }).join("");
+  const blindBlock=(thin.length?`<details class="br-more"><summary>${thin.length} 項樣本不足</summary><ul class="plain-list">${thin.map(blindLine).join("")}</ul></details>`:"")+(readyRows?`<div class="br-list">${readyRows}</div>`:"");
+  const learns=(pl.learnings&&pl.learnings.length?pl.learnings: (pl.lessons||[]).map(x=>({text:x,date:""}))).slice(0,3);
+  const learnItem=(x)=>{
+    const raw=String(x.text||x||"").trim();
+    const text=jargonToPlain(withSymNames(raw));
+    return `<li>${esc(text)}${x.date?` <span class="di">${esc(shortDate(x.date))}</span>`:""}</li>`;
+  };
+  const learnBlock=learns.length
+    ? `<div class="feed-mhd" style="margin:8px 16px 0">學到什麼</div><ul class="br-learn">${learns.map(learnItem).join("")}</ul>`
+    : "";
+  const extras=(fil==="mtx"||fil==="us")?"":(blindBlock+learnBlock);
+  return `<div class="feed-panel log-panel br-log">${segs}${tradeBlock}${extras}<div class="br-disc">${disc}</div></div>`;
 }
 function bindStrategyFilters(root){
   const panel=(root||document).querySelector("#strat-panel");
@@ -1324,9 +1385,9 @@ function decisionRowHTML(d, open){
 const TRADE_TABS = [
   {id:"home", label:"首頁"},
   {id:"watch", label:"自選"},
-  {id:"strat", label:"策略中心"},
+  {id:"strat", label:"策略"},
   {id:"book", label:"庫存"},
-  {id:"log", label:"練習紀錄與學習"},
+  {id:"log", label:"練習"},
 ];
 /** 動態宇宙：不再寫死核心十幾檔；名稱表僅作缺資料後備。 */
 const NAME_FALLBACK = {
@@ -1355,16 +1416,93 @@ function dynamicWatchCrypto(){
 }
 
 
-function quoteTimeLabel(q){
-  if(!q) return "";
-  const raw=q.dataTime||q.asOf||q.asof||"";
-  if(!raw) return q.notToday||q.label==="非今日"?"非今日":"";
-  const day=String(raw).slice(0,10);
-  const today=new Date().toLocaleDateString("en-CA",{timeZone:"Asia/Taipei"});
-  const stale=(q.notToday===true)||(q.label==="非今日")||(day && day<today);
-  const clock=String(raw).length>=16?String(raw).slice(0,16).replace("T"," "):day;
-  return stale?`${clock} · 非今日`:`${clock}`;
+function taipeiDateStr(){
+  return new Date().toLocaleDateString("en-CA",{timeZone:"Asia/Taipei"});
 }
+function lastTwSessionDate(){
+  const fmt=new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Taipei",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hour12:false,weekday:"short"});
+  const parts=fmt.formatToParts(new Date());
+  const get=ty=>(parts.find(p=>p.type===ty)||{}).value;
+  const y=get("year"), m=get("month"), d=get("day");
+  const hour=Number(get("hour")), minute=Number(get("minute"));
+  const wd=get("weekday");
+  let iso=`${y}-${m}-${d}`;
+  const afterClose=hour>13||(hour===13&&minute>=30);
+  const weekend=wd==="Sat"||wd==="Sun";
+  function shiftBack(isoDay){
+    const dt=new Date(isoDay+"T12:00:00+08:00");
+    dt.setTime(dt.getTime()-86400000);
+    return dt.toLocaleDateString("en-CA",{timeZone:"Asia/Taipei"});
+  }
+  function weekdayOf(isoDay){
+    return new Date(isoDay+"T12:00:00+08:00").toLocaleDateString("en-US",{timeZone:"Asia/Taipei",weekday:"short"});
+  }
+  if(weekend||!afterClose) iso=shiftBack(iso);
+  while(weekdayOf(iso)==="Sat"||weekdayOf(iso)==="Sun") iso=shiftBack(iso);
+  return iso;
+}
+function quoteDay(q){
+  const raw=q&&(q.dataTime||q.asOf||q.asof)||"";
+  const day=String(raw).slice(0,10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(day)?day:"";
+}
+function quoteIsTw(code){
+  const c=String(code||"");
+  return c==="TAIEX"||c==="0050"||/^\d/.test(c)||c.endsWith("L");
+}
+function quoteIsStale(q, code){
+  if(!q||q.close==null) return false;
+  const day=quoteDay(q);
+  const bench=quoteIsTw(code)?lastTwSessionDate():taipeiDateStr();
+  if((q.notToday===true)||(q.label==="非今日")) return !day||day<bench||day<taipeiDateStr()||day<bench;
+  if(!day) return true;
+  return day<bench;
+}
+function quoteStamp(q, code){
+  if(!q||q.close==null||q.missing) return "缺";
+  const day=quoteDay(q);
+  const md=day?day.slice(5).replace("-","/"):"";
+  if(quoteIsStale(q,code)) return (md?md+" 收盤 · ":"")+"非今日";
+  if(quoteIsTw(code)) return md?md+" 收盤":"";
+  const raw=String(q.dataTime||q.asOf||"");
+  const hm=(raw.match(/(\d{2}:\d{2})/)||[])[1]||"";
+  return (md+(hm?" "+hm:"")).trim() || "缺";
+}
+function quoteTimeLabel(q, code){
+  return quoteStamp(q, code);
+}
+function tblkHTML(opts){
+  opts=opts||{};
+  const name=opts.name||"";
+  let value=opts.value;
+  const missing=!!opts.missing || value==null || value==="" || value==="缺" || value==="—";
+  if(missing) value="缺";
+  else value=String(value);
+  const stale=!!opts.stale;
+  let tone=opts.tone||"";
+  if(!tone){
+    if(missing||stale) tone="yellow";
+    else if(opts.num!=null && !Number.isNaN(Number(opts.num))){
+      const n=Number(opts.num);
+      tone=n<0?"red":"green";
+    }else tone="green";
+  }
+  const tagTxt=stale?"非今日":"";
+  const tag=tagTxt?`<span class="t-stale">${esc(tagTxt)}</span> `:"";
+  const footCls=opts.why?"dw":"di";
+  const lite=opts.lite?`<span class="slite ${esc(opts.lite)}"></span>`:"";
+  return `<div class="dblk tblk tone-${esc(tone)}"${opts.attrs||""}>
+    <span class="dtop"><span class="dn">${lite}${esc(name)}</span><span class="dv">${esc(value)}</span></span>
+    <span class="${footCls}">${tag}${opts.footHtml||esc(opts.foot||"")}</span>
+  </div>`;
+}
+function clampLine(s, n){
+  const t=String(s||"").replace(/\s+/g," ").trim();
+  if(!t) return "";
+  if(t.length<=n) return t;
+  return t.slice(0,n).replace(/[，、。；;：:\s]+$/,"")+"…";
+}
+
 
 function quotesMap(){
   const p=(D&&D.trade&&D.trade.perf)||{};
@@ -1490,19 +1628,17 @@ function indexStripHTML(){
     {code:"BTC", name:symLabel("BTC")},
     {code:"ETH", name:symLabel("ETH")},
   ];
-  let asOf="", src="";
-  return `<div class="idx-strip" role="list">${items.map(it=>{
+  return `<div class="twall twall-idx" role="list">${items.map(it=>{
     const q=quoteOf(it.code);
     const close=q&&q.close!=null?q.close:null;
+    const missing=close==null || !!(q&&q.missing);
+    const stale=!missing && quoteIsStale(q, it.code);
     const chg=q&&q.changePct!=null?q.changePct:null;
-    if(q&&q.asOf&&!asOf) asOf=q.asOf;
-    if(q&&q.source&&!src) src=q.source;
-    const chgCls = chg==null?"":(Number(chg)>0?"up":(Number(chg)<0?"down":""));
-    const cached=q&&q.cached?`<span class="idx-cached" title="沿用快取">快取</span>`:"";
-    const tlab=quoteTimeLabel(q);
-    return `<div class="idx-item" role="listitem"><div class="idx-name">${esc(it.code==="TAIEX"?"加權指數":symLabel(it.code))}</div><div class="idx-close">${esc(fmtPrice(close, it.code))}${cached}</div><div class="idx-chg ${chgCls}">${esc(fmtChg(chg))}</div><div class="idx-asof muted" style="font-size:10px">${esc(tlab||"—")}</div></div>`;
+    const name=it.code==="TAIEX"?"加權指數":symLabel(it.code);
+    const foot=missing?"缺":((chg!=null?fmtChg(chg)+" · ":"")+quoteStamp(q,it.code));
+    return tblkHTML({name, value: missing?"缺":fmtPrice(close,it.code), num:chg, missing, stale, foot, showMiss:true, attrs:` role="listitem"`});
   }).join("")}</div>
-  <div class="idx-meta muted">${asOf?`快照 ${esc(asOf)} 台北`:"報價截至 —"}${src?` · ${esc(src)}`:""} · 缺值顯示 —，不捏造；「非今日」＝資料日早於今天</div>`;
+  <div class="idx-meta di">缺值為「缺」，不沿用舊價</div>`;
 }
 function stripEnglishIds(s){
   return String(s||"").replace(/\b[A-Z][A-Z0-9_]{3,}\b/g,"").replace(/[／/]\s*[／/]/g,"／").replace(/\s{2,}/g," ").replace(/^[／/\s；;，,：:]+|[／/\s；;，,：:]+$/g,"").trim();
@@ -1534,17 +1670,32 @@ function focusCardsHTML(){
     <div class="focus-card"><div class="focus-k">行情連線</div><div class="focus-v">${esc(feedTxt)}</div><div class="muted" style="margin-top:4px;font-size:11px">${esc(gateTxt)} · 紙上模擬</div></div>
   </div>`;
 }
+function watchSignalTag(it){
+  const code=String((it&&it.code)||"");
+  const u=universeToday();
+  const pick=(u.strategyPicks||[]).find(p=>String(p.code||"")===code);
+  if(pick){
+    const lab=pick.status||pick.strategy||"訊號";
+    return `<span class="br-tag">${esc(String(lab).slice(0,8))}</span>`;
+  }
+  const perf=(D&&D.trade&&D.trade.perf)||{};
+  const held=(perf.positions||[]).some(x=>normTradeSym(x.symbol)===normTradeSym(code));
+  if(held) return `<span class="br-tag">持倉</span>`;
+  const pend=(perf.trades||[]).some(x=>x&&x.planned&&normTradeSym(x.symbol)===normTradeSym(code));
+  if(pend) return `<span class="br-tag">掛單</span>`;
+  return "";
+}
 function watchRowHTML(it){
-  const w=weatherFor(it.code);
   const q=quoteOf(it.code);
   const close=q&&q.close!=null?q.close:null;
   const chg=q&&q.changePct!=null?q.changePct:null;
-  const chgCls=chg==null?"muted":(Number(chg)>0?"up":(Number(chg)<0?"down":"muted"));
+  const tone=brokerToneClass(chg, chg==null);
   const name=symName(it.code)||it.name||it.code;
-  return `<button type="button" class="wl-row wl-tap" data-sym="${esc(it.code)}">
-    <div class="wl-wx" title="${esc(w.label+(w.note?(" · "+w.note):""))}">${wxSVG(w.wx)}<span class="wl-wxlab">${esc(w.wx)}</span></div>
-    <div class="wl-meta"><div class="wl-name">${esc(name)} <span class="wl-codeinline">${esc(it.code)}</span></div><div class="wl-viewline">${esc(w.label)}：${esc(w.note||"目前沒有策略建議進場")}</div></div>
-    <div class="wl-px"><div class="wl-close">${esc(fmtPrice(close, it.code))}</div><div class="wl-chg ${chgCls}">${esc(fmtChg(chg))}</div><div class="wl-asof muted" style="font-size:10px">${esc(quoteTimeLabel(q)||"—")}</div></div>
+  const stale=close==null || !!(q&&(q.notToday||q.label==="非今日"));
+  const tag=watchSignalTag(it);
+  return `<button type="button" class="br-pos wl-tap" data-sym="${esc(it.code)}">
+    <div class="br-pos-l"><div class="br-pos-name">${esc(name)}${tag}</div><div class="br-pos-code">${esc(it.code)}</div></div>
+    <div class="br-pos-r"><div class="br-pos-px">${esc(fmtPrice(close, it.code))}</div><div class="br-pos-pct ${tone}">${esc(fmtChg(chg))}</div>${stale?`<div class="br-pos-mark">非今日</div>`:""}</div>
   </button>`;
 }
 function watchHTML(){
@@ -1552,8 +1703,6 @@ function watchHTML(){
   const crList=dynamicWatchCrypto();
   const twMeta=groupAsOf(twList.concat([{code:"0050"}]));
   const crMeta=groupAsOf(crList);
-  const asOfTw=twMeta.asOf?`資料時間 ${esc(twMeta.asOf)} 台北${twMeta.cached?" · 快取":""}`:`資料時間 —`;
-  const asOfCr=crMeta.asOf?`資料時間 ${esc(crMeta.asOf)} 台北${crMeta.cached?" · 快取":""}`:`資料時間 —`;
   const perf=(D&&D.trade&&D.trade.perf)||{};
   const u=universeToday();
   const sleeves=(perf.sleeves||[]).filter(s=>s&&s.name);
@@ -1562,20 +1711,30 @@ function watchHTML(){
   const rules=u.rulesSummary||"每日動態篩選（ADV20／上市天數／排除處置與變更交易；幣圈 OKX USDT 現貨）";
   const counts=`台股通過 ${u.twCount!=null?u.twCount:"—"} 檔 · 幣圈通過 ${u.cryptoCount!=null?u.cryptoCount:"—"} 檔（有日K ${u.cryptoWithPriceCount!=null?u.cryptoWithPriceCount:"—"}）`;
   const asofU=u.asof?`宇宙日 ${u.asof}`:"宇宙日 —";
-  const picks=(u.strategyPicks||[]);
-  const picksHTML=picks.length
-    ? `<div class="wl-group"><div class="wl-ghd">策略實際挑中</div>${picks.slice(0,12).map(p=>`<div class="wl-row" style="cursor:default"><div class="wl-meta"><div class="wl-name">${esc((p.name&&p.name!==p.code)?p.name:(symName(p.code)||p.code))} <span class="wl-codeinline">${esc(p.code||"")}</span></div><div class="wl-viewline">${esc((p.status||"")+" · "+(p.strategy||"")+" · "+(p.reason||""))}</div></div></div>`).join("")}</div>`
-    : `<div class="wl-group"><div class="wl-ghd">策略實際挑中</div><div class="muted" style="padding:8px 12px">目前沒有持倉／掛單／公開訊號</div></div>`;
+  const asOfTw=twMeta.asOf?`資料時間 ${twMeta.asOf} 台北${twMeta.cached?" · 快取":""}`:"資料時間 —";
+  const asOfCr=crMeta.asOf?`資料時間 ${crMeta.asOf} 台北${crMeta.cached?" · 快取":""}`:"資料時間 —";
   const explain=sleeveTxt
     ?(`候選來自每日動態宇宙（非寫死名單）。目前配置看 ${sleeveTxt}；0050 只作對照基準。`)
     :(`候選來自每日動態宇宙（非寫死名單）。目前沒有執行中的進場策略；0050 只作對照基準。`);
-  return `<div class="wl-panel">
-    <div class="wl-explain">${esc(explain)}</div>
-    <div class="wl-group"><div class="wl-ghd">今日篩選摘要</div><div class="wl-asof muted">${esc(asofU)} · ${esc(counts)}</div><div class="wl-viewline" style="padding:8px 12px">${esc(rules)}</div>${(u.twExcludedDisposalOrAltered!=null)?`<div class="muted" style="padding:0 12px 8px">今日排除處置／變更交易 ${esc(String(u.twExcludedDisposalOrAltered))} 檔${(u.twExcludedSample&&u.twExcludedSample.length)?`：${u.twExcludedSample.slice(0,8).map(x=>{ const code=typeof x==="string"?x:(x.code||""); const name=(typeof x==="object"&&x.name&&x.name!==code)?x.name:symName(code); return esc((name?name+" ":"")+code); }).join("、")}`:""}</div>`:""}</div>
-    ${picksHTML}
-    <div class="wl-group"><div class="wl-ghd">台股候選（前 ${twList.length}）</div><div class="wl-asof muted">${asOfTw}</div>${twList.length?twList.map(watchRowHTML).join(""):`<div class="muted" style="padding:8px 12px">尚無宇宙檔</div>`}</div>
-    <div class="wl-group"><div class="wl-ghd">幣圈候選（前 ${crList.length}）</div><div class="wl-asof muted">${asOfCr}</div>${crList.length?crList.map(watchRowHTML).join(""):`<div class="muted" style="padding:8px 12px">尚無宇宙檔</div>`}</div>
-    <div class="feed-disc">天氣＝策略觀點（晴看多／陰觀望／雨看空）。報價缺值顯示 —，不捏造。點進可看日 K 與模擬／回測標記。紙上模擬，非投資建議。</div>
+  const excl=(u.twExcludedDisposalOrAltered!=null)
+    ?(`今日排除處置／變更交易 ${u.twExcludedDisposalOrAltered} 檔`+((u.twExcludedSample&&u.twExcludedSample.length)?`：${u.twExcludedSample.slice(0,8).map(x=>{ const code=typeof x==="string"?x:(x.code||""); const name=(typeof x==="object"&&x.name&&x.name!==code)?x.name:symName(code); return (name?name+" ":"")+code; }).join("、")}`:""))
+    :"";
+  const fil=posMktFilter==="crypto"||posMktFilter==="tw"?posMktFilter:"tw";
+  posMktFilter=fil;
+  const list=fil==="crypto"?crList:twList;
+  const asOf=fil==="crypto"?asOfCr:asOfTw;
+  const empty=fil==="crypto"?"尚無幣圈宇宙檔":"尚無台股宇宙檔";
+  const segs=`<div class="br-seg" role="tablist" aria-label="自選市場">
+    <button type="button" role="tab" data-br-mkt="tw" class="${fil==="tw"?"on":""}" aria-selected="${fil==="tw"?"true":"false"}">台股<span class="br-seg-n">${twList.length}</span></button>
+    <button type="button" role="tab" data-br-mkt="crypto" class="${fil==="crypto"?"on":""}" aria-selected="${fil==="crypto"?"true":"false"}">幣圈<span class="br-seg-n">${crList.length}</span></button>
+  </div>`;
+  return `<div class="wl-panel br-watch">
+    ${segs}
+    <details class="br-more wl-explain"><summary>篩選規則</summary>
+      <div class="br-acc-body">${esc(explain)}<br>${esc(asofU)} · ${esc(counts)}<br>${esc(rules)}${excl?`<br>${esc(excl)}`:""}<br>${esc(asOf)}</div>
+    </details>
+    <div class="br-list">${list.length?list.map(watchRowHTML).join(""):`<div class="br-empty">${empty}</div>`}</div>
+    <div class="br-disc">報價缺值顯示 —，不捏造。有訊號或持倉才標小標籤。點進可看日 K。模擬結果，非投資建議。</div>
   </div>`;
 }
 function sleevesDonutHTML(sleeves){
@@ -1710,10 +1869,16 @@ function invTwseMisUrl(sym){
   // 上櫃簡判：常見 .TWO；此處僅試 tse，失敗則維持非即時
   return `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${board}_${code}.tw&json=1&delay=0`;
 }
+function invAbortMs(ms){
+  try{ if(typeof AbortSignal!=="undefined" && AbortSignal.timeout) return AbortSignal.timeout(ms); }catch(e){}
+  const c=typeof AbortController!=="undefined"?new AbortController():null;
+  if(c) setTimeout(()=>{ try{ c.abort(); }catch(e){} }, ms);
+  return c?c.signal:undefined;
+}
 async function invFetchOkx(sym){
   const inst=invOkxInst(sym);
   if(!inst) return null;
-  const r=await fetch(`https://www.okx.com/api/v5/market/ticker?instId=${encodeURIComponent(inst)}`,{cache:"no-store"});
+  const r=await fetch(`https://www.okx.com/api/v5/market/ticker?instId=${encodeURIComponent(inst)}`,{cache:"no-store",signal:invAbortMs(5000)});
   if(!r.ok) throw new Error("okx http "+r.status);
   const j=await r.json();
   const row=(j.data&&j.data[0])||null;
@@ -1730,7 +1895,7 @@ async function invFetchOkx(sym){
 async function invFetchTwse(sym){
   const url=invTwseMisUrl(sym);
   if(!url) return null;
-  const r=await fetch(url,{cache:"no-store"});
+  const r=await fetch(url,{cache:"no-store",signal:invAbortMs(5000)});
   if(!r.ok) throw new Error("twse http "+r.status);
   const j=await r.json();
   const row=(j.msgArray&&j.msgArray[0])||null;
@@ -1766,32 +1931,73 @@ async function invRefreshLiveMarks(positions){
       }
     }
   });
-  await Promise.all(tasks);
+  const cap=new Promise(resolve=>setTimeout(resolve, 8000));
+  await Promise.race([Promise.all(tasks), cap]);
+}
+function markIsEntryOnly(p){
+  if(!p) return false;
+  if(p.markPendingClose || p.label==="待收盤標價") return true;
+  const mkt=String(p.market||"");
+  if(mkt==="crypto"||mkt==="幣圈") return false;
+  if(p.quoteLive) return false;
+  const m=Number(p.mark), e=Number(p.entryPx);
+  if(!Number.isFinite(m)||!Number.isFinite(e)||!e) return false;
+  return Math.abs(m-e)<1e-9;
 }
 function invEffectiveRow(p){
   const live=__invLiveMarks[p.symbol];
   const entry=p.entryPx;
-  let mark=p.mark, quoteTime=p.quoteTime||p.markDate||"", liveFlag=!!p.quoteLive, source="";
-  if(live && live.mark!=null){
-    mark=live.mark; quoteTime=live.quoteTime||quoteTime; liveFlag=!!live.live; source=live.source||"";
-  }else{
+  let mark=p.mark, quoteTime=p.quoteTime||p.markDate||"", liveFlag=!!p.quoteLive, source=p.quoteSource||"";
+  const officialClose=p.label==="收盤" || p.quoteSource==="twse_STOCK_DAY";
+  // 官方收盤不要被 MIS 覆蓋；標價沒變就保留伺服器的淨報酬（含費稅），不要改成價差％
+  if(live && live.mark!=null && !(officialClose && !live.live)){
+    mark=live.mark; quoteTime=live.quoteTime||quoteTime; liveFlag=!!live.live; source=live.source||source;
+  }else if(!source){
     liveFlag=false;
     if(p.market==="crypto") source="建置快照";
     else source="收盤／建置快照";
   }
-  const unreal = invUnreal(mark, entry);
-  const dist = invDistStop(mark, p.stopPx, p.side);
-  return Object.assign({}, p, {mark, quoteTime, quoteLive:liveFlag, quoteSource:source, unrealizedPct:unreal, distToStopPct:dist});
+  const pending=(!liveFlag) && markIsEntryOnly(Object.assign({}, p, {mark, quoteLive:liveFlag}));
+  const markChanged=Number.isFinite(Number(mark)) && Number.isFinite(Number(p.mark)) && Math.abs(Number(mark)-Number(p.mark))>1e-9;
+  let unreal, dist;
+  if(pending){ unreal=null; dist=null; }
+  else if(!markChanged && p.unrealizedPct!=null){ unreal=p.unrealizedPct; dist=p.distToStopPct; }
+  else { unreal=invUnreal(mark, entry); dist=invDistStop(mark, p.stopPx, p.side); }
+  return Object.assign({}, p, {mark, quoteTime, quoteLive:liveFlag, quoteSource:source, unrealizedPct:unreal, distToStopPct:dist, markPendingClose:pending});
 }
 function invOverviewHTML(p){
   const tw = p.twEquityReturnPct!=null?p.twEquityReturnPct:p.equityReturnPct;
   const cr = p.cryptoEquityReturnPct;
   const twLab=p.twEquityReturnLabel||"台股";
   const crLab=p.cryptoEquityReturnLabel||"幣圈";
-  return `<div class="inv-overview" role="group" aria-label="帳戶總覽">
-    <div class="inv-ov-card"><div class="inv-ov-lab">${esc(twLab)}累計</div><div class="inv-ov-val ${invPctTone(tw)}">${esc(invFmtPct(tw))}</div><div class="inv-ov-sub">對照 0050 ${esc(fmtPct(p.benchmark0050ReturnPct))}</div></div>
-    <div class="inv-ov-card"><div class="inv-ov-lab">${esc(crLab)}累計</div><div class="inv-ov-val ${invPctTone(cr)}">${esc(invFmtPct(cr))}</div><div class="inv-ov-sub">對照 BTC ${esc(fmtPct(p.benchmarkBtcReturnPct))}</div></div>
+  const twMiss=tw==null||tw==="";
+  const crMiss=cr==null||cr==="";
+  return `<div class="twall twall-idx" role="group" aria-label="帳戶總覽">
+    ${tblkHTML({name:twLab+"累計", value:twMiss?"缺":invFmtPct(tw), num:tw, missing:twMiss, foot:"對照 0050 "+fmtPct(p.benchmark0050ReturnPct), showMiss:true})}
+    ${tblkHTML({name:crLab+"累計", value:crMiss?"缺":invFmtPct(cr), num:cr, missing:crMiss, foot:"對照 BTC "+fmtPct(p.benchmarkBtcReturnPct), showMiss:true})}
   </div>`;
+}
+function invPosCardHTML(raw){
+  const x=invEffectiveRow(raw);
+  const stale=!(x.quoteLive) && (x.notToday||x.label==="非今日"||quoteIsStale({close:x.mark, dataTime:x.quoteTime, notToday:x.notToday, label:x.label}, x.symbol));
+  const name=symLabel(normTradeSym(x.symbol)||x.symbol)||x.symbol;
+  const side=x.side==="long"?"多":(x.side==="short"?"空":(x.side||"—"));
+  const mkt=x.market==="crypto"?"幣圈":(x.market==="tw"?"台股":(x.market||""));
+  const stamp=x.markPendingClose?"待標價":(x.quoteLive?"即時":(stale?"非今日":"快照"));
+  const foot=[side, mkt, stamp].filter(Boolean).join(" · ");
+  const pending=!!x.markPendingClose;
+  const missing=!pending && x.unrealizedPct==null;
+  return tblkHTML({
+    name,
+    value: pending?"待收盤標價":(missing?"缺":invFmtPct(x.unrealizedPct)),
+    num: pending?null:x.unrealizedPct,
+    missing,
+    stale: stale && !pending,
+    tone: pending?"yellow":undefined,
+    foot,
+    showMiss:true,
+    attrs:` data-inv-sym="${esc(x.symbol)}" data-inv-card="1"`
+  });
 }
 function invTableHTML(rows){
   if(!rows.length) return `<div class="muted">尚無紙上持倉</div>`;
@@ -1806,7 +2012,8 @@ function invTableHTML(rows){
     const side=x.side==="long"?"多":(x.side==="short"?"空":(x.side||"—"));
     const liveTag=x.quoteLive?`<span class="inv-live">即時</span>`:(x.notToday||x.label==="非今日"?`<span class="inv-stale">非今日</span>`:`<span class="inv-stale">快照</span>`);
     const qt=x.quoteTime?`${esc(x.quoteTime)} ${liveTag}`:`缺 ${liveTag}`;
-    const uTone=invPctTone(x.unrealizedPct);
+    const pending=!!x.markPendingClose;
+    const uTone=pending?"":invPctTone(x.unrealizedPct);
     return `<tr data-inv-sym="${esc(x.symbol)}">
       <td class="inv-sym">${esc(symLabel(normTradeSym(x.symbol))||x.symbol)}</td>
       <td>${esc(mkt)}</td>
@@ -1815,7 +2022,7 @@ function invTableHTML(rows){
       <td>${esc(x.entryDate||"—")}</td>
       <td class="num" data-k="entry">${esc(invFmtPx(x.entryPx,x.symbol))}</td>
       <td class="num inv-mark" data-k="mark">${esc(invFmtPx(x.mark,x.symbol))}</td>
-      <td class="num inv-unreal ${uTone}" data-k="unreal">${esc(invFmtPct(x.unrealizedPct))}</td>
+      <td class="num inv-unreal ${uTone}" data-k="unreal">${esc(pending?"待收盤標價":invFmtPct(x.unrealizedPct))}</td>
       <td class="num">${esc(x.stopPx!=null?invFmtPx(x.stopPx,x.symbol):"—")}</td>
       <td class="num">${esc(x.targetPx!=null?invFmtPx(x.targetPx,x.symbol):"—")}</td>
       <td class="num" data-k="dist">${esc(x.distToStopPct!=null?invFmtPct(x.distToStopPct):"—")}</td>
@@ -1838,9 +2045,9 @@ function invPatchDom(root, positions){
     const qt=tr.querySelector('[data-k="qt"]');
     if(mark) mark.textContent=invFmtPx(x.mark,x.symbol);
     if(unreal){
-      unreal.textContent=invFmtPct(x.unrealizedPct);
+      unreal.textContent=x.markPendingClose?"待收盤標價":invFmtPct(x.unrealizedPct);
       unreal.classList.remove("up","dn");
-      const t=invPctTone(x.unrealizedPct); if(t) unreal.classList.add(t);
+      if(!x.markPendingClose){ const t=invPctTone(x.unrealizedPct); if(t) unreal.classList.add(t); }
     }
     if(dist) dist.textContent=x.distToStopPct!=null?invFmtPct(x.distToStopPct):"—";
     if(qt){
@@ -1851,14 +2058,31 @@ function invPatchDom(root, positions){
   const pulse=(root||document).querySelector("[data-inv-pulse]");
   if(pulse){
     const n=Object.keys(__invLiveMarks).length;
-    pulse.textContent=n?`幣圈即時（OKX，與快照分開）· ${new Date().toLocaleTimeString("zh-TW",{timeZone:"Asia/Taipei",hour12:false})}`:"等待即時報價…";
+    const t=new Date().toLocaleTimeString("zh-TW",{timeZone:"Asia/Taipei",hour12:false});
+    pulse.textContent=(!isLegacyTrade())
+      ?(n?`報價已更新 · ${t}`:`沿用快照報價 · ${t}`)
+      :(n?`幣圈即時（OKX，與快照分開）· ${t}`:`沿用快照報價 · ${t}`);
   }
+  const wall=(root||document).querySelector(".twall-pos");
+  if(wall){
+    (positions||[]).forEach(raw=>{
+      const card=wall.querySelector(`[data-inv-sym="${CSS.escape(raw.symbol)}"]`);
+      if(!card) return;
+      const html=invPosCardHTML(raw);
+      const tmp=document.createElement("div");
+      tmp.innerHTML=html;
+      const next=tmp.firstElementChild;
+      if(next) card.replaceWith(next);
+    });
+  }
+  if(!isLegacyTrade()) brokerPatchPos(root, positions);
 }
 function invStartLive(positions){
   invStopLive();
-  const run=()=>invRefreshLiveMarks(positions).then(()=>{
+  const run=()=>invRefreshLiveMarks(positions).catch(()=>{}).finally(()=>{
     const app=document.querySelector(".trade-app");
-    if(!app || tradeTab!=="book") return;
+    if(!app) return;
+    if(tradeTab!=="book" && !(!isLegacyTrade() && tradeTab==="home")) return;
     invPatchDom(app, positions);
   });
   run();
@@ -1866,53 +2090,116 @@ function invStartLive(positions){
 }
 
 function bookHTML(){
+  if(!isLegacyTrade()) return brokerBookHTML();
   const p=(D&&D.trade&&D.trade.perf)||{};
   const pos=p.positions||[];
-  const posNote=p.positionsNote?`<div class="muted" style="margin-bottom:6px">${esc(p.positionsNote)}</div>`:"";
   const disc=esc(p.disclaimer||"模擬結果，非投資建議");
-  // 保留策略簿／配置於下方摺疊，庫存表為主
   const planned=(p.trades||[]).filter(t=>t&&t.planned);
   const planRows=planned.length?planned.map(t=>{
     const sym=normTradeSym(t.symbol);
     return `<button type="button" class="wl-row wl-tap" data-sym="${esc(sym)}"><div class="wl-meta"><div class="wl-name">${esc(symLabel(sym)||sym)} <span class="chip mid">預計</span></div><div class="wl-viewline">${esc(t.strategyZh||t.label||"")} · ${esc(t.date||"")}</div></div><div class="wl-px"><div class="wl-close">${t.stopPx!=null?"停 "+fmtDash(t.stopPx,2):"—"}</div><div class="wl-chg">${t.targetPx!=null?"目標 "+fmtDash(t.targetPx,2):"—"}</div></div></button>`;
   }).join(""):"";
+  const cards=pos.length?`<div class="twall twall-pos">${pos.map(invPosCardHTML).join("")}</div>`:`<div class="di">尚無紙上持倉</div>`;
   return `<div class="book-panel inv-panel">
-    <div class="sim-banner">紙上模擬庫存 · 非投資建議 · 不碰真錢</div>
     ${invOverviewHTML(p)}
-    <div class="inv-pulse muted" data-inv-pulse>載入即時報價…</div>
-    <div class="feed-mkt" style="margin-top:8px"><div class="feed-mhd">模擬庫存</div>${posNote}${invTableHTML(pos)}</div>
-    ${planRows?`<div class="feed-mkt"><div class="feed-mhd">預計進場</div>${planRows}</div>`:""}
-    <details class="focus-raw" style="margin-top:10px"><summary>策略簿與目標配置</summary>
+    <div class="inv-pulse di" data-inv-pulse>載入即時報價…</div>
+    <div class="di" style="margin:4px 0 6px">${esc(positionFoot(p))}</div>${cards}
+    ${planRows?`<details class="list-more trade-more"><summary>預計進場（${planned.length}）</summary><div class="feed-mkt">${planRows}</div></details>`:""}
+    <details class="list-more trade-more"><summary>完整表格與報價說明</summary>${invTableHTML(pos)}</details>
+    <details class="list-more trade-more"><summary>策略簿與目標配置</summary>
       <div class="feed-mkt" style="margin-top:8px"><div class="feed-mhd">策略簿</div>${strategyBookHTML()}</div>
       <div class="feed-mkt" style="margin-top:10px"><div class="feed-mhd">目標配置</div>${sleevesDonutHTML(p.sleeves||[])}</div>
     </details>
+    ${legacyBookHTML(p)}
     <div class="feed-disc">${disc}</div>
   </div>`;
+}
+function legacyBookHTML(p){
+  const lb=(p||{}).legacyBook;
+  if(!lb||typeof lb!=="object") return "";
+  const c=lb.positionCounts||{};
+  const foot=[c.crypto?("幣圈 "+c.crypto):"", c.tw?("台股 "+c.tw):(c.crypto||c.total?"台股空手":"尚無持倉")].filter(Boolean).join(" · ");
+  return `<details class="list-more trade-more"><summary>舊版帳本（不計入上方數字）</summary>
+    <div class="twall twall-kpi" style="margin-top:8px">
+      ${tblkHTML({name:"舊版持倉", value:String(c.total||0), foot:foot, tone:"yellow"})}
+      ${tblkHTML({name:"舊版已平倉", value:String(lb.closedTrades||0), foot:"僅列示，不加總", tone:"yellow"})}
+      ${tblkHTML({name:"舊版掛單", value:String(lb.pendingOrderCount||0), foot:lb.note||"不與新版加總", tone:"yellow"})}
+    </div>
+  </details>`;
 }
 function normTradeSym(sym){
   return String(sym||"").replace(/\.TW$/,"").replace(/\.TWO$/,"").replace(/-USD$/,"").replace(/-USDT$/,"");
 }
+function stratSampleN(s){
+  const oos=s&&s.oos, isb=s&&s.is;
+  if(oos&&oos.trades!=null) return oos.trades;
+  if(isb&&isb.trades!=null) return isb.trades;
+  return null;
+}
+function stratNetPct(s){
+  if(s&&s.navPct!=null&&s.navPct!=="") return s.navPct;
+  if(s&&s.oos&&s.oos.returnPct!=null) return s.oos.returnPct;
+  return null;
+}
+function stratRowsMerged(){
+  const p=(D&&D.trade&&D.trade.perf)||{};
+  const book=strategyBookRows();
+  const list=p.strategyList||[];
+  const byKey=new Map();
+  function key(s){ return String((s&& (s.id||s.name||s.displayName))||""); }
+  book.forEach(s=>{ if(key(s)) byKey.set(key(s), Object.assign({}, s)); });
+  list.forEach(s=>{
+    const k=key(s);
+    const cur=byKey.get(k)||{};
+    byKey.set(k, Object.assign({}, s, cur, {
+      displayName: cur.displayName||s.displayName||cur.name||s.name,
+      name: cur.name||s.displayName||s.name,
+      status: cur.status||s.status,
+      statusLabel: cur.statusLabel||s.statusLabel,
+      market: cur.market||s.market,
+      navPct: cur.navPct!=null?cur.navPct:(s.oos&&s.oos.returnPct),
+      is: cur.is||s.is,
+      oos: cur.oos||s.oos,
+      reason: s.plainReason||s.reason||cur.reason,
+      failureCondition: s.failureCondition||cur.failureCondition,
+      bench: !!(cur.bench||s.bench)
+    }));
+  });
+  return [...byKey.values()];
+}
 function stratCenterHTML(){
   const p=(D&&D.trade&&D.trade.perf)||{};
   const disc=esc(p.disclaimer||"模擬結果，非投資建議");
-  const vs = p.vs0050Sentence || `模擬獲利 ${fmtPct(p.equityReturnPct)}，同期買 0050 ${fmtPct(p.benchmark0050ReturnPct)}`;
-  const rows=strategyBookRows();
-  const hasBook=rows.length>0;
-  // 仍保留舊 strategyList 展開詳情（驗證期數字）於下方摺疊
-  const list=p.strategyList||[];
-  const legacy = list.length?`<details class="focus-raw" style="margin-top:10px"><summary>研究清單（舊版驗證數字）</summary><div class="strat-list" style="margin-top:8px">${list.map(s=>{
-    const lab=stratStatusLabel(s);
-    const cls=stratStatusCls(lab);
-    return `<div class="strat-card"><div class="strat-hd"><span class="strat-name">${esc(stratDisplayName(s))}</span><span class="chip ${cls}">${esc(lab)}</span></div>
-      <div class="strat-meta"><span class="chip">${esc(s.market||"")}</span><span class="muted strat-oneline">${esc(s.plainReason||softenInline(s.reason)||"")}</span></div>
-      ${stratPeriodHTML("訓練期", s.is)}${stratPeriodHTML("驗證期", s.oos)}</div>`;
-  }).join("")}</div></details>`:"";
-  if(!hasBook && !list.length) return `<div class="feed-panel"><div class="muted">尚無策略清單</div><div class="feed-disc">${disc}</div></div>`;
-  return `<div class="feed-panel" id="strat-panel">
-    <div class="vs-bench">${esc(vs)}</div>
-    <div class="feed-mhd">策略簿</div>
-    ${strategyBookHTML()}
-    ${legacy}
+  const all=stratRowsMerged();
+  const fil=brMarketFilter();
+  const counts={tw:0,mtx:0,us:0,crypto:0};
+  all.forEach(s=>{ const m=brMarketId(s); if(counts[m]!=null) counts[m]++; });
+  const rows=all.filter(s=>brMarketId(s)===fil);
+  const segs=brMarketSegHTML(counts, "策略市場");
+  if(!all.length) return `<div class="feed-panel br-strat">${segs}<div class="br-empty">尚無策略清單</div><div class="br-disc">${disc}</div></div>`;
+  const body=rows.map(s=>{
+    const name=stratDisplayName(s);
+    const code=stratIdOf(s);
+    const st=s.bench?"對照線":stratStatusLabel(s);
+    const n=stratSampleN(s);
+    const sub=[st, n!=null?("樣本 "+n):null, s.market||null].filter(Boolean).join(" · ");
+    const net=stratNetPct(s);
+    const missing=net==null||net==="";
+    const tone=brokerToneClass(net, missing);
+    const right=missing?`<div class="br-pos-miss">尚無成交</div>`:`<div class="br-pos-pct ${tone}">${esc(invFmtPct(net))}</div>`;
+    const detail=[code?("代號 "+code):"", s.reason?softenInline(withSymNames(s.reason)):"", s.failureCondition?("失效："+softenInline(withSymNames(s.failureCondition))):"", (s.is&&s.is.period)?("訓練期 "+s.is.period+(s.is.returnPct!=null?" "+fmtPct(s.is.returnPct,2):"")):"", (s.oos&&s.oos.period)?("驗證期 "+s.oos.period+(s.oos.returnPct!=null?" "+fmtPct(s.oos.returnPct,2):"")):""].filter(Boolean).join("\n");
+    return `<details class="br-acc"><summary><div class="br-pos">
+      <div class="br-pos-l"><div class="br-pos-name">${esc(name)}</div><div class="br-pos-code">${esc(sub)}</div></div>
+      <div class="br-pos-r">${right}</div>
+    </div></summary>${detail?`<div class="br-acc-body">${esc(detail)}</div>`:`<div class="br-acc-body">尚無說明</div>`}</details>`;
+  }).join("");
+  const vs = fil==="tw" ? (p.vs0050Sentence || `模擬獲利 ${fmtPct(p.equityReturnPct)}，同期買 0050 ${fmtPct(p.benchmark0050ReturnPct)}`) : "";
+  const list=rows.length?`<div class="br-list">${body}</div>`:brMarketEmpty(fil);
+  return `<div class="feed-panel br-strat" id="strat-panel">
+    ${segs}
+    ${vs?`<div class="vs-bench br-soft">${esc(vs)}</div>`:""}
+    ${list}
+    <div class="br-disc">${disc}</div>
   </div>`;
 }
 function softenInline(s){
@@ -1943,16 +2230,29 @@ function bindTradeApp(root){
       tradeTab=btn.dataset.tradeTab;
       if(tradeTab!=="book") invStopLive();
       refresh();
-      if(tradeTab==="book"){
+      if(tradeTab==="book" || (!isLegacyTrade() && tradeTab==="home")){
         const pos=((D&&D.trade&&D.trade.perf)||{}).positions||[];
         invStartLive(pos);
       }
     };
   });
-  if(tradeTab==="book"){
+  if(tradeTab==="book" || (!isLegacyTrade() && tradeTab==="home")){
     const pos=((D&&D.trade&&D.trade.perf)||{}).positions||[];
     invStartLive(pos);
   }
+  app.querySelectorAll("[data-br-mkt]").forEach(btn=>{
+    btn.onclick=()=>{
+      posMktFilter=btn.dataset.brMkt||"tw";
+      refresh();
+    };
+  });
+  app.querySelectorAll(".br-pos[data-sym]").forEach(row=>{
+    row.onclick=(e)=>{
+      e.preventDefault();
+      const code=row.dataset.sym;
+      if(code) openSymbolSheet(code);
+    };
+  });
   const stFilt=app.querySelector('[data-role="strat-status"]');
   if(stFilt){
     window.__stratStatusFilter=window.__stratStatusFilter||"全部";
@@ -2302,24 +2602,369 @@ function drawCandleChart(canvas, candles, markers){
   ctx.textAlign="left";
 }
 
-function tradeHomeHTML(){
+function tradeStatusLite(p){
+  p=p||{};
+  if(p.liveGate&&p.liveGate.allMet) return "green";
+  if((p.positions||[]).length) return "green";
+  if(p.waitingFirstFill||p.pendingOrderCount) return "yellow";
+  return "yellow";
+}
+function tradeStatusWord(p){
+  p=p||{};
+  if((p.positions||[]).length) return "持倉中";
+  if(p.pendingOrderCount) return "待成交";
+  if(p.waitingFirstFill) return "等待";
+  return "營運中";
+}
+function tradeStatusLine(p){
+  const c=positionCounts(p||{});
+  if(c.tw && c.crypto) return "台股有倉";
+  if(c.tw) return "台股有倉";
+  if(c.crypto) return "僅幣圈有倉";
+  return "目前空手";
+}
+function todayFillCount(p){
+  p=p||{};
+  if(p.todayFillCount!=null && p.todayFillCount!=="") return Number(p.todayFillCount)||0;
+  const today=taipeiDateStr();
+  const fromList=(p.closedTradeList||[]).filter(t=>t&&String(t.date||"")===today).length;
+  const pl=p.practiceLearning||{};
+  const fromPl=(pl.paperTrades||[]).filter(t=>t&&(t.kind==="closed"||t.kind==="filled")&&String(t.date||"")===today).length;
+  return fromList||fromPl||0;
+}
+function recentClosedTrades(p){
+  p=p||{};
+  const list=p.closedTradeList||[];
+  if(list.length){
+    return list.filter(t=>t&&(t.pnlPct!=null||t.resultPct!=null)).map(t=>({
+      ...t, resultPct:t.resultPct!=null?t.resultPct:t.pnlPct
+    }));
+  }
+  const pl=p.practiceLearning||{};
+  return (pl.paperTrades||[]).filter(t=>t&&t.kind==="closed"&&t.resultPct!=null);
+}
+function recentWinRate(p){
+  const closed=recentClosedTrades(p);
+  const n=closed.length;
+  if(!n) return {n:0, wr:null};
+  const w=closed.filter(t=>Number(t.resultPct)>0).length;
+  return {n, wr:Math.round(w/n*100)};
+}
+function positionCounts(p){
+  p=p||{};
+  const c=p.positionCounts||{};
+  const list=p.positions||[];
+  const tw=c.tw!=null?Number(c.tw):list.filter(x=>x&&(x.market==="tw"||x.market==="台股")).length;
+  const cr=c.crypto!=null?Number(c.crypto):list.filter(x=>x&&(x.market==="crypto"||x.market==="幣圈")).length;
+  const total=c.total!=null?Number(c.total):(tw+cr)||list.length;
+  return {total, tw, crypto:cr};
+}
+function positionFoot(p){
+  const c=positionCounts(p);
+  const bits=[];
+  if(c.crypto) bits.push("幣圈 "+c.crypto);
+  if(c.tw) bits.push("台股 "+c.tw);
+  if(!c.crypto && c.total===0) return "尚無持倉";
+  if(!c.tw) bits.push("台股空手");
+  if(!c.crypto && c.tw) bits.push("幣圈空手");
+  return bits.join(" · ");
+}
+function winRateBarHTML(p){
+  const wr=recentWinRate(p);
+  const closed=recentClosedTrades(p);
+  if(!wr.n){
+    return `<div class="t-winbar">勝率：尚無已平倉樣本</div>`;
+  }
+  if(wr.n<5){
+    const last=closed[closed.length-1]||{};
+    const sym=last.symbol?String(last.symbol).replace(/\.TW$/,""):"";
+    const pct=last.resultPct!=null?((Number(last.resultPct)>0?"+":"")+Number(last.resultPct).toFixed(2)+"%"):"";
+    return `<div class="t-winbar">勝率：樣本 ${wr.n} 筆${pct?"（"+sym+" "+pct+"）":""}</div>`;
+  }
+  const extra=wr.wr===0?"，全虧":(wr.wr===100?"，全勝":"");
+  return `<div class="t-winbar">勝率 ${wr.wr}% · 近 ${wr.n} 筆已平倉${extra}</div>`;
+}
+
+/* ---- 7F broker A/B（?trade_ui=a|b；預設仍走積木） ---- */
+const BR_MARKET_TABS=[
+  {id:"tw", label:"台股"},
+  {id:"mtx", label:"台指期"},
+  {id:"us", label:"美股"},
+  {id:"crypto", label:"幣圈"}
+];
+function brMarketId(it){
+  if(!it) return "";
+  const raw=String(it.market||"").trim().toLowerCase();
+  if(["tw","台股","tse","otc","two"].includes(raw)) return "tw";
+  if(["crypto","幣圈"].includes(raw)) return "crypto";
+  if(["us","美股","usstock"].includes(raw)) return "us";
+  if(["mtx","tmf","tx","台指期","fut","futures","indexfut"].includes(raw)) return "mtx";
+  const sym=String(it.symbol||it.code||it.id||"").toUpperCase();
+  const name=String(it.name||it.displayName||"");
+  if(/台指/.test(name) || /^(MTX|TMF)([0-9.]|$)/.test(sym)) return "mtx";
+  if(/\.TW|\.TWO/.test(sym) || /^[0-9]{4,6}[A-Z]?$/.test(sym.replace(/\.TW.*/,"").replace(/\.TWO.*/,""))) return "tw";
+  if(/-USD$|-USDT$/.test(sym)) return "crypto";
+  if(/\.(US|NYSE|NASDAQ)$/.test(sym)) return "us";
+  return "";
+}
+function brMarketFilter(){
+  const v=String(posMktFilter||"");
+  if(v==="tw"||v==="mtx"||v==="us"||v==="crypto") return v;
+  return "tw";
+}
+function brMarketSegHTML(counts, aria){
+  const fil=brMarketFilter();
+  posMktFilter=fil;
+  const c=counts||{};
+  return `<div class="br-seg br-seg-4" role="tablist" aria-label="${esc(aria||"市場")}">
+    ${BR_MARKET_TABS.map(t=>`<button type="button" role="tab" data-br-mkt="${t.id}" class="${fil===t.id?"on":""}" aria-selected="${fil===t.id?"true":"false"}">${t.label}<span class="br-seg-n">${c[t.id]||0}</span></button>`).join("")}
+  </div>`;
+}
+function brMarketEmpty(fil){
+  if(fil==="mtx"||fil==="us") return `<div class="br-empty">尚未開始模擬</div>`;
+  if(fil==="crypto") return `<div class="br-empty">幣圈目前空手</div>`;
+  return `<div class="br-empty">台股目前空手</div>`;
+}
+let posMktFilter = "tw";
+function tradeUiMode(){
+  try{
+    const q=new URLSearchParams(location.search||"");
+    const v=String(q.get("trade_ui")||"").toLowerCase();
+    if(v==="legacy"||v==="blocks"||v==="v3") return "legacy";
+  }catch(e){}
+  return "a";
+}
+function isLegacyTrade(){ return tradeUiMode()==="legacy"; }
+
+function brokerTone(v){
+  if(v==null||v===""||Number.isNaN(Number(v))) return "flat";
+  const n=Number(v);
+  if(n>0) return "up";
+  if(n<0) return "dn";
+  return "flat";
+}
+function brokerToneClass(v, missing){
+  if(missing) return "br-miss";
+  const t=brokerTone(v);
+  if(t==="up") return "br-up";
+  if(t==="dn") return "br-dn";
+  return "br-flat";
+}
+function brokerHeroHTML(){
   const p=(D&&D.trade&&D.trade.perf)||{};
-  const vs=p.vs0050Sentence||`模擬獲利 ${fmtPct(p.equityReturnPct)}，同期買 0050 ${fmtPct(p.benchmark0050ReturnPct)}`;
+  const chg=p.dailyChangePct;
+  const miss=chg==null||chg==="";
+  const val=miss?"缺":(Number(chg)===0?"0.00%":invFmtPct(chg));
+  const cum=p.equityReturnPct;
+  const cumMiss=cum==null||cum==="";
+  const cumTxt=cumMiss?"累計 缺":("累計 "+invFmtPct(cum));
+  return `<section class="br-hero" aria-label="模擬淨值今日漲跌">
+    <div class="br-hero-k">模擬淨值</div>
+    <div class="br-hero-v ${brokerToneClass(chg,miss)}">${esc(val)}</div>
+    <div class="br-hero-sub">今日漲跌${cumTxt?(" · "+cumTxt):""}</div>
+  </section>`;
+}
+function brokerIdxHTML(){
+  const items=[
+    {code:"TAIEX", name:"加權"},
+    {code:"0050", name:"0050"},
+    {code:"BTC", name:"BTC"},
+    {code:"ETH", name:"ETH"},
+  ];
+  return `<div class="br-idx" role="list" aria-label="市場指數">
+    ${items.map(it=>{
+      const q=quoteOf(it.code);
+      const close=q&&q.close!=null?q.close:null;
+      const missing=close==null||!!(q&&q.missing);
+      const stale=!missing && quoteIsStale(q, it.code);
+      const chg=q&&q.changePct!=null?q.changePct:null;
+      const chgMiss=chg==null||chg==="";
+      const name=stale?(it.name+" · 非今日"):it.name;
+      return `<div class="br-idx-item${missing?" is-miss":""}${stale?" is-stale":""}" role="listitem">
+        <div class="br-idx-name">${esc(name)}</div>
+        <div class="br-idx-close">${esc(missing?"缺":fmtPrice(close,it.code))}</div>
+        <div class="br-idx-chg ${brokerToneClass(chg,chgMiss||missing)}">${esc(missing||chgMiss?"缺":fmtChg(chg))}</div>
+      </div>`;
+    }).join("")}
+  </div>`;
+}
+function brokerPosCode(p){
+  const raw=String((p&&p.symbol)||"");
+  return raw.replace(/\.TW$/i,"").replace(/\.TWO$/i,"");
+}
+function brokerPosName(p){
+  const code=brokerPosCode(p);
+  let name=symLabel(normTradeSym(p.symbol)||p.symbol)||code||"—";
+  if(code && name!==code){
+    const tail=new RegExp("\\s*"+code.replace(/[.*+?^${}()|[\\]\\]/g,"\\$&")+"\\s*$");
+    name=name.replace(tail,"").trim()||name;
+  }
+  return name;
+}
+function brokerPosRowHTML(raw){
+  const x=invEffectiveRow(raw);
+  const pending=!!x.markPendingClose;
+  const missing=!pending && x.unrealizedPct==null;
+  const pct=pending?"待收盤標價":(missing?"缺":invFmtPct(x.unrealizedPct));
+  const tone=brokerToneClass(x.unrealizedPct, pending||missing);
+  const code=brokerPosCode(x);
+  const name=brokerPosName(x);
+  const side=x.side==="long"?"多":(x.side==="short"?"空":"");
+  const mark=pending?"":("現價 "+invFmtPx(x.mark,x.symbol));
+  const stamp=pending?"":(x.quoteLive?"即時":((x.notToday||x.label==="非今日")?"非今日":((x.label==="收盤"||x.quoteSource==="twse_STOCK_DAY")?"收盤":"快照")));
+  const sub=[code, side, stamp].filter(Boolean).join(" · ");
+  return `<button type="button" class="br-pos" data-inv-sym="${esc(x.symbol)}" data-sym="${esc(normTradeSym(x.symbol)||x.symbol)}" data-br-pos="1">
+    <div class="br-pos-l"><div class="br-pos-name">${esc(name)}</div><div class="br-pos-code">${esc(sub)}</div></div>
+    <div class="br-pos-r"><div class="br-pos-pct ${tone}">${esc(pct)}</div>${mark?`<div class="br-pos-mark">${esc(mark)}</div>`:""}</div>
+  </button>`;
+}
+function brokerPosGroups(p){
+  const list=(p.positions||[]).slice();
+  const tw=list.filter(x=>brMarketId(x)==="tw");
+  const cr=list.filter(x=>brMarketId(x)==="crypto");
+  const mtx=list.filter(x=>brMarketId(x)==="mtx");
+  const us=list.filter(x=>brMarketId(x)==="us");
+  return {list, tw, cr, mtx, us};
+}
+function brokerPosFilterDefault(p){
+  const g=brokerPosGroups(p);
+  if(g.tw.length) return "tw";
+  if(g.cr.length) return "crypto";
+  return "tw";
+}
+function brokerPosListHTML(p, opts){
+  opts=opts||{};
+  const g=brokerPosGroups(p);
+  const four=!opts.home;
+  const fil=four?brMarketFilter():(posMktFilter==="crypto"||posMktFilter==="tw"?posMktFilter:brokerPosFilterDefault(p));
+  posMktFilter=fil;
+  const rows=fil==="crypto"?g.cr:(fil==="mtx"?g.mtx:(fil==="us"?g.us:g.tw));
+  const segs=four
+    ? brMarketSegHTML({tw:g.tw.length, mtx:g.mtx.length, us:g.us.length, crypto:g.cr.length}, "持倉市場")
+    : `<div class="br-seg" role="tablist" aria-label="持倉市場">
+    <button type="button" role="tab" data-br-mkt="tw" class="${fil==="tw"?"on":""}" aria-selected="${fil==="tw"?"true":"false"}">台股<span class="br-seg-n">${g.tw.length}</span></button>
+    <button type="button" role="tab" data-br-mkt="crypto" class="${fil==="crypto"?"on":""}" aria-selected="${fil==="crypto"?"true":"false"}">幣圈<span class="br-seg-n">${g.cr.length}</span></button>
+  </div>`;
+  const list=rows.length
+    ? `<div class="br-list">${rows.map(brokerPosRowHTML).join("")}</div>`
+    : brMarketEmpty(fil);
+  return `${segs}${list}`;
+}
+function brokerMetaLineHTML(p){
+  const fills=todayFillCount(p);
+  const pend=p.pendingOrderCount==null?null:Number(p.pendingOrderCount);
+  const wr=recentWinRate(p);
+  const closed=recentClosedTrades(p);
+  let wrTxt="勝率 缺樣本";
+  if(wr.n>=5) wrTxt=`勝率 ${wr.wr}% · 近 ${wr.n} 筆`;
+  else if(wr.n){
+    const last=closed[closed.length-1]||{};
+    const sym=last.symbol?String(last.symbol).replace(/\.TW$/,""):"";
+    const name=sym? (symLabel(normTradeSym(sym)||sym)||sym) : "";
+    const pct=last.resultPct!=null?((Number(last.resultPct)>0?"+":"")+Number(last.resultPct).toFixed(2)+"%"):"";
+    wrTxt=`勝率樣本 ${wr.n} 筆${pct?("（"+(name||sym)+" "+pct+"）"):""}`;
+  }
+  const pendTxt=pend==null?"掛單 缺":("掛單 "+pend);
+  return `<div class="br-meta">今日成交 ${fills} · ${esc(pendTxt)} · ${esc(wrTxt)}</div>`;
+}
+function brokerHomeHTML(){
+  const p=(D&&D.trade&&D.trade.perf)||{};
+  const disc=p.disclaimer||"模擬結果，非投資建議";
+  return `<div class="trade-home br-home">
+    ${brokerHeroHTML()}
+    ${brokerIdxHTML()}
+    ${brokerPosListHTML(p,{home:true})}
+    ${brokerMetaLineHTML(p)}
+    <div class="br-disc">${esc(disc)}</div>
+  </div>`;
+}
+function brokerBookHTML(){
+  const p=(D&&D.trade&&D.trade.perf)||{};
+  const pos=p.positions||[];
+  const disc=esc(p.disclaimer||"模擬結果，非投資建議");
+  const tw = p.twEquityReturnPct!=null?p.twEquityReturnPct:p.equityReturnPct;
+  const cr = p.cryptoEquityReturnPct;
+  const twMiss=tw==null||tw==="";
+  const crMiss=cr==null||cr==="";
+  const twSpan=twMiss?"缺":`<span class="${brokerToneClass(tw,false)}">${invFmtPct(tw)}</span>`;
+  const crSpan=crMiss?"缺":`<span class="${brokerToneClass(cr,false)}">${invFmtPct(cr)}</span>`;
+  const cumLine=`<div class="br-meta">台股累計 ${twSpan} · 幣圈累計 ${crSpan}</div>`;
+  const planned=(p.trades||[]).filter(t=>t&&t.planned);
+  const planRows=planned.length?planned.map(t=>{
+    const sym=normTradeSym(t.symbol);
+    return `<button type="button" class="br-pos wl-tap" data-sym="${esc(sym)}"><div class="br-pos-l"><div class="br-pos-name">${esc(symLabel(sym)||sym)}</div><div class="br-pos-code">預計 · ${esc(t.strategyZh||t.label||"")} · ${esc(t.date||"")}</div></div><div class="br-pos-r"><div class="br-pos-pct br-flat">${t.stopPx!=null?"停 "+fmtDash(t.stopPx,2):"—"}</div></div></button>`;
+  }).join(""):"";
+  const fil=brMarketFilter();
+  const hideExtras=fil==="mtx"||fil==="us";
+  return `<div class="book-panel inv-panel br-book">
+    ${brokerHeroHTML()}
+    ${cumLine}
+    <div class="inv-pulse br-meta" data-inv-pulse>載入報價…</div>
+    ${brokerPosListHTML(p)}
+    ${hideExtras?"":(planRows?`<details class="br-more"><summary>預計進場（${planned.length}）</summary><div class="br-list">${planRows}</div></details>`:"")}
+    ${hideExtras?"":`<details class="br-more"><summary>完整表格與報價說明</summary>${invTableHTML(pos)}</details>`}
+    ${hideExtras?"":`<details class="br-more"><summary>舊版帳本</summary>${legacyBookHTML(p)}</details>`}
+    <div class="br-disc">${disc}</div>
+  </div>`;
+}
+function brokerPatchPos(root, positions){
+  (positions||[]).forEach(raw=>{
+    const el=(root||document).querySelector(`.br-pos[data-inv-sym="${CSS.escape(raw.symbol)}"]`);
+    if(!el) return;
+    const tmp=document.createElement("div");
+    tmp.innerHTML=brokerPosRowHTML(raw);
+    const next=tmp.firstElementChild;
+    if(next) el.replaceWith(next);
+  });
+  const parent=(root||document).querySelector(".trade-app")||root;
+  if(parent){
+    parent.querySelectorAll(".br-pos[data-sym]").forEach(row=>{
+      if(row.dataset.bound==="1") return;
+      row.dataset.bound="1";
+      row.addEventListener("click",(e)=>{
+        e.preventDefault();
+        const code=row.dataset.sym;
+        if(code) openSymbolSheet(code);
+      });
+    });
+  }
+}
+
+function tradeKpiHTML(){
+  const p=(D&&D.trade&&D.trade.perf)||{};
+  const chg=p.dailyChangePct;
+  const chgMissing=chg==null||chg==="";
+  const fills=todayFillCount(p);
+  const c=positionCounts(p);
+  const pend=p.pendingOrderCount==null?null:Number(p.pendingOrderCount);
+  const stWord=tradeStatusWord(p);
+  const stLine=tradeStatusLine(p);
+  const lite=tradeStatusLite(p);
+  const twFoot=c.tw?"現有持倉":"目前空手";
+  const crFoot=c.crypto?"現有持倉":"目前空手";
+  return `<div class="twall twall-kpi" aria-label="今日模擬狀態">
+    ${tblkHTML({name:"狀態", value:stWord, tone:lite==="green"?"green":"yellow", foot:stLine, why:true})}
+    ${tblkHTML({name:"淨值變化", value:chgMissing?"缺":(Number(chg)===0?"0%":fmtPct(chg,1)), num:chg, missing:chgMissing, foot:"較前一日", showMiss:true})}
+    ${tblkHTML({name:"今日成交", value:String(fills), num:fills, foot:fills?"進場或平倉":"今日尚無成交"})}
+    ${tblkHTML({name:"台股持倉", value:String(c.tw||0), num:c.tw||0, foot:twFoot, tone:c.tw?"green":"yellow"})}
+    ${tblkHTML({name:"幣圈持倉", value:String(c.crypto||0), num:c.crypto||0, foot:crFoot, tone:c.crypto?"green":"yellow"})}
+    ${tblkHTML({name:"掛單", value:pend==null?"缺":String(pend), missing:pend==null, foot:"待成交", showMiss:true})}
+  </div>
+  ${winRateBarHTML(p)}`;
+}
+function tradeHomeHTML(){
+  if(!isLegacyTrade()) return brokerHomeHTML();
+  const p=(D&&D.trade&&D.trade.perf)||{};
+  const disc=esc(p.disclaimer||"模擬結果，非投資建議");
   return `<div class="trade-home">
+    ${tradeKpiHTML()}
+    <div class="feed-mhd" style="margin:10px 0 6px">行情</div>
     ${indexStripHTML()}
-    ${focusCardsHTML()}
-    <div class="card" style="margin-top:10px"><h2>行情資料中心</h2>${feedStatusHTML()}</div>
-    <div class="card" style="margin-top:10px"><h2>往實盤進度圖</h2>${liveGateHTML()}</div>
-    <div class="card" style="margin-top:10px"><h2>模擬績效摘要</h2>
-      <div class="vs-bench">${esc(vs)}</div>
-      <div class="big">
-        <div><b>${fmtPct(p.equityReturnPct)}</b><span>模擬報酬</span></div>
-        <div><b>${fmtPct(p.benchmark0050ReturnPct)}</b><span>0050 同期</span></div>
-        <div><b>${fmtPct(p.benchmarkBtcReturnPct)}</b><span>BTC 同期</span></div>
-        <div><b>${fmtPct(p.dailyChangePct)}</b><span>日變動</span></div>
-      </div>
-      <div class="feed-disc" style="margin-top:8px">${esc(p.disclaimer||"模擬結果，非投資建議")}</div>
-    </div>
+    <details class="list-more trade-more"><summary>行情資料中心與往實盤進度</summary>
+      <div class="card" style="margin-top:8px"><h2>行情資料中心</h2>${feedStatusHTML()}</div>
+      <div class="card" style="margin-top:8px"><h2>往實盤進度圖</h2>${liveGateHTML()}</div>
+    </details>
+    <div class="feed-disc">${disc}</div>
   </div>`;
 }
 function tradeAppBody(){
@@ -2330,15 +2975,12 @@ function tradeAppBody(){
   return tradeHomeHTML();
 }
 function tradeAppHTML(){
+  const legacy=isLegacyTrade();
   const tabs=TRADE_TABS.map(t=>`<button type="button" class="ttab${tradeTab===t.id?" on":""}" data-trade-tab="${t.id}"><span class="ttab-ic" aria-hidden="true"></span><span>${esc(t.label)}</span></button>`).join("");
-  const p=(D&&D.trade&&D.trade.perf)||{};
-  const st=p.status||"模擬營運中";
-  const cap=((p.capital||{}).availableLabel||(p.capital||{}).label||"");
-  const brief="這層做紙上模擬交易（非真錢）。今天重點："+st+(cap?"。"+String(cap).replace(/^可用資金[：:]\s*/, "可用資金 "):"");
-  return `<div class="trade-app">
+  const cls=legacy?"":" trade-app--br trade-app--br-a";
+  return `<div class="trade-app${cls}">
+    <div class="trade-corners" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
     ${tradeHead()}
-    ${floorBriefHTML(brief)}
-    <div class="sim-banner">青鋒交易 · 紙上模擬 · 非投資建議</div>
     <div class="trade-body" data-tab="${esc(tradeTab)}">${tradeAppBody()}</div>
     <nav class="trade-tabs" aria-label="交易室分頁">${tabs}</nav>
   </div>`;
@@ -2642,7 +3284,12 @@ function openSheet(html){$("#sheetbody").innerHTML=html;$("#sheet").hidden=false
 function closeSheet(){$("#sheet").hidden=true;$("#sheetbg").hidden=true;}
 $("#close").onclick=closeSheet;$("#sheetbg").onclick=closeSheet;document.addEventListener("keydown",e=>{if(e.key==="Escape")closeSheet();});
 function sevHTML(c){const L=[["🔴","s1","致命"],["🟠","s2","重要"],["🟡","s3","次要"]];return L.map(([k,cl,n])=>`<span class="sev ${cl}"><i></i>${n} ${typeof c[k]==="object"?c[k].new+" 新 / "+c[k].old+" 舊":c[k]}</span>`).join("");}
-function tradeHead(){return `<div class="who trade-who trade-brand"><img class="ava ava-trade" width="56" height="56" alt="AgentX+" src="${avatarURL("trade",true)}"><div class="trade-brand-txt"><div class="trade-wm" aria-label="AgentX+">AgentX+</div><div class="trade-sub">青鋒交易 · 紙上模擬</div></div></div>`;}
+function tradeHead(){
+  const legacy=isLegacyTrade();
+  const av=legacy?36:22;
+  const sub=legacy?"青鋒交易 · 紙上模擬":"紙上模擬";
+  return `<div class="who trade-who trade-brand"><img class="ava ava-trade" width="${av}" height="${av}" alt="" src="${avatarURL("trade",true)}"><div class="trade-brand-txt"><div class="trade-wm" aria-label="AgentX+">AgentX+</div><div class="trade-sub">${sub}</div></div></div>`;
+}
 function memberBtn(id){return `<div class="mbtn"><button data-m="${id}" class="mbtn-ava"><img class="mava" src="${avatarURL(id)}" alt="" width="28" height="28">看 ${esc(NAMES[id])} 在想什麼</button></div>`;}
 function head(f,extra){const s=floorState(f);return `<h3>${iconSVG(f.id)}<span class="no">${f.no}</span> ${f.name}</h3><div class="muted"><span class="dot ${s.cat}"></span> ${esc(s.label)} · ${esc(noemo(s.text))}${extra||""}</div>`;}
 function openFloor(id,opt){opt=opt||{};const f=FLOORS.find(x=>x.id===id);let h=head(f);
