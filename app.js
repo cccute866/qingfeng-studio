@@ -931,6 +931,31 @@ function shortDate(s){
 function practiceTradeRows(){
   const p=(D&&D.trade&&D.trade.perf)||{};
   const raw=((p.practiceLearning||{}).paperTrades||[]).slice();
+  const closedExtra=todayClosedRows(p).map(t=>{
+    const code=normTradeSym(t.symbol||t.code||"");
+    return {
+      kind:"closed",
+      date:t.date,
+      code:code,
+      symbol:t.symbol||code,
+      name:symLabel(code)||code,
+      resultPct:t.pnlPct,
+      status:t.label||t.reason||"已平倉",
+      label:t.label||t.reason||"",
+      market:t.market
+    };
+  });
+  closedExtra.forEach(ex=>{
+    const hit=raw.some(t=>t&&t.kind==="closed"&&normTradeSym(t.code||t.symbol||"")===ex.code&&String(t.date||"").slice(0,10)===String(ex.date||"").slice(0,10));
+    if(!hit) raw.unshift(ex);
+    else {
+      raw.forEach(t=>{
+        if(t&&t.kind==="closed"&&normTradeSym(t.code||t.symbol||"")===ex.code&&String(t.date||"").slice(0,10)===String(ex.date||"").slice(0,10)){
+          if(ex.label&&!t.label) t.label=ex.label;
+        }
+      });
+    }
+  });
   const posBy=new Map();
   (p.positions||[]).forEach(x=>{ posBy.set(normTradeSym(x.symbol), x); });
   const groups=new Map();
@@ -975,7 +1000,7 @@ function practiceRowHTML(t){
   const missing=result==null||result==="";
   const pct=pending?"掛單":(open&&missing?"持倉中":(missing?"—":invFmtPct(result)));
   const tone=pending|| (open&&missing)?"br-flat":brokerToneClass(result, missing);
-  const reason=open?"持倉中":(t.status||(pending?"掛單中":"已平倉"));
+  const reason=open?"持倉中":(t.label||t.status||(pending?"掛單中":"已平倉"));
   const sub=[code, reason, t.date?shortDate(t.date):(t.entryDate?shortDate(t.entryDate):"")].filter(Boolean).join(" · ");
   return `<div class="br-pos">
     <div class="br-pos-l"><div class="br-pos-name">${esc(lab)}</div><div class="br-pos-code">${esc(sub)}</div></div>
@@ -1028,7 +1053,7 @@ function dailyLogHTML(){
     ? `<div class="feed-mhd" style="margin:8px 16px 0">學到什麼</div><ul class="br-learn">${learns.map(learnItem).join("")}</ul>`
     : "";
   const extras=(fil==="mtx"||fil==="us")?"":(blindBlock+learnBlock);
-  return `<div class="feed-panel log-panel br-log">${segs}${tradeBlock}${extras}<div class="br-disc">${disc}</div></div>`;
+  return `<div class="feed-panel log-panel br-log"><div class="br-meta" data-ledger-time>${esc(ledgerTimeText(p))}</div>${segs}${tradeBlock}${extras}<div class="br-disc">${disc}</div></div>`;
 }
 function bindStrategyFilters(root){
   const panel=(root||document).querySelector("#strat-panel");
@@ -2862,6 +2887,54 @@ function brokerPosListHTML(p, opts){
     : brMarketEmpty(fil);
   return `${segs}${list}`;
 }
+function ledgerTimeText(p){
+  p=p||((D&&D.trade&&D.trade.perf)||{});
+  const t=(p.ledgerUpdated||"").trim();
+  return t?("帳本時間 "+t+"（台北）"):"帳本時間 缺";
+}
+function todayClosedRows(p){
+  p=p||{};
+  const today=taipeiDateStr();
+  const src=(p.todayClosedList&&p.todayClosedList.length)?p.todayClosedList:(p.closedTradeList||[]);
+  return src.filter(t=>t&&String(t.date||"").slice(0,10)===today);
+}
+function todayClosedHTML(p){
+  const rows=todayClosedRows(p);
+  if(!rows.length) return "";
+  const body=rows.map(t=>{
+    const code=String(t.symbol||"").replace(/\.TW$/i,"").replace(/\.TWO$/i,"");
+    const name=symLabel(normTradeSym(code)||code)||code||"—";
+    const lab=t.label||t.reason||"已平倉";
+    const missing=t.pnlPct==null||t.pnlPct==="";
+    const pct=missing?"—":invFmtPct(t.pnlPct);
+    const tone=brokerToneClass(t.pnlPct, missing);
+    const tm=t.time?String(t.time).slice(11,16): (t.date?shortDate(t.date):"");
+    const sub=[code, lab, tm].filter(Boolean).join(" · ");
+    return `<div class="br-pos"><div class="br-pos-l"><div class="br-pos-name">${esc(name)}</div><div class="br-pos-code">${esc(sub)}</div></div><div class="br-pos-r"><div class="br-pos-pct ${tone}">${esc(pct)}</div></div></div>`;
+  }).join("");
+  return `<details class="br-more" open><summary>今日已平倉（${rows.length}）</summary><div class="br-list">${body}</div></details>`;
+}
+function pendingTradeGroups(p){
+  const pending=(p.trades||[]).filter(t=>t&&(t.planned||t.status==="pending"));
+  const isSell=t=>{
+    const s=String(t.side||"").toLowerCase();
+    return s==="sell"||s==="cover"||s==="short";
+  };
+  return {
+    entries: pending.filter(t=>!isSell(t)),
+    exits: pending.filter(isSell)
+  };
+}
+function pendingRowsHTML(list, kind){
+  if(!list.length) return "";
+  const title=kind==="exit"?"預計出場":"預計進場";
+  const body=list.map(t=>{
+    const sym=normTradeSym(t.symbol);
+    const lab=t.label&&String(t.label).indexOf("預計")>=0? (t.strategyZh||t.strategy||""):(t.label||t.strategyZh||"");
+    return `<button type="button" class="br-pos wl-tap" data-sym="${esc(sym)}"><div class="br-pos-l"><div class="br-pos-name">${esc(symLabel(sym)||sym)}</div><div class="br-pos-code">${esc(title)} · ${esc(lab||"")} · ${esc(t.date||"")}</div></div><div class="br-pos-r"><div class="br-pos-pct br-flat">${t.stopPx!=null?"停 "+fmtDash(t.stopPx,2):"—"}</div></div></button>`;
+  }).join("");
+  return `<details class="br-more"><summary>${title}（${list.length}）</summary><div class="br-list">${body}</div></details>`;
+}
 function brokerMetaLineHTML(p){
   const fills=todayFillCount(p);
   const pend=p.pendingOrderCount==null?null:Number(p.pendingOrderCount);
@@ -2885,7 +2958,9 @@ function brokerHomeHTML(){
   return `<div class="trade-home br-home">
     ${brokerHeroHTML()}
     ${brokerIdxHTML()}
+    <div class="br-meta" data-ledger-time>${esc(ledgerTimeText(p))}</div>
     ${brokerPosListHTML(p,{home:true})}
+    ${todayClosedHTML(p)}
     ${brokerMetaLineHTML(p)}
     <div class="br-disc">${esc(disc)}</div>
   </div>`;
@@ -2901,19 +2976,18 @@ function brokerBookHTML(){
   const twSpan=twMiss?"缺":`<span class="${brokerToneClass(tw,false)}">${invFmtPct(tw)}</span>`;
   const crSpan=crMiss?"缺":`<span class="${brokerToneClass(cr,false)}">${invFmtPct(cr)}</span>`;
   const cumLine=`<div class="br-meta">台股累計 ${twSpan} · 幣圈累計 ${crSpan}</div>`;
-  const planned=(p.trades||[]).filter(t=>t&&t.planned);
-  const planRows=planned.length?planned.map(t=>{
-    const sym=normTradeSym(t.symbol);
-    return `<button type="button" class="br-pos wl-tap" data-sym="${esc(sym)}"><div class="br-pos-l"><div class="br-pos-name">${esc(symLabel(sym)||sym)}</div><div class="br-pos-code">預計 · ${esc(t.strategyZh||t.label||"")} · ${esc(t.date||"")}</div></div><div class="br-pos-r"><div class="br-pos-pct br-flat">${t.stopPx!=null?"停 "+fmtDash(t.stopPx,2):"—"}</div></div></button>`;
-  }).join(""):"";
+  const pend=pendingTradeGroups(p);
   const fil=brMarketFilter();
   const hideExtras=fil==="mtx"||fil==="us";
   return `<div class="book-panel inv-panel br-book">
     ${brokerHeroHTML()}
     ${cumLine}
+    <div class="br-meta" data-ledger-time>${esc(ledgerTimeText(p))}</div>
     <div class="inv-pulse br-meta" data-inv-pulse>載入報價…</div>
     ${brokerPosListHTML(p)}
-    ${hideExtras?"":(planRows?`<details class="br-more"><summary>預計進場（${planned.length}）</summary><div class="br-list">${planRows}</div></details>`:"")}
+    ${hideExtras?"":todayClosedHTML(p)}
+    ${hideExtras?"":pendingRowsHTML(pend.exits,"exit")}
+    ${hideExtras?"":pendingRowsHTML(pend.entries,"entry")}
     ${hideExtras?"":`<details class="br-more"><summary>完整表格與報價說明</summary>${invTableHTML(pos)}</details>`}
     ${hideExtras?"":`<details class="br-more"><summary>舊版帳本</summary>${legacyBookHTML(p)}</details>`}
     <div class="br-disc">${disc}</div>
