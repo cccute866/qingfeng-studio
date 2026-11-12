@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "asOf": "2026-11-12T18:08:01+08:00",
+  "asOf": "2026-11-12T18:09:01+08:00",
   "timezone": "Asia/Taipei",
   "source": "tokyo",
   "positions": [
@@ -17,7 +17,7 @@
       "markDate": "2026-11-12",
       "unrealizedPct": 0.13,
       "distToStopPct": 13.22,
-      "quoteTime": "2026-11-12T18:07:37+08:00",
+      "quoteTime": "2026-11-12T18:08:38+08:00",
       "quoteLive": false,
       "quoteSource": "twse_STOCK_DAY",
       "notToday": false,
