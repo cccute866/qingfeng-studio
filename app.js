@@ -3195,7 +3195,7 @@ function tokyoPanelHTML(){
   const order=["tw","us","mtx","crypto"];
   const cards=order.map(id=>tokyoMarketCard(markets[id]||{id,name:({tw:"台股",us:"美股",mtx:"台指期",crypto:"幣圈"})[id],state:"not_started",stateLabel:"尚未開始"})).join("");
   const asOf=tokyoTimeText(t.asOf||host.heartbeatAt, true);
-  const stale=(()=>{const ts=typeof parseTPSec==="function"?parseTPSec(t.asOf):parseTP(t.asOf);if(isNaN(ts))return true;return (Date.now()-ts)>2*60*1000;})();
+  const stale=(()=>{const ts=typeof parseTPSec==="function"?parseTPSec(t.asOf):parseTP(t.asOf);if(isNaN(ts))return true;return (Date.now()-ts)>7*60*1000;})();
   const mode=host.mode==="live"?"正式運行":"影子模擬中，尚未切換發訊";
   const mem=tokyoMemoryText(host.memory);
   const up=tokyoUptimeText(host.uptimeSec);
@@ -3736,11 +3736,18 @@ function tokyoLiveLooksDirty(obj){
   catch(e){return true;}
 }
 async function fetchTokyoLiveJson(path){
-  const r=await fetch(path+"?t="+Date.now(),{cache:"no-store"});
-  if(!r.ok) return null;
-  const data=await r.json();
-  if(!data||typeof data!=="object"||tokyoLiveLooksDirty(data)) return null;
-  return data;
+  const rawBase="https://raw.githubusercontent.com/cccute866/qingfeng-studio/refs/heads/tokyo-live/";
+  const urls=[rawBase+path+"?t="+Date.now(), path+"?t="+Date.now()];
+  for(const url of urls){
+    try{
+      const r=await fetch(url,{cache:"no-store"});
+      if(!r.ok) continue;
+      const data=await r.json();
+      if(!data||typeof data!=="object"||tokyoLiveLooksDirty(data)) continue;
+      return data;
+    }catch(e){}
+  }
+  return null;
 }
 function mergeTokyoLive(status, positions){
   if(!D) return false;
