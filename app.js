@@ -170,7 +170,12 @@ function setView(v, floorId){
   if(tow) tow.hidden=v!=="tower";
   if(room) room.hidden=v!=="room";
   const sub=$("#view-sub");
-  if(sub) sub.textContent=v==="city"?"城市地圖 · 點大樓進入":v==="tower"?"大樓剖面 · 點樓層進入":"樓層現場 · 點小人看他在想什麼";
+  if(sub){
+      if(v==="city") sub.textContent="城市地圖 · 點大樓進入";
+      else if(v==="tower") sub.textContent="大樓剖面 · 點樓層進入";
+      else if(v==="room"&&activeFloor==="trade") sub.textContent="交易室 · 東京主機各市場狀態";
+      else sub.textContent="樓層現場 · 點小人看他在想什麼";
+    }
   if(v==="room"){
     for(const k in floorsEl){
       const on=k===activeFloor;
@@ -214,7 +219,15 @@ function buildTower(){
   const t=$("#tower");t.innerHTML="";
   for(const f of FLOORS){
     const el=document.createElement("div");el.className="floor";el.tabIndex=0;el.hidden=true;el.setAttribute("role","button");el.setAttribute("aria-label",f.no+" "+f.name+"，打開細節");
-    el.innerHTML=`<div class="room${(f.id==="trade"||f.id==="mz")?" room-iso":""}${f.id==="mz"?" room-iso-mz":""}" data-floor="${f.id}" style="background-image:url(assets/${f.room}.webp)"><canvas></canvas><div class="hits"></div>
+    if(f.id==="trade"){
+      el.classList.add("floor-tokyo");
+      el.innerHTML=`<div class="tokyo-panel" id="tokyo-panel" data-floor="trade" role="region" aria-label="東京主機各市場狀態"></div>`;
+      el.addEventListener("click",e=>{if(e.target.closest(".btn,button,a"))return;});
+      t.appendChild(el);
+      floorsEl[f.id]={el,cv:null,hits:null,room:el.querySelector(".tokyo-panel"),f,visible:false,noScene:true};
+      continue;
+    }
+    el.innerHTML=`<div class="room${f.id==="mz"?" room-iso room-iso-mz":""}" data-floor="${f.id}" style="background-image:url(assets/${f.room}.webp)"><canvas></canvas><div class="hits"></div>
       <div class="plate"><span class="no">${f.no}</span>${iconSVG(f.id)}<span><span class="nm">${f.name}</span><span class="who">${esc(f.who)}</span></span></div>
       <div class="bubble"><span class="dot"></span><b></b><span class="t"></span></div>
       <div class="fviz" aria-hidden="true"></div>
@@ -243,8 +256,8 @@ function buildTower(){
   else setView("city");
   resize();
 }
-function resize(){const dpr=Math.min(window.devicePixelRatio||1,2.5);for(const k in floorsEl){const c=floorsEl[k].cv,r=floorsEl[k].room;c.width=Math.round(r.clientWidth*dpr);c.height=Math.round(r.clientHeight*dpr);
-    if((k==="trade"||k==="mz")&&r){const w=r.clientWidth;const base=k==="mz"?"room_mz":"room_trade";const url=w<=480?`assets/${base}_sm.webp`:(w<=720?`assets/${base}_md.webp`:`assets/${base}.webp`);if(r.dataset.bg!==url){r.style.backgroundImage=`url(${url})`;r.dataset.bg=url;}}
+function resize(){const dpr=Math.min(window.devicePixelRatio||1,2.5);for(const k in floorsEl){const c=floorsEl[k].cv,r=floorsEl[k].room;if(!c||!r)continue;c.width=Math.round(r.clientWidth*dpr);c.height=Math.round(r.clientHeight*dpr);
+    if(k==="mz"&&r){const w=r.clientWidth;const url=w<=480?"assets/room_mz_sm.webp":(w<=720?"assets/room_mz_md.webp":"assets/room_mz.webp");if(r.dataset.bg!==url){r.style.backgroundImage=`url(${url})`;r.dataset.bg=url;}}
   }}
 window.addEventListener("resize",resize);
 
@@ -386,6 +399,7 @@ function loop(now){
   const frame=Math.floor(now/250);
   const by={};for(const id in chars){placeChar(chars[id],now);(by[chars[id].floor]=by[chars[id].floor]||[]).push(chars[id]);}
   for(const k in floorsEl){const F=floorsEl[k];const list=by[k]||[];
+    if(F.noScene||!F.hits||!F.cv) continue;
     for(const c of list)if(c.btn.parentNode!==F.hits)F.hits.appendChild(c.btn);
     if(!F.visible)continue;const cv=F.cv,ctx=cv.getContext("2d");ctx.clearRect(0,0,cv.width,cv.height);
     const u=Math.max(2,cv.width*.0068);
@@ -414,9 +428,11 @@ function loop(now){
       const px=c.x*100,py=(c.clip?c.clip:c.y)*100;c.btn.style.left=Math.min(96,Math.max(4,px))+"%";c.btn.style.top=py+"%";c.btn.style.display=(c.x>1.02||c.x<-.02)?"none":"";
     }
   }
-  if(thinking){const c=chars[thinking.id];const F=floorsEl[c.floor];if(thinking.el.parentNode!==F.room)F.room.appendChild(thinking.el);
+  if(thinking){const c=chars[thinking.id];const F=floorsEl[c.floor];
+    if(!F||F.noScene||!F.room){thinking.el.remove();thinking=null;}
+    else{if(thinking.el.parentNode!==F.room)F.room.appendChild(thinking.el);
     thinking.el.style.left=Math.min(80,Math.max(20,c.x*100))+"%";thinking.el.style.top=((c.clip?c.clip:c.y)*100-30)+"%";
-    if(now>thinking.until){thinking.el.remove();thinking=null;}}
+    if(now>thinking.until){thinking.el.remove();thinking=null;}}}
 }
 function thoughtOf(id){
   const c=chars[id];
@@ -429,7 +445,7 @@ function thoughtOf(id){
 }
 function showThought(id,ms){if(thinking)thinking.el.remove();const el=document.createElement("div");el.className="think";el.textContent=thoughtOf(id);thinking={id,el,until:performance.now()+(ms||4500)};}
 function react(id){const c=chars[id];const now=performance.now();if(c.view==="front"&&Math.random()<.6)c.wave=now+1400;else c.bounce=now+700;showThought(id,4000);}
-setInterval(()=>{if(!D||document.hidden||!$("#sheet").hidden)return;const ids=Object.keys(chars).filter(i=>{const c=chars[i];return c.x<1&&c.x>0&&floorsEl[c.floor].visible;});if(ids.length)showThought(ids[Math.floor(Math.random()*ids.length)]);},9000);
+setInterval(()=>{if(!D||document.hidden||!$("#sheet").hidden)return;const ids=Object.keys(chars).filter(i=>{const c=chars[i];const F=floorsEl[c.floor];return c.x<1&&c.x>0&&F&&F.visible&&!F.noScene;});if(ids.length)showThought(ids[Math.floor(Math.random()*ids.length)]);},9000);
 
 
 // ---- 用量室（真實 token + 估算活動；額度警示純前端） ----
@@ -1352,7 +1368,7 @@ function renderDeskSigns(){
   if(!D) return;
   const by=decisionsByFloor();
   for(const [fid, rows] of Object.entries(by)){
-    const F=floorsEl[fid]; if(!F||!F.room) continue;
+    const F=floorsEl[fid]; if(!F||!F.room||F.noScene||fid==="trade") continue;
     // 每層最多 2 則桌上標示，其餘點明細看
     const show=rows.slice(0,2);
     if(!show.length) continue;
@@ -3121,8 +3137,89 @@ function scheduleMissingHTML(){const ms=(D&&D.scheduleMissing)||[];
   return `<div class="sched-miss${ms.length?" has-miss":""}" style="margin-top:6px;font-size:11.5px">排程缺漏（scheduleMissing）：${ms.length?ms.map(x=>esc((x.chip?x.chip+" ":"")+x.what+"（時間缺）")).join("、"):"0 項（schedule.json 每項都有時間）"}</div>`;}
 function musicCardHTML(){const m=RM.music;if(!m)return"";const s=memberState("music"),c=(D.cards||{}).music||{},ds=(D.deptState||{}).music;
   return `<div class="card music-zone" id="music-card"><h2>5F 音樂角 · ${esc(m.name)}</h2>${floorBriefHTML("音樂部門在 5F 美術部的子區（音樂角）。"+(ds&&ds.at?"STATE 更新 "+String(ds.at).slice(5).replace("-","/")+"。":"目前無狀態檔。"))}${keyCardsHTML([{v:s.cat==="work"?"工作中":"待命",l:"狀態",note:noemo(s.text)||"無狀態"},{v:"ch01–03",l:"原創 BGM",note:"已交，待接入／待試聽"}])}<div class="muted" style="margin-top:6px">剛完成：${esc(noemo(c.recent)||"無狀態")}</div>${rosterCardsHTML(["music"])}</div>`;}
-function renderFloors(){for(const f of FLOORS){const F=floorsEl[f.id],s=floorState(f);const b=F.el.querySelector(".bubble");
-  b.querySelector(".dot").className="dot "+s.cat;b.querySelector("b").textContent=s.label;b.querySelector(".t").textContent=noemo(s.text);
+
+function tokyoTimeText(s){
+  if(!s) return "缺";
+  const t=parseTP(s);
+  if(isNaN(t)) return "缺";
+  const d=new Date(t+8*3600e3); // parseTP 已是 UTC 毫秒，對應台北牆鐘用 +8 顯示
+  const now=tpNow();
+  const same=d.getUTCFullYear()===now.getUTCFullYear()&&d.getUTCMonth()===now.getUTCMonth()&&d.getUTCDate()===now.getUTCDate();
+  const hh=String(d.getUTCHours()).padStart(2,"0")+":"+String(d.getUTCMinutes()).padStart(2,"0");
+  if(same) return hh;
+  return (d.getUTCMonth()+1)+"/"+d.getUTCDate()+" "+hh;
+}
+function tokyoUptimeText(sec){
+  if(sec==null||!isFinite(sec)||sec<0) return "缺";
+  sec=Math.floor(sec);
+  const d=Math.floor(sec/86400), h=Math.floor((sec%86400)/3600), m=Math.floor((sec%3600)/60);
+  if(d>=1) return d+" 天 "+h+" 小時";
+  if(h>=1) return h+" 小時 "+m+" 分";
+  return m+" 分";
+}
+function tokyoMemoryText(mem){
+  if(!mem||mem.used_mib==null||mem.total_mib==null) return "缺";
+  return mem.used_mib+"／"+mem.total_mib+" MiB";
+}
+function tokyoStateInfo(state){
+  if(state==="running") return {cls:"running", label:"運行中", shape:"dot"};
+  if(state==="stopped") return {cls:"stopped", label:"已停止", shape:"square"};
+  return {cls:"not-started", label:"尚未開始", shape:"dash"};
+}
+function tokyoMarketCard(m){
+  const st=tokyoStateInfo(m&&m.state);
+  const label=(m&&m.stateLabel)||st.label;
+  const quote=(m&&m.state==="not_started")?"缺":tokyoTimeText(m&&m.lastQuoteAt);
+  const beat=(m&&m.state==="not_started")?"缺":tokyoTimeText(m&&m.lastHeartbeatAt);
+  const gaps=(m&&m.state==="not_started")?"缺":(m&&m.todayGaps==null?"缺":String(m.todayGaps));
+  const name=(m&&m.name)||"缺";
+  return `<article class="tokyo-mkt ${st.cls}" data-market="${esc((m&&m.id)||"")}">
+    <header class="tokyo-mkt-hd"><span class="tokyo-mkt-name">${esc(name)}</span>
+      <span class="tokyo-state ${st.cls}"><i data-shape="${st.shape}" aria-hidden="true"></i>${esc(label)}</span>
+    </header>
+    <dl class="tokyo-dl">
+      <div><dt>最後報價</dt><dd>${esc(quote)}</dd></div>
+      <div><dt>最後心跳</dt><dd>${esc(beat)}</dd></div>
+      <div><dt>今日斷線</dt><dd>${esc(gaps)}</dd></div>
+    </dl>
+  </article>`;
+}
+function tokyoPanelHTML(){
+  const t=(D&&D.trade&&D.trade.tokyo)||{};
+  const host=t.host||{};
+  const markets=t.markets||{};
+  const order=["tw","us","mtx","crypto"];
+  const cards=order.map(id=>tokyoMarketCard(markets[id]||{id,name:({tw:"台股",us:"美股",mtx:"台指期",crypto:"幣圈"})[id],state:"not_started",stateLabel:"尚未開始"})).join("");
+  const asOf=tokyoTimeText(t.asOf||host.heartbeatAt);
+  const stale=(()=>{const ts=parseTP(t.asOf);if(isNaN(ts))return true;return (Date.now()-ts)>15*60*1000;})();
+  const mode=host.mode==="live"?"正式運行":"影子模擬中，尚未切換發訊";
+  const mem=tokyoMemoryText(host.memory);
+  const up=tokyoUptimeText(host.uptimeSec);
+  const avail=t.available!==false && (t.asOf||host.heartbeatAt);
+  const dataLine=avail?(stale?("資料過期 · "+asOf):("資料 "+asOf)):("主機資料缺");
+  return `<div class="tokyo-host">
+      <div class="tokyo-host-top">
+        <div class="tokyo-host-title"><b>東京主機</b><span class="tokyo-mode">${esc(mode)}</span></div>
+        <div class="tokyo-host-meta">${esc(dataLine)}</div>
+      </div>
+      <div class="tokyo-host-stats">
+        <span>記憶體 ${esc(mem)}</span>
+        <span>已開機 ${esc(up)}</span>
+      </div>
+    </div>
+    <div class="tokyo-markets">${cards}</div>
+    <p class="tokyo-note">模擬結果，非投資建議。尚未在主機上即時跑的市場顯示「尚未開始」。時間為台北時間。</p>`;
+}
+function renderTokyoPanel(){
+  const el=document.getElementById("tokyo-panel");
+  if(!el) return;
+  el.innerHTML=tokyoPanelHTML();
+}
+
+function renderFloors(){for(const f of FLOORS){const F=floorsEl[f.id],s=floorState(f);
+  if(f.id==="trade"){ if(typeof renderTokyoPanel==="function") renderTokyoPanel(); continue; }
+  const b=F.el.querySelector(".bubble");
+  if(b){b.querySelector(".dot").className="dot "+s.cat;b.querySelector("b").textContent=s.label;b.querySelector(".t").textContent=noemo(s.text);}
   const fv=F.el.querySelector(".fviz"); if(fv) fv.innerHTML=D?floorVizHTML(f.id):"";
   if(f.id==="director"&&D){const a=usageAlert();F.el.classList.toggle("usage-alert",a.level==="red");F.el.classList.toggle("usage-warn",a.level==="yellow");F.el.classList.toggle("usage-stale",a.level==="gray");}}
   if(D&&D.game) document.querySelectorAll(".play-link").forEach(a=>{a.href=D.game.url;a.textContent="進入遊戲 "+D.game.version;});

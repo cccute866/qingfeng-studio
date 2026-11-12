@@ -652,6 +652,44 @@ button.wl-row:active{background:#ffffff08}
   .floor .room.room-iso{/* 小人散步已在 JS 關閉 */}
 }
 
+
+/* 7F 交易室正中：東京主機狀態欄（取代 2D 等角動畫圖，偉翔 2026-11-12 11:01） */
+.floor.floor-tokyo{cursor:default;overflow:visible;background:transparent;box-shadow:none;border:0}
+.tokyo-panel{background:linear-gradient(180deg,#141c28f2,#0e1520f2);border:1px solid var(--line2);border-radius:14px;padding:12px 12px 10px;color:var(--text);box-shadow:0 8px 28px #0008}
+.tokyo-host{margin-bottom:10px}
+.tokyo-host-top{display:flex;flex-direction:column;gap:2px;min-width:0}
+.tokyo-host-title{display:flex;align-items:center;flex-wrap:wrap;gap:8px;min-width:0}
+.tokyo-host-title b{font-size:var(--fs-title);font-weight:800;color:var(--text)}
+.tokyo-mode{display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;font-size:11.5px;font-weight:700;color:#ffe9a8;border:1px solid #C9A22766;background:#1a160ee8;white-space:nowrap}
+.tokyo-host-meta{font-size:var(--fs-meta);font-weight:var(--fw-meta);color:var(--c-meta);line-height:1.3}
+.tokyo-host-stats{display:flex;flex-wrap:wrap;gap:8px 14px;margin-top:6px;font-size:13px;color:var(--text)}
+.tokyo-host-stats span{background:#0b121a;border:1px solid var(--line);border-radius:10px;padding:6px 10px;font-variant-numeric:tabular-nums}
+.tokyo-markets{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.tokyo-mkt{background:#0b121a;border:1px solid var(--line);border-radius:12px;padding:10px 10px 8px;min-width:0;min-height:88px;display:flex;flex-direction:column;gap:6px}
+.tokyo-mkt-hd{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}
+.tokyo-mkt-name{font-size:15px;font-weight:700;color:var(--text)}
+.tokyo-state{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;white-space:nowrap}
+.tokyo-state i{width:10px;height:10px;flex:none;box-sizing:border-box}
+.tokyo-state.running{color:var(--work)}
+.tokyo-state.running i{border-radius:50%;background:var(--work)}
+.tokyo-state.stopped{color:var(--red)}
+.tokyo-state.stopped i{border-radius:2px;background:var(--red)}
+.tokyo-state.not-started{color:var(--mute)}
+.tokyo-state.not-started i{border-radius:50%;background:transparent;border:2px dashed var(--mute)}
+.tokyo-dl{margin:0;display:flex;flex-direction:column;gap:3px}
+.tokyo-dl div{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.tokyo-dl dt{font-size:12px;color:var(--c-meta);font-weight:500;white-space:nowrap;flex:none}
+.tokyo-dl dd{margin:0;font-size:12.5px;font-weight:600;color:var(--text);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+.tokyo-note{margin:8px 0 0;font-size:11.5px;color:var(--c-meta);line-height:1.4}
+@media (max-width:374px){
+  .tokyo-markets{grid-template-columns:1fr}
+  .tokyo-mkt{min-height:76px}
+}
+@media (min-width:390px){
+  .tokyo-panel{padding:14px 14px 12px}
+}
+
+
 /* 策略簿卡片（庫存／策略中心） */
 .sbook-note{font-size:12px;margin:4px 0 8px;line-height:1.45}
 .sbook-sec{margin-top:10px}
