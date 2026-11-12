@@ -66,6 +66,7 @@ function hm(d){return String(d.getUTCHours()).padStart(2,"0")+":"+String(d.getUT
 function nowMin(){const d=tpNow();return d.getUTCHours()*60+d.getUTCMinutes()+d.getUTCSeconds()/60;}
 function todayStr(){return tpNow().toISOString().slice(0,10);}
 function parseTP(s){const m=/^(\d+)-(\d+)-(\d+)[ T](\d+):(\d+)/.exec(s||"");return m?Date.UTC(+m[1],m[2]-1,+m[3],+m[4]-8,+m[5]):NaN;}
+function parseTPSec(s){const m=/^(\d+)-(\d+)-(\d+)[ T](\d+):(\d+)(?::(\d+))?/.exec(s||"");return m?Date.UTC(+m[1],m[2]-1,+m[3],+m[4]-8,+m[5],+(m[6]||0)):NaN;}
 function agoText(s){const t=parseTP(s);if(isNaN(t))return"";const m=Math.max(0,Math.round((Date.now()-t)/60000));return m<1?"剛剛更新":m<60?m+" 分鐘前更新":m<1440?Math.floor(m/60)+" 小時前更新":Math.floor(m/1440)+" 天前更新";}
 function mm(s){const p=s.split(":");return +p[0]*60+ +p[1];}
 function fmtAt(s){if(!s)return"";return s.slice(0,10)===todayStr()?s.slice(11,16):s.slice(5,16).replace("-","/");}
@@ -2905,6 +2906,8 @@ function brokerPosListHTML(p, opts){
 }
 function ledgerTimeText(p){
   p=p||((D&&D.trade&&D.trade.perf)||{});
+  const live=(p.livePositionsAsOf||"").trim();
+  if(live) return "持倉更新時間 "+tokyoTimeText(live,true)+"（台北）";
   const t=(p.ledgerUpdated||"").trim();
   return t?("帳本時間 "+t+"（台北）"):"帳本時間 缺";
 }
@@ -3138,14 +3141,15 @@ function scheduleMissingHTML(){const ms=(D&&D.scheduleMissing)||[];
 function musicCardHTML(){const m=RM.music;if(!m)return"";const s=memberState("music"),c=(D.cards||{}).music||{},ds=(D.deptState||{}).music;
   return `<div class="card music-zone" id="music-card"><h2>5F 音樂角 · ${esc(m.name)}</h2>${floorBriefHTML("音樂部門在 5F 美術部的子區（音樂角）。"+(ds&&ds.at?"STATE 更新 "+String(ds.at).slice(5).replace("-","/")+"。":"目前無狀態檔。"))}${keyCardsHTML([{v:s.cat==="work"?"工作中":"待命",l:"狀態",note:noemo(s.text)||"無狀態"},{v:"ch01–03",l:"原創 BGM",note:"已交，待接入／待試聽"}])}<div class="muted" style="margin-top:6px">剛完成：${esc(noemo(c.recent)||"無狀態")}</div>${rosterCardsHTML(["music"])}</div>`;}
 
-function tokyoTimeText(s){
+function tokyoTimeText(s, withSec){
   if(!s) return "缺";
-  const t=parseTP(s);
+  const t=typeof parseTPSec==="function"?parseTPSec(s):parseTP(s);
   if(isNaN(t)) return "缺";
-  const d=new Date(t+8*3600e3); // parseTP 已是 UTC 毫秒，對應台北牆鐘用 +8 顯示
+  const d=new Date(t+8*3600e3); // parse 結果已是 UTC 毫秒，對應台北牆鐘用 +8 顯示
   const now=tpNow();
   const same=d.getUTCFullYear()===now.getUTCFullYear()&&d.getUTCMonth()===now.getUTCMonth()&&d.getUTCDate()===now.getUTCDate();
-  const hh=String(d.getUTCHours()).padStart(2,"0")+":"+String(d.getUTCMinutes()).padStart(2,"0");
+  let hh=String(d.getUTCHours()).padStart(2,"0")+":"+String(d.getUTCMinutes()).padStart(2,"0");
+  if(withSec) hh+=":"+String(d.getUTCSeconds()).padStart(2,"0");
   if(same) return hh;
   return (d.getUTCMonth()+1)+"/"+d.getUTCDate()+" "+hh;
 }
@@ -3190,13 +3194,13 @@ function tokyoPanelHTML(){
   const markets=t.markets||{};
   const order=["tw","us","mtx","crypto"];
   const cards=order.map(id=>tokyoMarketCard(markets[id]||{id,name:({tw:"台股",us:"美股",mtx:"台指期",crypto:"幣圈"})[id],state:"not_started",stateLabel:"尚未開始"})).join("");
-  const asOf=tokyoTimeText(t.asOf||host.heartbeatAt);
-  const stale=(()=>{const ts=parseTP(t.asOf);if(isNaN(ts))return true;return (Date.now()-ts)>15*60*1000;})();
+  const asOf=tokyoTimeText(t.asOf||host.heartbeatAt, true);
+  const stale=(()=>{const ts=typeof parseTPSec==="function"?parseTPSec(t.asOf):parseTP(t.asOf);if(isNaN(ts))return true;return (Date.now()-ts)>2*60*1000;})();
   const mode=host.mode==="live"?"正式運行":"影子模擬中，尚未切換發訊";
   const mem=tokyoMemoryText(host.memory);
   const up=tokyoUptimeText(host.uptimeSec);
   const avail=t.available!==false && (t.asOf||host.heartbeatAt);
-  const dataLine=avail?(stale?("資料過期 · "+asOf):("資料 "+asOf)):("主機資料缺");
+  const dataLine=avail?(stale?("資料過期 · 更新時間 "+asOf):("更新時間 "+asOf)):("主機資料缺");
   return `<div class="tokyo-host">
       <div class="tokyo-host-top">
         <div class="tokyo-host-title"><b>東京主機</b><span class="tokyo-mode">${esc(mode)}</span></div>
@@ -3727,8 +3731,78 @@ function showTab(t){histTab=t==="hist";document.querySelectorAll(".tab").forEach
   $("#feed").hidden=histTab;$("#nowline").hidden=histTab;$("#hist").hidden=!histTab;if(histTab){renderHist();loadHist();}}
 document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>{showTab(b.dataset.tab);history.replaceState(null,"",b.dataset.tab==="hist"?"#history":location.pathname+location.search);}));
 if(location.hash==="#history")showTab("hist");
-async function load(){try{const r=await fetch("data.json?t="+Date.now(),{cache:"no-store"});if(!r.ok)return;D=await r.json();renderAll();if(histTab)loadHist();if((location.hash||"")==="#skills")openSkillsCatalog();}catch(e){console.warn("資料暫時讀不到，稍後重試");}}
+function tokyoLiveLooksDirty(obj){
+  try{return /sk-[a-zA-Z0-9]|BEGIN [A-Z ]*PRIVATE KEY|cash_twd|equity_twd|"qty"\s*:/i.test(JSON.stringify(obj));}
+  catch(e){return true;}
+}
+async function fetchTokyoLiveJson(path){
+  const r=await fetch(path+"?t="+Date.now(),{cache:"no-store"});
+  if(!r.ok) return null;
+  const data=await r.json();
+  if(!data||typeof data!=="object"||tokyoLiveLooksDirty(data)) return null;
+  return data;
+}
+function mergeTokyoLive(status, positions){
+  if(!D) return false;
+  D.trade=D.trade||{};
+  let changed=false;
+  if(status&&status.asOf){
+    const baked=((D.trade.tokyo)||{}).asOf;
+    const liveTs=parseTPSec(status.asOf), bakedTs=parseTPSec(baked||"");
+    if(isNaN(bakedTs)||(!isNaN(liveTs)&&liveTs>=bakedTs)){
+      D.trade.tokyo=Object.assign({}, D.trade.tokyo||{}, {
+        available:true,
+        asOf:status.asOf,
+        host:status.host||{},
+        markets:status.markets||{},
+        disclaimer:status.disclaimer||"模擬結果，非投資建議",
+        timezone:status.timezone||"Asia/Taipei",
+        source:"tokyo_direct"
+      });
+      changed=true;
+    }
+  }
+  if(positions&&Array.isArray(positions.positions)){
+    const perf=D.trade.perf||(D.trade.perf={});
+    const liveTs=parseTPSec(positions.asOf||"");
+    const age=isNaN(liveTs)?Infinity:(Date.now()-liveTs);
+    const bakedTs=parseTPSec(perf.livePositionsAsOf||perf.ledgerUpdated||perf.asOf||"");
+    if(!isNaN(liveTs) && (age<=5*60*1000 || isNaN(bakedTs) || liveTs>=bakedTs)){
+      perf.positions=positions.positions;
+      if(positions.positionsNote!=null) perf.positionsNote=positions.positionsNote;
+      if(positions.positionCounts) perf.positionCounts=positions.positionCounts;
+      perf.livePositionsAsOf=positions.asOf;
+      changed=true;
+    }
+  }
+  return changed;
+}
+async function loadTokyoLive(){
+  try{
+    const packed=await Promise.all([
+      fetchTokyoLiveJson("live/tokyo_status.json"),
+      fetchTokyoLiveJson("live/tokyo_positions.json")
+    ]);
+    return mergeTokyoLive(packed[0], packed[1]);
+  }catch(e){return false;}
+}
+function tokyoPositionsSig(list){
+  return (list||[]).map(x=>(x.symbol||"")+"|"+(x.market||"")+"|"+(x.strategyZh||"")).sort().join(";");
+}
+async function loadTokyoLiveAndPatch(){
+  const before=tokyoPositionsSig(((D&&D.trade&&D.trade.perf)||{}).positions||[]);
+  const changed=await loadTokyoLive();
+  if(!changed) return;
+  const after=tokyoPositionsSig(((D&&D.trade&&D.trade.perf)||{}).positions||[]);
+  if(after!==before && typeof renderAll==="function"){renderAll();return;}
+  if(typeof renderTokyoPanel==="function") renderTokyoPanel();
+  const p=(D&&D.trade&&D.trade.perf)||{};
+  document.querySelectorAll("[data-ledger-time]").forEach(el=>{el.textContent=ledgerTimeText(p);});
+  if(typeof invPatchDom==="function") invPatchDom(document, p.positions||[]);
+  if(typeof brokerPatchPos==="function") brokerPatchPos(document, p.positions||[]);
+}
+async function load(){try{const r=await fetch("data.json?t="+Date.now(),{cache:"no-store"});if(!r.ok)return;D=await r.json();await loadTokyoLive();renderAll();if(histTab)loadHist();if((location.hash||"")==="#skills")openSkillsCatalog();}catch(e){console.warn("資料暫時讀不到，稍後重試");}}
 buildTower();tick();load().then(()=>requestAnimationFrame(loop));
-setInterval(load,60000);setInterval(tick,30000);
+setInterval(load,60000);setInterval(tick,30000);setInterval(()=>{if(!document.hidden&&typeof loadTokyoLiveAndPatch==="function")loadTokyoLiveAndPatch();},30000);
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)load();});
 })();
