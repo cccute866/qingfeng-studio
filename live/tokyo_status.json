@@ -1,0 +1,58 @@
+{
+  "schema": 1,
+  "asOf": "2026-11-12T16:41:01+08:00",
+  "timezone": "Asia/Taipei",
+  "host": {
+    "name": "qingfeng-tokyo",
+    "region": "東京",
+    "mode": "live",
+    "memory": {
+      "used_mib": 462,
+      "total_mib": 955,
+      "available_mib": 493
+    },
+    "uptimeSec": 22144,
+    "serviceActive": true,
+    "heartbeatAt": "2026-11-12T16:40:37+08:00",
+    "heartbeatAgeSec": 24
+  },
+  "markets": {
+    "tw": {
+      "id": "tw",
+      "name": "台股",
+      "state": "running",
+      "stateLabel": "運行中",
+      "lastQuoteAt": "2026-11-12T13:29:01+08:00",
+      "lastHeartbeatAt": "2026-11-12T16:40:37+08:00",
+      "todayGaps": 1
+    },
+    "us": {
+      "id": "us",
+      "name": "美股",
+      "state": "not_started",
+      "stateLabel": "尚未開始",
+      "lastQuoteAt": null,
+      "lastHeartbeatAt": null,
+      "todayGaps": null
+    },
+    "mtx": {
+      "id": "mtx",
+      "name": "台指期",
+      "state": "not_started",
+      "stateLabel": "尚未開始",
+      "lastQuoteAt": null,
+      "lastHeartbeatAt": null,
+      "todayGaps": null
+    },
+    "crypto": {
+      "id": "crypto",
+      "name": "幣圈",
+      "state": "running",
+      "stateLabel": "運行中",
+      "lastQuoteAt": "2026-11-12T16:40:36+08:00",
+      "lastHeartbeatAt": "2026-11-12T16:40:37+08:00",
+      "todayGaps": 1
+    }
+  },
+  "disclaimer": "模擬結果，非投資建議"
+}
