@@ -1,0 +1,36 @@
+# 東京外部看守（#205）
+# 每 15 分鐘看 tokyo-live 分支 live/tokyo_status.json 的 asOf。
+# 超過 20 分鐘沒更新就讓本 workflow 失敗，由 GitHub 寄失敗信。
+#
+# 限制（請留意）：
+# 1. GitHub 排程不保證準時，常見會晚幾分鐘，偶發更久。
+# 2. 預設分支 60 天沒有活動（commit），排程會被 GitHub 停用；
+#    tokyo-live 的每分鐘推送不算預設分支活動。網站若有發布到 main 可延續；
+#    若被停用，對 main 再推一次 commit 即可重新啟用。
+# 3. 不要把 TG token 或其他自備秘密放進本倉。本 job 只用 GitHub 自動提供的 GITHUB_TOKEN 拉檔。
+# 4. 失敗信要送到偉翔的 GitHub 帳號：請在通知設定裡打開 Actions 失敗郵件。
+name: tokyo-watch
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+    inputs:
+      max_age_seconds:
+        description: "狀態檔 asOf 允許的最大秒數（預設 1200＝20 分鐘）"
+        required: false
+        default: "1200"
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check tokyo-live status freshness
+        env:
+          MAX_AGE_SECONDS: ${{ github.event.inputs.max_age_seconds || '1200' }}
+          STATUS_URL: https://api.github.com/repos/cccute866/qingfeng-studio/contents/live/tokyo_status.json?ref=tokyo-live
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 .github/scripts/check_tokyo_status.py --url "$STATUS_URL" --max-age "$MAX_AGE_SECONDS"

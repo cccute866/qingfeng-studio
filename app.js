@@ -129,7 +129,7 @@ function floorState(f){
     const eq=perf.equityReturnPct, bh=perf.benchmark0050ReturnPct;
     if(eq!=null && bh!=null){
       const sign=eq>=0?"+":"";
-      return{cat:"work",label:"模擬營運中",text:`報酬 ${sign}${Number(eq).toFixed(1)}% · 0050 ${bh>=0?"+":""}${Number(bh).toFixed(1)}%`};
+      const per=perf.benchmarkPeriodLabel||""; return{cat:"work",label:"模擬營運中",text:`報酬 ${sign}${Number(eq).toFixed(1)}% · 0050 ${bh>=0?"+":""}${Number(bh).toFixed(1)}%${per?"（"+per+"）":""}`};
     }
     const sm=tr.summary||{};
     const ok=sm.ok||0, total=sm.total||0;
@@ -3094,7 +3094,7 @@ function tradeAppHTML(){
 function renderRoomDash(){
   const el=$("#room-dash"); if(!el||!D) return;
   const id=activeFloor;
-  if(id==="trade"){ el.innerHTML=tradeAppHTML(); bindTradeApp(el); return; }
+  if(id==="trade"){ el.innerHTML=publicTradeHTML(); return; }
   if(id==="council"){
     const n=decisionsList().length;
     el.innerHTML=`<div class="card"><h2>今日決定</h2>${floorBriefHTML(n?("這層保存完整決定列表；桌上標示也看得到。共 "+n+" 項。"):"今天還沒有已裁決的決定。")}${n?decisionBoardHTML():emptySoon("今天還沒有已裁決的決定","會議結束後會出現在這裡")}</div>`; return;
@@ -3140,6 +3140,47 @@ function scheduleMissingHTML(){const ms=(D&&D.scheduleMissing)||[];
   return `<div class="sched-miss${ms.length?" has-miss":""}" style="margin-top:6px;font-size:11.5px">排程缺漏（scheduleMissing）：${ms.length?ms.map(x=>esc((x.chip?x.chip+" ":"")+x.what+"（時間缺）")).join("、"):"0 項（schedule.json 每項都有時間）"}</div>`;}
 function musicCardHTML(){const m=RM.music;if(!m)return"";const s=memberState("music"),c=(D.cards||{}).music||{},ds=(D.deptState||{}).music;
   return `<div class="card music-zone" id="music-card"><h2>5F 音樂角 · ${esc(m.name)}</h2>${floorBriefHTML("音樂部門在 5F 美術部的子區（音樂角）。"+(ds&&ds.at?"STATE 更新 "+String(ds.at).slice(5).replace("-","/")+"。":"目前無狀態檔。"))}${keyCardsHTML([{v:s.cat==="work"?"工作中":"待命",l:"狀態",note:noemo(s.text)||"無狀態"},{v:"ch01–03",l:"原創 BGM",note:"已交，待接入／待試聽"}])}<div class="muted" style="margin-top:6px">剛完成：${esc(noemo(c.recent)||"無狀態")}</div>${rosterCardsHTML(["music"])}</div>`;}
+
+
+function fmtSignedPct(v, digits){
+  if(v==null||v==="") return "缺";
+  const n=Number(v);
+  if(!Number.isFinite(n)) return "缺";
+  const d=digits==null?2:digits;
+  return (n>0?"+":"")+n.toFixed(d)+"%";
+}
+function benchPeriodText(p){
+  p=p||((D&&D.trade&&D.trade.perf)||{});
+  const label=p.benchmarkPeriodLabel||"";
+  const start=p.benchmarkStart||"2026-10-29";
+  const end=p.benchmarkEnd||"";
+  const md=s=>{s=String(s||"").slice(0,10); if(!/^\d{4}-\d{2}-\d{2}$/.test(s)) return ""; return String(Number(s.slice(5,7)))+"/"+String(Number(s.slice(8,10)));};
+  const a=label||((md(start)&&md(end))?(md(start)+"–"+md(end)):md(start));
+  const b=md(end);
+  if(a && b) return a+"，0050 資料至 "+b;
+  if(a) return a;
+  return "起算日缺";
+}
+function publicPerfGridHTML(p){
+  p=p||((D&&D.trade&&D.trade.perf)||{});
+  const tw=p.twEquityReturnPct!=null?p.twEquityReturnPct:p.equityReturnPct;
+  const cr=p.cryptoEquityReturnPct;
+  const bh=p.benchmark0050ReturnPct;
+  const tone=v=>{const n=Number(v); if(!Number.isFinite(n)) return ""; return n<0?"dn":(n>0?"up":"");};
+  const cell=(k,v,digits)=>`<div class="tokyo-perf-item"><span class="k">${esc(k)}</span><span class="v ${tone(v)}">${esc(fmtSignedPct(v,digits))}</span></div>`;
+  return `<div class="tokyo-perf">
+    <div class="tokyo-perf-hd">整體報酬</div>
+    <div class="tokyo-perf-grid">
+      ${cell(p.twEquityReturnLabel||"台股", tw, 2)}
+      ${cell(p.cryptoEquityReturnLabel||"幣圈", cr, 2)}
+      ${cell("0050 同期", bh, 1)}
+    </div>
+    <p class="tokyo-perf-period">${esc(benchPeriodText(p))}。公開頁不列逐檔價格、停損、目標或候選。模擬結果，非投資建議。</p>
+  </div>`;
+}
+function publicTradeHTML(){
+  return `<div class="public-trade"><h2>交易室</h2>${publicPerfGridHTML()}<p class="tokyo-note">東京主機狀態見樓層中央。時間為台北時間。</p></div>`;
+}
 
 function tokyoTimeText(s, withSec){
   if(!s) return "缺";
@@ -3212,7 +3253,7 @@ function tokyoPanelHTML(){
       </div>
     </div>
     <div class="tokyo-markets">${cards}</div>
-    <p class="tokyo-note">模擬結果，非投資建議。尚未在主機上即時跑的市場顯示「尚未開始」。時間為台北時間。</p>`;
+    ${publicPerfGridHTML()}<p class="tokyo-note">模擬結果，非投資建議。尚未在主機上即時跑的市場顯示「尚未開始」。時間為台北時間。</p>`;
 }
 function renderTokyoPanel(){
   const el=document.getElementById("tokyo-panel");
@@ -3769,44 +3810,27 @@ function mergeTokyoLive(status, positions){
       changed=true;
     }
   }
-  if(positions&&Array.isArray(positions.positions)){
-    const perf=D.trade.perf||(D.trade.perf={});
-    const liveTs=parseTPSec(positions.asOf||"");
-    const age=isNaN(liveTs)?Infinity:(Date.now()-liveTs);
-    const bakedTs=parseTPSec(perf.livePositionsAsOf||perf.ledgerUpdated||perf.asOf||"");
-    if(!isNaN(liveTs) && (age<=5*60*1000 || isNaN(bakedTs) || liveTs>=bakedTs)){
-      perf.positions=positions.positions;
-      if(positions.positionsNote!=null) perf.positionsNote=positions.positionsNote;
-      if(positions.positionCounts) perf.positionCounts=positions.positionCounts;
-      perf.livePositionsAsOf=positions.asOf;
-      changed=true;
-    }
-  }
+  // #205：公開頁不合併逐檔持倉／價格；持倉明細改走私網（#176）
+  void positions;
   return changed;
 }
 async function loadTokyoLive(){
   try{
-    const packed=await Promise.all([
-      fetchTokyoLiveJson("live/tokyo_status.json"),
-      fetchTokyoLiveJson("live/tokyo_positions.json")
-    ]);
-    return mergeTokyoLive(packed[0], packed[1]);
+    const status=await fetchTokyoLiveJson("live/tokyo_status.json");
+    return mergeTokyoLive(status, null);
   }catch(e){return false;}
 }
 function tokyoPositionsSig(list){
   return (list||[]).map(x=>(x.symbol||"")+"|"+(x.market||"")+"|"+(x.strategyZh||"")).sort().join(";");
 }
 async function loadTokyoLiveAndPatch(){
-  const before=tokyoPositionsSig(((D&&D.trade&&D.trade.perf)||{}).positions||[]);
   const changed=await loadTokyoLive();
   if(!changed) return;
-  const after=tokyoPositionsSig(((D&&D.trade&&D.trade.perf)||{}).positions||[]);
-  if(after!==before && typeof renderAll==="function"){renderAll();return;}
   if(typeof renderTokyoPanel==="function") renderTokyoPanel();
-  const p=(D&&D.trade&&D.trade.perf)||{};
-  document.querySelectorAll("[data-ledger-time]").forEach(el=>{el.textContent=ledgerTimeText(p);});
-  if(typeof invPatchDom==="function") invPatchDom(document, p.positions||[]);
-  if(typeof brokerPatchPos==="function") brokerPatchPos(document, p.positions||[]);
+  const dash=document.getElementById("room-dash");
+  if(dash && typeof activeFloor==="string" && activeFloor==="trade" && typeof publicTradeHTML==="function"){
+    dash.innerHTML=publicTradeHTML();
+  }
 }
 async function load(){try{const r=await fetch("data.json?t="+Date.now(),{cache:"no-store"});if(!r.ok)return;D=await r.json();await loadTokyoLive();renderAll();if(histTab)loadHist();if((location.hash||"")==="#skills")openSkillsCatalog();}catch(e){console.warn("資料暫時讀不到，稍後重試");}}
 buildTower();tick();load().then(()=>requestAnimationFrame(loop));

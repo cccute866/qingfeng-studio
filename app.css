@@ -681,6 +681,21 @@ button.wl-row:active{background:#ffffff08}
 .tokyo-dl dt{font-size:12px;color:var(--c-meta);font-weight:500;white-space:nowrap;flex:none}
 .tokyo-dl dd{margin:0;font-size:12.5px;font-weight:600;color:var(--text);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
 .tokyo-note{margin:8px 0 0;font-size:11.5px;color:var(--c-meta);line-height:1.4}
+
+.tokyo-perf{margin:10px 0 0;padding-top:10px;border-top:1px solid var(--line)}
+.tokyo-perf-hd{font-size:13px;font-weight:700;color:var(--text);margin:0 0 6px}
+.tokyo-perf-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.tokyo-perf-item{background:#0b121a;border:1px solid var(--line);border-radius:10px;padding:8px 10px;min-width:0}
+.tokyo-perf-item .k{display:block;font-size:11.5px;color:var(--c-meta);font-weight:600}
+.tokyo-perf-item .v{display:block;margin-top:2px;font-size:18px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--text);line-height:1.15}
+.tokyo-perf-item .v.up{color:var(--work)}
+.tokyo-perf-item .v.dn{color:var(--red)}
+.tokyo-perf-period{margin:6px 0 0;font-size:11.5px;color:var(--c-meta);line-height:1.4}
+.public-trade{background:linear-gradient(180deg,#141c28f2,#0e1520f2);border:1px solid var(--line2);border-radius:14px;padding:14px 14px 12px;color:var(--text)}
+.public-trade h2{margin:0 0 8px;font-size:var(--fs-title);font-weight:800}
+@media (max-width:374px){
+  .tokyo-perf-grid{grid-template-columns:1fr}
+}
 @media (max-width:374px){
   .tokyo-markets{grid-template-columns:1fr}
   .tokyo-mkt{min-height:76px}
