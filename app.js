@@ -1431,12 +1431,8 @@ const TRADE_TABS = [
   {id:"book", label:"庫存"},
   {id:"log", label:"練習"},
 ];
-/** 動態宇宙：不再寫死核心十幾檔；名稱表僅作缺資料後備。 */
-const NAME_FALLBACK = {
-  "2330":"台積電","2317":"鴻海","2454":"聯發科","2303":"聯電","2382":"廣達","2308":"台達電",
-  "2412":"中華電","2881":"富邦金","2882":"國泰金","2891":"中信金","2002":"中鋼","1301":"台塑",
-  "00631L":"元大台灣50正2","BTC":"比特幣","ETH":"以太幣","SOL":"Solana","XRP":"瑞波幣",
-};
+/** #245：公開站不放個股名稱表。 */
+const NAME_FALLBACK = {};
 function universeToday(){
   const p=(D&&D.trade&&D.trade.perf)||{};
   return p.universeToday || {};
@@ -1447,14 +1443,14 @@ function dynamicWatchTW(){
   if(top.length) return top;
   // 後備：報價 watchlist 鍵
   const w=((p)=>((p.quotes||{}).watchlist||{}))((D&&D.trade&&D.trade.perf)||{});
-  return Object.keys(w).filter(k=>/^\d/.test(k)||k==="00631L").slice(0,12).map(c=>({code:c, name:(w[c]&&w[c].name)||NAME_FALLBACK[c]||c, reason:""}));
+  return Object.keys(w).filter(k=>/^\d/.test(k)).slice(0,12).map(c=>({code:c, name:(w[c]&&w[c].name)||NAME_FALLBACK[c]||c, reason:""}));
 }
 function dynamicWatchCrypto(){
   const u=universeToday();
   const top=(u.cryptoTop||[]).map(r=>({code:String(r.code||""), name:r.name||NAME_FALLBACK[r.code]||String(r.code||""), reason:r.reason||""})).filter(x=>x.code);
   if(top.length) return top;
   const w=((p)=>((p.quotes||{}).watchlist||{}))((D&&D.trade&&D.trade.perf)||{});
-  return Object.keys(w).filter(k=>!/^\d/.test(k)&&k!=="00631L").slice(0,12).map(c=>({code:c, name:(w[c]&&w[c].name)||NAME_FALLBACK[c]||c, reason:""}));
+  return Object.keys(w).filter(k=>!/^\d/.test(k)).slice(0,12).map(c=>({code:c, name:(w[c]&&w[c].name)||NAME_FALLBACK[c]||c, reason:""}));
 }
 
 
@@ -1573,8 +1569,7 @@ function symName(code){
   const pick=(u.strategyPicks||[]).find(x=>String(x.code)===String(code));
   if(pick&&pick.name && pick.name!==code) return pick.name;
   if(code==="TAIEX") return "加權指數";
-  if(code==="0050") return "元大台灣50";
-  if(code==="00631L") return "元大台灣50正2";
+  if(code==="0050") return "0050";
   // 台股代號缺名
   if(/^\d{4}/.test(String(code||"")) || String(code||"").endsWith("L")) return "(名稱缺)";
   return "";
@@ -1603,7 +1598,7 @@ function fmtPrice(v, code){
 function withSymNames(text){
   let s=String(text||"");
   const fromMap=Object.keys(twNamesMap()||{});
-  const codes=[...new Set(fromMap.concat(["0050","00631L","2330","2317","2454","2303","2382","2308","2412","2881","2882","2891","2002","1301","BTC","ETH","SOL","XRP"]))];
+  const codes=[...new Set(fromMap.concat(["0050"]))];
   // 長代號先替換，避免部分重疊
   codes.sort((a,b)=>String(b).length-String(a).length);
   codes.forEach(code=>{
@@ -1808,7 +1803,7 @@ function strategyBookRows(){
     bench:false
   }));
   (p.benchmarksVirtual||[]).forEach(b=>{
-    const lab=b.id==="BENCH_0050"?"對照：0050":(b.id==="BENCH_BTC"?"對照：比特幣":(b.symbol||b.id||"對照線"));
+    const lab=b.id==="BENCH_0050"?"對照：0050":(b.id==="BENCH_BTC"?"對照：BTC":(b.symbol||b.id||"對照線"));
     rows.push({id:b.id, name:lab, status:"對照線", allocPct:0, navPct:b.returnPct, market:"", bench:true, note:b.note, symbol:b.symbol});
   });
   return rows;
@@ -1816,7 +1811,7 @@ function strategyBookRows(){
 function bookCardHTML(r){
   const bench=!!r.bench || r.status==="對照線";
   const name=bench
-    ? (r.id==="BENCH_0050"||/0050/.test(String(r.symbol||r.name||""))?"對照：0050":(/BTC|比特幣/.test(String(r.symbol||r.name||r.id||""))?"對照：比特幣":(r.name||"對照線")))
+    ? (r.id==="BENCH_0050"||/0050/.test(String(r.symbol||r.name||""))?"對照：0050":(/BTC/.test(String(r.symbol||r.name||r.id||""))?"對照：BTC":(r.name||"對照線")))
     : (r.name||"—");
   const status=bench?"對照線（不占資金）":(r.status||"—");
   const alloc=bench?"—":(r.allocPct!=null?`${r.allocPct}%`:"—");
@@ -1856,7 +1851,7 @@ function strategyBookHTML(){
 
 
 /* ---- 模擬庫存（券商庫存風；幣圈 OKX 公開 REST 約 10 秒；台股瀏覽器多半過不了 CORS） ---- */
-const INV_OKX_MAP = {"BTC-USD":"BTC-USDT","ETH-USD":"ETH-USDT","SOL-USD":"SOL-USDT","XRP-USD":"XRP-USDT","BTC":"BTC-USDT","ETH":"ETH-USDT","SOL":"SOL-USDT","XRP":"XRP-USDT"};
+const INV_OKX_MAP = {};
 let __invLiveTimer = null;
 let __invLiveMarks = {}; // symbol -> {mark, quoteTime, live, source}
 let __invTwLiveTried = false;
@@ -3179,7 +3174,7 @@ function publicPerfGridHTML(p){
   </div>`;
 }
 function publicTradeHTML(){
-  return `<div class="public-trade"><h2>交易室</h2>${publicPerfGridHTML()}<p class="tokyo-note">東京主機狀態見樓層中央。時間為台北時間。</p></div>`;
+  return `<div class="public-trade"><h2>交易室</h2>${publicPerfGridHTML()}<p class="tokyo-note">詳情在私人頁。東京主機狀態見樓層中央。時間為台北時間。</p></div>`;
 }
 
 function tradeSummaryHTML(){
