@@ -3182,6 +3182,17 @@ function publicTradeHTML(){
   return `<div class="public-trade"><h2>交易室</h2>${publicPerfGridHTML()}<p class="tokyo-note">東京主機狀態見樓層中央。時間為台北時間。</p></div>`;
 }
 
+function tradeSummaryHTML(){
+  const t=(D&&D.trade&&D.trade.tokyo)||{};
+  const markets=t.markets||{};
+  const order=["tw","us","mtx","crypto"];
+  const cards=order.map(id=>tokyoMarketCard(markets[id]||{id,name:({tw:"台股",us:"美股",mtx:"台指期",crypto:"幣圈"})[id],state:"not_started",stateLabel:"尚未開始"})).join("");
+  const asOf=tokyoTimeText(t.asOf||(t.host||{}).heartbeatAt, true);
+  const line=(t.available!==false&&(t.asOf||(t.host||{}).heartbeatAt))?("東京狀態更新時間 "+asOf):"東京主機資料缺";
+  return `<div class="public-trade"><h4>東京狀態摘要</h4><div class="muted">${esc(line)}（台北時間）</div>
+    <div class="tokyo-markets">${cards}</div>${publicPerfGridHTML()}
+    <p class="tokyo-note">明細請看私人頁（需 Tailscale）。模擬結果，非投資建議。</p></div>`;
+}
 function tokyoTimeText(s, withSec){
   if(!s) return "缺";
   const t=typeof parseTPSec==="function"?parseTPSec(s):parseTP(s);
@@ -3647,7 +3658,7 @@ function openFloor(id,opt){opt=opt||{};const f=FLOORS.find(x=>x.id===id);let h=h
     h+=detailFoldHTML("版本紀錄", `<table>${(v.releases||[]).map(r=>`<tr><td><b>${esc(r.ver)}</b></td><td class="muted">${esc(fmtAt(r.at))}</td><td>${esc(r.msg)}</td></tr>`).join("")}</table>`);
     h+=`<h4>待辦進度</h4>${progressHTML()}`+memberBtn("zhiya");
   }
-  if(id==="trade"){h+=tradeAppHTML();}
+  if(id==="trade"){h+=tradeSummaryHTML();}
   if(id==="art"){const a=D.art;if(a){
     h+=floorBriefHTML("這層做美術交件。今天交了 "+(a.todayCount||0)+" 張"+(a.integrated?"，已整合進遊戲":"，還在等整合")+"。");
     h+=keyCardsHTML([
