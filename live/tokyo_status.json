@@ -1,29 +1,29 @@
 {
   "schema": 1,
-  "asOf": "2026-11-14T06:20:01+08:00",
+  "asOf": "2026-11-14T06:21:01+08:00",
   "timezone": "Asia/Taipei",
   "host": {
     "name": "qingfeng-tokyo",
     "region": "東京",
     "mode": "live",
     "memory": {
-      "used_mib": 603,
+      "used_mib": 531,
       "total_mib": 955,
-      "available_mib": 352
+      "available_mib": 424
     },
-    "uptimeSec": 157684,
-    "serviceActive": false,
-    "heartbeatAt": "2026-11-14T06:19:10+08:00",
-    "heartbeatAgeSec": 51
+    "uptimeSec": 157744,
+    "serviceActive": true,
+    "heartbeatAt": "2026-11-14T06:20:20+08:00",
+    "heartbeatAgeSec": 41
   },
   "markets": {
     "tw": {
       "id": "tw",
       "name": "台股",
-      "state": "stopped",
-      "stateLabel": "已停止",
+      "state": "running",
+      "stateLabel": "運行中",
       "lastQuoteAt": null,
-      "lastHeartbeatAt": "2026-11-14T06:19:10+08:00",
+      "lastHeartbeatAt": "2026-11-14T06:20:20+08:00",
       "todayGaps": 0
     },
     "us": {
@@ -47,10 +47,10 @@
     "crypto": {
       "id": "crypto",
       "name": "幣圈",
-      "state": "stopped",
-      "stateLabel": "已停止",
-      "lastQuoteAt": "2026-11-14T06:19:08+08:00",
-      "lastHeartbeatAt": "2026-11-14T06:19:10+08:00",
+      "state": "running",
+      "stateLabel": "運行中",
+      "lastQuoteAt": "2026-11-14T06:20:12+08:00",
+      "lastHeartbeatAt": "2026-11-14T06:20:20+08:00",
       "todayGaps": 0
     }
   },
