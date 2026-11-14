@@ -61,6 +61,7 @@ const CAT={work:"工作中",meet:"開會中",done:"完成",wait:"待命",you:"�
 const LIVEMAP={"工作中":"work","開會中":"meet","完成":"done","待命":"wait","等你":"you"};
 let D=null, floorsEl={}, chars={}, thinking=null, view="city", activeFloor="lobby";
 
+const OFFICE_SPRITES=false;
 function tpNow(){return new Date(Date.now()+8*3600e3);}
 function hm(d){return String(d.getUTCHours()).padStart(2,"0")+":"+String(d.getUTCMinutes()).padStart(2,"0");}
 function nowMin(){const d=tpNow();return d.getUTCHours()*60+d.getUTCMinutes()+d.getUTCSeconds()/60;}
@@ -117,7 +118,7 @@ function memberState(id){
   const min=nowMin(); const r=oStateAt(o,m,min); const st=r.st||{};
   let cat=st.tone||"wait";
   let text=st.short||CAT[cat],full=st.full;
-  if(id==="weixiang"&&D){const n=(D.director&&D.director.needYou||[]).length;if(n&&cat!=="work")cat="you";text="試玩 "+((D.game&&D.game.version)||"")+"，"+n+" 件等你決定";full="新版 "+((D.game&&D.game.version)||"")+" 已上線，等你試玩回饋手感；上架路線圖有 "+n+" 件需要你本人決定或開通（細節在總監室）。";}
+  if(id==="weixiang"&&D){const n=(D.director&&D.director.needYou||[]).length;if(n&&cat!=="work")cat="you";text=n?(n+" 件等你決定"):"目前沒有等你決定的事";full=n?("布告欄有 "+n+" 件等你本人決定（細節在總裁辦公室）。"):"布告欄目前沒有等你決定的事。";}
   let since=NaN; if(r.where==="meeting"){const d=tpNow();since=Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate(),0,0)-8*3600e3+mm(o.meeting.from)*60000;}
   return{cat,text,full,where:r.where,live:false,since};
 }
@@ -175,7 +176,7 @@ function setView(v, floorId){
       if(v==="city") sub.textContent="城市地圖 · 點大樓進入";
       else if(v==="tower") sub.textContent="大樓剖面 · 點樓層進入";
       else if(v==="room"&&activeFloor==="trade") sub.textContent="交易室 · 東京主機各市場狀態";
-      else sub.textContent="樓層現場 · 點小人看他在想什麼";
+      else sub.textContent="樓層現場 · 點卡片看細節";
     }
   if(v==="room"){
     for(const k in floorsEl){
@@ -239,12 +240,13 @@ function buildTower(){
     t.appendChild(el);
     floorsEl[f.id]={el,cv:el.querySelector("canvas"),hits:el.querySelector(".hits"),room:el.querySelector(".room"),f,visible:false};
   }
-  for(const id of Object.keys(SPOT)){
+  // #279 偉翔 11/14：辦公室（9F 等）不再放 2D 動畫小人；成員狀態看樓層卡片與名單
+  if(OFFICE_SPRITES) for(const id of Object.keys(SPOT)){
     const b=document.createElement("button");b.className="hit";b.setAttribute("aria-label",NAMES[id]+"：看他在做什麼");b.innerHTML=`<span class="tag">${SHORT[id]}</span><span class="stale-tag" hidden>停更</span>`;
     b.addEventListener("click",e=>{e.stopPropagation();react(id);openMember(id);});
     chars[id]={id,btn:b,x:SPOT[id].x,y:SPOT[id].y,floor:SPOT[id].f,pose:"type",view:"back",bounce:0,wave:0,stroll:null,lastStroll:performance.now()+Math.random()*8000};
   }
-  preloadSprites();
+  if(OFFICE_SPRITES) preloadSprites();
   renderBands();
   const et=$("#enter-tower"); if(et) et.onclick=()=>setView("tower");
   const bc=$("#back-city"); if(bc) bc.onclick=()=>setView("city");
@@ -2009,9 +2011,11 @@ function invOverviewHTML(p){
   const crLab=p.cryptoEquityReturnLabel||"幣圈";
   const twMiss=tw==null||tw==="";
   const crMiss=cr==null||cr==="";
+  const liveNote=p.liveDataNote?`<div class="muted">${esc(p.liveDataNote)}（台北時間）</div>`:"";
   return `<div class="twall twall-idx" role="group" aria-label="帳戶總覽">
     ${tblkHTML({name:twLab+"累計", value:twMiss?"缺":invFmtPct(tw), num:tw, missing:twMiss, foot:"對照 0050 "+fmtPct(p.benchmark0050ReturnPct), showMiss:true})}
     ${tblkHTML({name:crLab+"累計", value:crMiss?"缺":invFmtPct(cr), num:cr, missing:crMiss, foot:"對照 BTC "+fmtPct(p.benchmarkBtcReturnPct), showMiss:true})}
+    ${liveNote}
   </div>`;
 }
 function invPosCardHTML(raw){
@@ -2989,7 +2993,8 @@ function brokerBookHTML(){
   const crMiss=cr==null||cr==="";
   const twSpan=twMiss?"缺":`<span class="${brokerToneClass(tw,false)}">${invFmtPct(tw)}</span>`;
   const crSpan=crMiss?"缺":`<span class="${brokerToneClass(cr,false)}">${invFmtPct(cr)}</span>`;
-  const cumLine=`<div class="br-meta">台股累計 ${twSpan} · 幣圈累計 ${crSpan}</div>`;
+  const liveBit=p.liveDataNote?` · ${esc(p.liveDataNote)}（台北時間）`:"";
+  const cumLine=`<div class="br-meta">台股累計 ${twSpan} · 幣圈累計 ${crSpan}${liveBit}</div>`;
   const pend=pendingTradeGroups(p);
   const fil=brMarketFilter();
   const hideExtras=fil==="mtx"||fil==="us";
@@ -3117,7 +3122,7 @@ function renderRoomDash(){
   }
   if(id==="director"){
     const n=((D.director||{}).needYou||[]).length;
-    el.innerHTML=`<div class="card" id="usage-card-room" style="cursor:pointer"><h2>總裁辦公室</h2>${floorBriefHTML("今天有 "+n+" 件等你決定；用量明細點「看明細」。")}<div class="muted">點這張卡或右上「看明細」打開用量明細</div></div>`;
+    el.innerHTML=`<div class="card" id="usage-card-room" style="cursor:pointer"><h2>總裁辦公室</h2>${floorBriefHTML((n?("布告欄有 "+n+" 件等你決定"):"目前沒有等你決定的事")+"；用量明細點「看明細」。")}<div class="muted">點這張卡或右上「看明細」打開用量明細</div></div>`;
     /* SITE-ROSTER：#usage-card-room 原本只有 cursor:pointer、沒有點擊處理；補上→開總裁室並展開用量明細 */
     const uc=$("#usage-card-room"); if(uc) uc.onclick=()=>openFloor("director",{usage:true});
     return;
@@ -3171,6 +3176,7 @@ function publicPerfGridHTML(p){
       ${cell("0050 同期", bh, 1)}
     </div>
     <p class="tokyo-perf-period">${esc(benchPeriodText(p))}。公開頁不列逐檔價格、停損、目標或候選。模擬結果，非投資建議。</p>
+    ${p.liveDataNote?`<p class="tokyo-perf-period">${esc(p.liveDataNote)}（台北時間）</p>`:""}
   </div>`;
 }
 function publicTradeHTML(){
@@ -3217,7 +3223,41 @@ function tokyoStateInfo(state){
   if(state==="stopped") return {cls:"stopped", label:"已停止", shape:"square"};
   return {cls:"not-started", label:"尚未開始", shape:"dash"};
 }
+// #279：台股／台指期休市判斷（休市日讀 data.json marketCalendar，源自 data/market_calendar.json；不寫死日期）
+// d：UTC 欄位＝台北牆鐘的 Date（同 tpNow()）。回傳 null＝今天有開盤；否則 {closed,label,reason,next}
+function marketClosedInfo(id, d, cal){
+  cal=cal||{};
+  const mk=cal.markets||["tw","mtx"];
+  if(!id||mk.indexOf(id)<0||!d||isNaN(d.getTime())) return null;
+  const ds=x=>x.toISOString().slice(0,10);
+  const why=x=>{const k=ds(x), wd=x.getUTCDay();
+    const ty=(cal.typhoon||{})[k]; if(ty) return (typeof ty==="string"&&ty)||"颱風停止交易";
+    const h=(cal.holidays||{})[k]; if(h) return String(h);
+    return wd===6?"週六":(wd===0?"週日":"");};
+  const r=why(d);
+  if(!r) return null;
+  if(id==="mtx"){ // 夜盤：前一交易日 15:00 起到今天 05:00 前仍在交易
+    const ns=((cal.nightSession||{}).mtx||{}).to||"05:00"; const hm2=ns.split(":").map(Number);
+    if(d.getUTCHours()*60+d.getUTCMinutes()<hm2[0]*60+(hm2[1]||0) && !why(new Date(d.getTime()-864e5))) return null;
+  }
+  let nx=new Date(d.getTime()); for(let i=0;i<20;i++){nx=new Date(nx.getTime()+864e5); if(!why(nx)) break;}
+  const next=(nx.getUTCMonth()+1)+"/"+nx.getUTCDate()+"（"+"日一二三四五六"[nx.getUTCDay()]+"）";
+  return {closed:true,label:"休市",reason:r,next};
+}
 function tokyoMarketCard(m){
+  const cz=marketClosedInfo(m&&m.id, tpNow(), (typeof D!=="undefined"&&D&&D.marketCalendar)||{});
+  if(cz){
+    return `<article class="tokyo-mkt closed" data-market="${esc((m&&m.id)||"")}">
+    <header class="tokyo-mkt-hd"><span class="tokyo-mkt-name">${esc((m&&m.name)||"缺")}</span>
+      <span class="tokyo-state closed"><i data-shape="bar" aria-hidden="true"></i>休市</span>
+    </header>
+    <dl class="tokyo-dl">
+      <div><dt>今天</dt><dd>${esc(cz.reason)}</dd></div>
+      <div><dt>下個交易日</dt><dd>${esc(cz.next)}</dd></div>
+      <div><dt>今日斷線</dt><dd>不計</dd></div>
+    </dl>
+  </article>`;
+  }
   const st=tokyoStateInfo(m&&m.state);
   const label=(m&&m.stateLabel)||st.label;
   const quote=(m&&m.state==="not_started")?"缺":tokyoTimeText(m&&m.lastQuoteAt);
@@ -3259,7 +3299,7 @@ function tokyoPanelHTML(){
       </div>
     </div>
     <div class="tokyo-markets">${cards}</div>
-    ${publicPerfGridHTML()}<p class="tokyo-note">模擬結果，非投資建議。尚未在主機上即時跑的市場顯示「尚未開始」。時間為台北時間。</p>`;
+    <p class="tokyo-note">模擬結果，非投資建議。尚未在主機上即時跑的市場顯示「尚未開始」；台股、台指期遇週末、國定假日或颱風停止交易顯示「休市」。績效看下方「交易室」。時間為台北時間。</p>`;
 }
 function renderTokyoPanel(){
   const el=document.getElementById("tokyo-panel");
@@ -3599,7 +3639,7 @@ function memberBtn(id){return `<div class="mbtn"><button data-m="${id}" class="m
 function head(f,extra){const s=floorState(f);return `<h3>${iconSVG(f.id)}<span class="no">${f.no}</span> ${f.name}</h3><div class="muted"><span class="dot ${s.cat}"></span> ${esc(s.label)} · ${esc(noemo(s.text))}${extra||""}</div>`;}
 function openFloor(id,opt){opt=opt||{};const f=FLOORS.find(x=>x.id===id);let h=head(f);
   if(id==="director"){const d=D.director; const need=d.needYou||[]; const fb=d.feedback||[];
-    h+=floorBriefHTML("這層是偉翔看全局與用量的地方。今天有 "+need.length+" 件等你本人決定或開通。");
+    h+=floorBriefHTML("這層是偉翔看全局與用量的地方。"+(need.length?("布告欄有 "+need.length+" 件等你本人決定。"):"布告欄目前沒有等你決定的事。"));
     h+=keyCardsHTML([
       {v:need.length,l:"等你決定",note:need.length?"點下面看細節":"目前沒有卡住的事"},
       {v:(D.backlog.tiers?`${D.backlog.tiers.weekDone}/${D.backlog.tiers.week}`:"—"),l:"本週目標",note:"每週一會議挑選"},

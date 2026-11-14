@@ -1224,3 +1224,10 @@ button.meter-skills:focus-visible{outline:2px solid var(--jade);outline-offset:2
 .trade-app--br .br-soft{margin:8px 16px;color:#8B93A0;font-size:12px}
 
 .trade-app--br .br-pos-miss{font-size:12px;font-weight:500;color:#8B93A0;text-align:right;line-height:1.3}
+
+/* #279：休市（台股／台指期週末、國定假日、颱風）——不只靠顏色，用橫槓形狀＋文字 */
+.tokyo-state.closed{color:#9fb3c8}
+.tokyo-state.closed i{display:inline-block;width:10px;height:3px;border-radius:1px;background:currentColor;margin-right:6px;vertical-align:middle}
+.tokyo-mkt.closed{opacity:.92}
+/* #279：工作室動態「完成」標籤（布告欄結案） */
+.k.完成{background:rgba(46,160,110,.18);color:#7fe0b0}
