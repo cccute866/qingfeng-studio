@@ -1,19 +1,19 @@
 {
   "schema": 1,
-  "asOf": "2026-11-14T14:34:00+08:00",
+  "asOf": "2026-11-14T14:35:00+08:00",
   "timezone": "Asia/Taipei",
   "host": {
     "name": "qingfeng-tokyo",
     "region": "東京",
     "mode": "live",
     "memory": {
-      "used_mib": 567,
+      "used_mib": 590,
       "total_mib": 955,
-      "available_mib": 388
+      "available_mib": 365
     },
-    "uptimeSec": 214,
+    "uptimeSec": 274,
     "serviceActive": true,
-    "heartbeatAt": "2026-11-14T14:33:53+08:00",
+    "heartbeatAt": "2026-11-14T14:34:53+08:00",
     "heartbeatAgeSec": 7
   },
   "markets": {
@@ -23,8 +23,8 @@
       "state": "running",
       "stateLabel": "運行中",
       "lastQuoteAt": null,
-      "lastHeartbeatAt": "2026-11-14T14:33:53+08:00",
-      "todayGaps": 0
+      "lastHeartbeatAt": "2026-11-14T14:34:53+08:00",
+      "todayGaps": 2
     },
     "us": {
       "id": "us",
@@ -49,9 +49,9 @@
       "name": "幣圈",
       "state": "running",
       "stateLabel": "運行中",
-      "lastQuoteAt": "2026-11-14T14:33:52+08:00",
-      "lastHeartbeatAt": "2026-11-14T14:33:53+08:00",
-      "todayGaps": 0
+      "lastQuoteAt": "2026-11-14T14:34:52+08:00",
+      "lastHeartbeatAt": "2026-11-14T14:34:53+08:00",
+      "todayGaps": 2
     }
   },
   "disclaimer": "模擬結果，非投資建議"
