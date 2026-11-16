@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "asOf": "2026-11-16T09:55:01+08:00",
+  "asOf": "2026-11-16T09:56:01+08:00",
   "timezone": "Asia/Taipei",
   "host": {
     "name": "qingfeng-tokyo",
@@ -11,10 +11,10 @@
       "total_mib": 955,
       "available_mib": 402
     },
-    "uptimeSec": 156274,
+    "uptimeSec": 156334,
     "serviceActive": true,
     "heartbeatAt": "2026-11-16T09:54:58+08:00",
-    "heartbeatAgeSec": 3
+    "heartbeatAgeSec": 63
   },
   "markets": {
     "tw": {
