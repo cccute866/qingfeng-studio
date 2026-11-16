@@ -1,20 +1,20 @@
 {
   "schema": 1,
-  "asOf": "2026-11-16T10:10:01+08:00",
+  "asOf": "2026-11-16T10:11:01+08:00",
   "timezone": "Asia/Taipei",
   "host": {
     "name": "qingfeng-tokyo",
     "region": "東京",
     "mode": "live",
     "memory": {
-      "used_mib": 565,
+      "used_mib": 562,
       "total_mib": 955,
-      "available_mib": 390
+      "available_mib": 393
     },
-    "uptimeSec": 157175,
+    "uptimeSec": 157235,
     "serviceActive": true,
     "heartbeatAt": "2026-11-16T10:09:59+08:00",
-    "heartbeatAgeSec": 2
+    "heartbeatAgeSec": 62
   },
   "markets": {
     "tw": {
