@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "asOf": "2026-11-17T13:24:01+08:00",
+  "asOf": "2026-11-17T13:25:01+08:00",
   "timezone": "Asia/Taipei",
   "host": {
     "name": "qingfeng-tokyo",
@@ -11,10 +11,10 @@
       "total_mib": 955,
       "available_mib": 411
     },
-    "uptimeSec": 255214,
+    "uptimeSec": 255274,
     "serviceActive": true,
     "heartbeatAt": "2026-11-17T13:23:58+08:00",
-    "heartbeatAgeSec": 3
+    "heartbeatAgeSec": 63
   },
   "markets": {
     "tw": {
@@ -22,7 +22,7 @@
       "name": "台股",
       "state": "running",
       "stateLabel": "運行中",
-      "lastQuoteAt": "2026-11-17T13:23:56+08:00",
+      "lastQuoteAt": "2026-11-17T13:24:56+08:00",
       "lastHeartbeatAt": "2026-11-17T13:23:58+08:00",
       "todayGaps": 0
     },
