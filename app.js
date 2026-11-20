@@ -630,6 +630,10 @@ function usagePanelHTML(){
       +`<td>${ee.artImages||0}</td><td>${(ee.numReports||0)+(ee.qaReports||0)}</td><td>${ee.proposals||0}</td></tr>`;
   }
   hist+="</table>";
+  // #333 V12：主線（交易提交、AI 呼叫）次數；遊戲暫停期間用量室不再看起來像沒在用。只計次數，不含額度。
+  const ml=(u.mainline&&u.mainline.days)||[];
+  const mlT=ml.find(d=>d.date===todayStr())||ml[ml.length-1]||null;
+  const mainlineHtml=mlT?`<div class="muted" style="margin-top:6px">主線今日（次數）：交易提交 ${mlT.tradeCommits||0}、AI 呼叫 ${mlT.aiCalls||0}；近 7 日交易提交 ${ml.reduce((s,d)=>s+(d.tradeCommits||0),0)}</div>`:"";
   const a=usageAlert();
   const commitBits=[];
   const ch=(counted.commits)||{};
@@ -643,6 +647,7 @@ function usagePanelHTML(){
     <h4>今日對照預算（${esc(tod.date||u.today||"")}）</h4>
     ${usageBarRows(rows)}
     ${commitHtml}
+    ${mainlineHtml}
     <div class="muted">預算可改 live/usage_budget.json。超預算或高於近三日均×2 標「待核對」，可點「看明細」核對檔名；例行無心跳亮紅燈。計數不用 mtime 歸日。</div>
     <h4>近 7 天</h4>${hist}
     <h4>怎麼判斷「可能額度用完」</h4>
@@ -3194,7 +3199,7 @@ function tradeSummaryHTML(){
     <div class="tokyo-markets">${cards}</div>${publicPerfGridHTML()}
     <p class="tokyo-note">明細請看私人頁（需 Tailscale）。模擬結果，非投資建議。</p></div>`;
 }
-function tokyoTimeText(s, withSec){
+function tokyoTimeText(s, withSec, forceDate){
   if(!s) return "缺";
   const t=typeof parseTPSec==="function"?parseTPSec(s):parseTP(s);
   if(isNaN(t)) return "缺";
@@ -3203,7 +3208,7 @@ function tokyoTimeText(s, withSec){
   const same=d.getUTCFullYear()===now.getUTCFullYear()&&d.getUTCMonth()===now.getUTCMonth()&&d.getUTCDate()===now.getUTCDate();
   let hh=String(d.getUTCHours()).padStart(2,"0")+":"+String(d.getUTCMinutes()).padStart(2,"0");
   if(withSec) hh+=":"+String(d.getUTCSeconds()).padStart(2,"0");
-  if(same) return hh;
+  if(same&&!forceDate) return hh;
   return (d.getUTCMonth()+1)+"/"+d.getUTCDate()+" "+hh;
 }
 function tokyoUptimeText(sec){
@@ -3281,13 +3286,14 @@ function tokyoPanelHTML(){
   const markets=t.markets||{};
   const order=["tw","us","mtx","crypto"];
   const cards=order.map(id=>tokyoMarketCard(markets[id]||{id,name:({tw:"台股",us:"美股",mtx:"台指期",crypto:"幣圈"})[id],state:"not_started",stateLabel:"尚未開始"})).join("");
-  const asOf=tokyoTimeText(t.asOf||host.heartbeatAt, true);
   const stale=(()=>{const ts=typeof parseTPSec==="function"?parseTPSec(t.asOf):parseTP(t.asOf);if(isNaN(ts))return true;return (Date.now()-ts)>7*60*1000;})();
+  // #333 V8：過期時一律帶日期（備援檔曾停在 11/12 卻只顯示時間）
+  const asOf=tokyoTimeText(t.asOf||host.heartbeatAt, true, stale);
   const mode=host.mode==="live"?"正式運行":"影子模擬中，尚未切換發訊";
   const mem=tokyoMemoryText(host.memory);
   const up=tokyoUptimeText(host.uptimeSec);
   const avail=t.available!==false && (t.asOf||host.heartbeatAt);
-  const dataLine=avail?(stale?("資料過期 · 更新時間 "+asOf):("更新時間 "+asOf)):("主機資料缺");
+  const dataLine=avail?(stale?("資料過期 · 資料時間 "+asOf):("更新時間 "+asOf)):("主機資料缺");
   return `<div class="tokyo-host">
       <div class="tokyo-host-top">
         <div class="tokyo-host-title"><b>東京主機</b><span class="tokyo-mode">${esc(mode)}</span></div>
