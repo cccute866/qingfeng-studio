@@ -97,7 +97,7 @@ h1{margin:0;font-size:20px;letter-spacing:1px;font-weight:750;color:var(--text)}
 .bubble .t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .bubble b{white-space:nowrap}
 .dot{width:10px;height:10px;border-radius:50%;flex:none;display:inline-block;background:var(--wait);box-shadow:0 0 0 2px #0003}
-.dot.work{background:var(--work);animation:pulse 1.4s infinite}.dot.meet{background:var(--meet);animation:pulse 1.4s infinite}.dot.done{background:var(--done)}.dot.you{background:var(--you);animation:pulse 1s infinite}
+.dot.work{background:var(--work);animation:pulse 1.4s infinite}.dot.meet{background:var(--meet);animation:pulse 1.4s infinite}.dot.done{background:var(--done)}.dot.you{background:var(--you);animation:pulse 1s infinite}.dot.paused{background:#7d8590}
 @keyframes pulse{0%,100%{box-shadow:0 0 0 0 currentColor}50%{box-shadow:0 0 0 5px transparent}}
 .dot.work{color:#43d18f88}.dot.meet{color:#5ab0ff88}.dot.you{color:#ffb54788}
 .hits{position:absolute;inset:0;z-index:4;pointer-events:none}

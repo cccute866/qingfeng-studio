@@ -57,7 +57,7 @@ const NAMES={council:"全員會議"};ROSTER.members.forEach(m=>{NAMES[m.id]=m.na
 const SHORT={};ROSTER.members.forEach(m=>{SHORT[m.id]=m.short;});
 const ROLES={};ROSTER.members.forEach(m=>{ROLES[m.id]=m.role||"";});
 const HASCHAR=id=>!!(RM[id]&&RM[id].char);
-const CAT={work:"工作中",meet:"開會中",done:"完成",wait:"待命",you:"等你"};
+const CAT={work:"工作中",meet:"開會中",done:"完成",wait:"待命",you:"等你",paused:"暫停"};
 const LIVEMAP={"工作中":"work","開會中":"meet","完成":"done","待命":"wait","等你":"you"};
 let D=null, floorsEl={}, chars={}, thinking=null, view="city", activeFloor="lobby";
 
@@ -83,7 +83,10 @@ function meetingNow(){
 function meeters(){return ROSTER.members.filter(m=>m.meets).map(m=>m.id).concat(D&&D.weixiangJoins?["weixiang"]:[]);}
 function staleOf(id){return (D&&D.stale&&D.stale[id])||null;}
 function staleText(st){return st?("停更 "+(st.days>=1?st.days+" 天":st.hours+" 小時")+"（"+String(st.updatedAt).slice(5,16).replace("-","/")+" 後沒更新）"):"";}
+function pausedOf(id){return (D&&D.pausedMembers&&D.pausedMembers[id])||null;}
 function memberState(id){
+  /* #281：整個部門暫停（data/paused_routines.json members）→ 一律「暫停」，不顯示完成／待命 */
+  {const pz=pausedOf(id);if(pz)return{cat:"paused",text:"暫停 · "+(pz.why||"已暫停"),full:(pz.why||"已暫停")+(pz.since?"（"+String(pz.since).slice(5).replace("-","/")+" 起）":""),where:"desk",live:false,paused:true};}
   if(RM[id]&&RM[id].routine){
     /* 有 routine 的部門（公關／財會／音樂）：即時狀態 → 今日排程 → routine＋STATE 一行；沒有就「無狀態」 */
     const role=(RM[id].role||"");
@@ -140,7 +143,7 @@ function floorState(f){
     const pr=memberState("pr"), fin=memberState("fin");
     if(pr.cat==="you"||fin.cat==="you") return{cat:"you",label:"等你",text:pr.cat==="you"?pr.text:fin.text};
     if(pr.cat==="work"||fin.cat==="work") return{cat:"work",label:"處理中",text:pr.cat==="work"?pr.text:fin.text};
-    return{cat:"wait",label:"待命",text:"財會平日 18:00 核對；公關週一競品"};
+    return{cat:"wait",label:"待命",text:"財會平日 18:00 核對；"+(pr.cat==="paused"?"公關暫停":"公關週一競品")};
   }
   if(f.id==="director"){const a=typeof usageAlert==="function"?usageAlert():{level:""};
     if(a.level==="red")return{cat:"you",label:"額度警示",text:a.short||"可能額度用完或例行失敗"};
@@ -3144,7 +3147,7 @@ function bindRosterCards(root){(root||document).querySelectorAll(".rcard[data-m]
 function scheduleMissingHTML(){const ms=(D&&D.scheduleMissing)||[];
   return `<div class="sched-miss${ms.length?" has-miss":""}" style="margin-top:6px;font-size:11.5px">排程缺漏（scheduleMissing）：${ms.length?ms.map(x=>esc((x.chip?x.chip+" ":"")+x.what+"（時間缺）")).join("、"):"0 項（schedule.json 每項都有時間）"}</div>`;}
 function musicCardHTML(){const m=RM.music;if(!m)return"";const s=memberState("music"),c=(D.cards||{}).music||{},ds=(D.deptState||{}).music;
-  return `<div class="card music-zone" id="music-card"><h2>5F 音樂角 · ${esc(m.name)}</h2>${floorBriefHTML("音樂部門在 5F 美術部的子區（音樂角）。"+(ds&&ds.at?"STATE 更新 "+String(ds.at).slice(5).replace("-","/")+"。":"目前無狀態檔。"))}${keyCardsHTML([{v:s.cat==="work"?"工作中":"待命",l:"狀態",note:noemo(s.text)||"無狀態"},{v:"ch01–03",l:"原創 BGM",note:"已交，待接入／待試聽"}])}<div class="muted" style="margin-top:6px">剛完成：${esc(noemo(c.recent)||"無狀態")}</div>${rosterCardsHTML(["music"])}</div>`;}
+  return `<div class="card music-zone" id="music-card"><h2>5F 音樂角 · ${esc(m.name)}</h2>${floorBriefHTML("音樂部門在 5F 美術部的子區（音樂角）。"+(ds&&ds.at?"STATE 更新 "+String(ds.at).slice(5).replace("-","/")+"。":"目前無狀態檔。"))}${keyCardsHTML([{v:s.cat==="work"?"工作中":(s.cat==="paused"?"暫停":"待命"),l:"狀態",note:noemo(s.text)||"無狀態"},{v:"ch01–03",l:"原創 BGM",note:"已交，待接入／待試聽"}])}<div class="muted" style="margin-top:6px">剛完成：${esc(noemo(c.recent)||"無狀態")}</div>${rosterCardsHTML(["music"])}</div>`;}
 
 
 function fmtSignedPct(v, digits){
