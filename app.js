@@ -3219,6 +3219,18 @@ function tokyoTimeText(s, withSec, forceDate){
   if(same&&!forceDate) return hh;
   return (d.getUTCMonth()+1)+"/"+d.getUTCDate()+" "+hh;
 }
+function tokyoTimeCompact(s){
+  if(!s) return "缺";
+  const t=typeof parseTPSec==="function"?parseTPSec(s):parseTP(s);
+  if(isNaN(t)) return "缺";
+  const d=new Date(t+8*3600e3);
+  const now=typeof tpNow==="function"?tpNow():new Date(Date.now()+8*3600e3);
+  const same=d.getUTCFullYear()===now.getUTCFullYear()&&d.getUTCMonth()===now.getUTCMonth()&&d.getUTCDate()===now.getUTCDate();
+  const hh=String(d.getUTCHours()).padStart(2,"0")+":"+String(d.getUTCMinutes()).padStart(2,"0");
+  if(same) return hh;
+  return (d.getUTCMonth()+1)+"/"+d.getUTCDate()+" "+hh;
+}
+
 function tokyoUptimeText(sec){
   if(sec==null||!isFinite(sec)||sec<0) return "缺";
   sec=Math.floor(sec);
@@ -3486,43 +3498,84 @@ function tokyoOpsCard(key,label,value,opts){
   const sub=opts.sub?`<span class="tokyo-ops-sub">${esc(opts.sub)}</span>`:"";
   return `<div class="tokyo-perf-item tokyo-ops-item${bad?" is-bad":""}" data-key="${esc(key)}" data-kind="${esc(kind)}" data-target="${esc(value)}"><span class="k">${khtml}</span><span class="${vcls.join(" ")}">${esc(value)}</span>${sub}</div>`;
 }
+function tokyoDlRow(key,label,value,opts){
+  opts=opts||{};
+  const kind=opts.kind||"text";
+  const tone=opts.tone||"";
+  const bad=!!opts.bad;
+  const vcls=["v"].concat(tone?[tone]:[]).concat(bad?["is-bad"]:[]);
+  const ddcls=[tone,bad?"is-bad":""].filter(Boolean).join(" ");
+  const prefix=opts.prefix||"";
+  return `<div><dt>${esc(label)}</dt><dd class="${ddcls}" data-key="${esc(key)}" data-kind="${esc(kind)}" data-target="${esc(value)}">${prefix}<span class="${vcls.join(" ")}">${esc(value)}</span></dd></div>`;
+}
+function tokyoOpsMkt(id,title,status,rows,note){
+  const st=status?`<span class="tokyo-state ${status.cls}"><i data-shape="${status.shape}" aria-hidden="true"></i>${esc(status.label)}</span>`:"";
+  const foot=note?`<p class="tokyo-ops-note">${esc(note)}</p>`:"";
+  return `<article class="tokyo-mkt${status?" "+status.cls:""}" data-ops="${esc(id)}"><header class="tokyo-mkt-hd"><span class="tokyo-mkt-name">${esc(title)}</span>${st}</header><dl class="tokyo-dl">${rows}</dl>${foot}</article>`;
+}
+function tokyoStateMark(view){
+  return `<span class="tokyo-state ${view.cls}"><i data-shape="${view.shape}" aria-hidden="true"></i></span>`;
+}
 function tokyoOpsHTML(){
   const t=(D&&D.trade&&D.trade.tokyo)||{};
   const host=t.host||{};
   const v=t.version||{};
   const exp=t.exposure||{};
   const bak=t.backup||{};
-  const cards=[];
-  cards.push(tokyoOpsCard("memory","記憶體",tokyoMemoryText(host.memory),{kind:"num"}));
-  cards.push(tokyoOpsCard("uptime","已開機",tokyoUptimeText(host.uptimeSec),{kind:"num"}));
-  cards.push(tokyoOpsCard("version","程式版本",v.tokyoCommit||"缺",{kind:"text"}));
+  const hostRows=[
+    tokyoDlRow("memory","記憶體",tokyoMemoryText(host.memory),{kind:"num"}),
+    tokyoDlRow("uptime","已開機",tokyoUptimeText(host.uptimeSec),{kind:"num"}),
+    tokyoDlRow("version","程式版本",v.tokyoCommit||"缺",{kind:"text"})
+  ];
   const match=v.label||"缺";
   if(v.match===false){
-    cards.push(tokyoOpsCard("match","與本機",match,{kind:"text",tone:"warn",sub:"本機主線與主機部署不同"}));
+    hostRows.push(tokyoDlRow("match","與本機",match,{kind:"text",tone:"warn"}));
   }else{
-    cards.push(tokyoOpsCard("match","與本機",match,{kind:"text",tone:v.match===true?"up":""}));
+    hostRows.push(tokyoDlRow("match","與本機",match,{kind:"text",tone:v.match===true?"up":""}));
   }
+  const hostNote=v.match===false?"本機主線與主機部署不同":"";
   const svcs=tokyoPublicServices(t.services);
-  svcs.forEach((s,i)=>{
+  const residents=svcs.filter(s=>tokyoServiceKind(s)==="resident");
+  const oneshots=svcs.filter(s=>tokyoServiceKind(s)!=="resident");
+  const resViews=residents.map((s,i)=>{
     const view=tokyoServicePresentation(s);
-    const label=`${esc(s.label||"程式")}<span class="tokyo-state ${view.cls}"><i data-shape="${view.shape}" aria-hidden="true"></i>${esc(view.status)}</span>`;
-    cards.push(tokyoOpsCard("svc-"+i+"-"+(s.label||i),label,view.value,{kind:"time",rawLabel:true,sub:view.timeLabel||"",bad:view.bad}));
+    const time=s.startedAt?tokyoTimeCompact(s.startedAt):(view.value&&view.value!=="缺"?tokyoTimeCompact(s.startedAt):"缺");
+    const key="svc-"+i+"-"+(s.label||i);
+    return {s,view,row:tokyoDlRow(key,s.label||"程式",time,{kind:"time",bad:view.bad,prefix:tokyoStateMark(view)})};
   });
+  const anyStopped=resViews.some(x=>x.view.bad||x.view.cls==="stopped");
+  const allRunning=resViews.length && resViews.every(x=>x.view.cls==="running");
+  const resStatus=anyStopped?{cls:"stopped",shape:"square",label:"未在跑"}:(allRunning?{cls:"running",shape:"dot",label:"在跑"}:{cls:"unknown",shape:"bar",label:"缺"});
+  const oneViews=oneshots.map((s,i)=>{
+    const view=tokyoServicePresentation(s);
+    const time=s.startedAt?tokyoTimeCompact(s.startedAt):(view.value||"缺");
+    const compact=time.includes(":")||time==="缺"?time:tokyoTimeCompact(s.startedAt);
+    const key="oneshot-"+i+"-"+(s.label||i);
+    return {s,view,row:tokyoDlRow(key,s.label||"程式",compact,{kind:"time",bad:view.bad})};
+  });
+  const anySchedBad=oneViews.some(x=>x.view.bad);
+  const schedStatus=anySchedBad?{cls:"stopped",shape:"square",label:oneViews.some(x=>x.view.status==="失敗")?"失敗":"逾期"}:{cls:"executed",shape:"bar",label:"已執行"};
   const count=exp.count==null?"缺":(String(exp.count)+" 筆");
-  cards.push(tokyoOpsCard("positions","持倉",count,{kind:exp.count==null?"text":"num"}));
   const twUse=exp.twUsagePct==null?"缺":tokyoPctText(exp.twUsagePct);
   const crUse=exp.cryptoUsagePct==null?"缺":tokyoPctText(exp.cryptoUsagePct);
-  cards.push(tokyoOpsCard("capital-tw","台股資金",twUse,{kind:twUse==="缺"?"text":"num"}));
-  cards.push(tokyoOpsCard("capital-crypto","幣圈資金",crUse,{kind:crUse==="缺"?"text":"num"}));
-  const fill=t.lastFillAt?tokyoTimeText(t.lastFillAt,true,true):"缺";
-  cards.push(tokyoOpsCard("fill","最近成交",fill,{kind:"time"}));
-  cards.push(tokyoOpsCard("sync","同步",bak.syncLabel||"缺",{kind:"text"}));
-  cards.push(tokyoOpsCard("backup","備份",bak.backupLabel||"缺",{kind:"text",bad:bak.backupOk===false}));
-  const detail=bak.backupDetail?`<p class="tokyo-ops-note">${esc(bak.backupDetail)}</p>`:"";
+  const fill=t.lastFillAt?tokyoTimeCompact(t.lastFillAt):"缺";
+  const acctRows=[
+    tokyoDlRow("positions","持倉",count,{kind:exp.count==null?"text":"num"}),
+    tokyoDlRow("capital-tw","台股資金",twUse,{kind:twUse==="缺"?"text":"num"}),
+    tokyoDlRow("capital-crypto","幣圈資金",crUse,{kind:crUse==="缺"?"text":"num"}),
+    tokyoDlRow("fill","最近成交",fill,{kind:"time"}),
+    tokyoDlRow("sync","同步",bak.syncLabel||"缺",{kind:"text"}),
+    tokyoDlRow("backup","備份",bak.backupLabel||"缺",{kind:"text",bad:bak.backupOk===false})
+  ];
+  const cards=[
+    tokyoOpsMkt("host","主機",null,hostRows.join(""),hostNote),
+    tokyoOpsMkt("residents","常駐服務",resStatus,resViews.map(x=>x.row).join("")),
+    tokyoOpsMkt("schedule","排程",schedStatus,oneViews.map(x=>x.row).join("")),
+    tokyoOpsMkt("accounts","帳務",null,acctRows.join(""),bak.backupDetail||"")
+  ].join("");
   const pending=[];
   if(v.note) pending.push(v.note);
   if(t.servicesNote) pending.push(t.servicesNote);
-  // 兩則都在等部署時合成一句，避免 375 首屏被說明擠掉入口
   let pendingText="";
   if(pending.length===2 && pending[0].includes("等部署後") && pending[1].includes("等部署後"))
     pendingText="版本與各程式重啟時間待主機回報（等部署後）";
@@ -3530,8 +3583,9 @@ function tokyoOpsHTML(){
   const pendingNote=pendingText?`<p class="tokyo-ops-note">${esc(pendingText)}</p>`:"";
   const staleNow=typeof tokyoAsOfStale==="function"?tokyoAsOfStale(t):false;
   const fallback=(staleNow&&t.fallbackNote)?`<p class="tokyo-ops-note">${esc(t.fallbackNote)}</p>`:"";
-  return `<div class="tokyo-ops"><div class="tokyo-ops-grid">${cards.join("")}</div></div>${pendingNote}${fallback}${detail}`;
+  return `<div class="tokyo-markets tokyo-ops-cards">${cards}</div>${pendingNote}${fallback}`;
 }
+
 function tokyoPrivateEntryHTML(){
   const t=(D&&D.trade&&D.trade.tokyo)||{};
   const p=t.privatePage||{};
