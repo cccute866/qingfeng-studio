@@ -3188,7 +3188,7 @@ function publicPerfGridHTML(p){
   </div>`;
 }
 function publicTradeHTML(){
-  return `<div class="public-trade"><h2>交易室</h2>${publicPerfGridHTML()}<p class="tokyo-note">詳情在私人頁。東京主機狀態見樓層中央。時間為台北時間。</p></div>`;
+  return `<div class="public-trade"><h2>交易室</h2>${publicPerfGridHTML()}<p class="tokyo-note">明細請看私人頁（需 Tailscale）。東京主機狀態見樓層中央。時間為台北時間。</p></div>`;
 }
 
 function tradeSummaryHTML(){
@@ -3200,7 +3200,8 @@ function tradeSummaryHTML(){
   const line=(t.available!==false&&(t.asOf||(t.host||{}).heartbeatAt))?("東京狀態更新時間 "+asOf):"東京主機資料缺";
   return `<div class="public-trade"><h4>東京狀態摘要</h4><div class="muted">${esc(line)}（台北時間）</div>
     <div class="tokyo-markets">${cards}</div>${publicPerfGridHTML()}
-    <p class="tokyo-note">明細請看私人頁（需 Tailscale）。模擬結果，非投資建議。</p></div>`;
+    ${tokyoPrivateEntryHTML()}
+    <p class="tokyo-note">模擬結果，非投資建議。時間為台北時間。</p></div>`;
 }
 function tokyoTimeText(s, withSec, forceDate){
   if(!s) return "缺";
@@ -3283,6 +3284,59 @@ function tokyoMarketCard(m){
     </dl>
   </article>`;
 }
+function tokyoPctText(v){
+  if(v==null||v==="") return "缺";
+  const n=Number(v);
+  if(!isFinite(n)) return "缺";
+  return n+"%";
+}
+function tokyoOpsHTML(){
+  const t=(D&&D.trade&&D.trade.tokyo)||{};
+  const v=t.version||{};
+  const exp=t.exposure||{};
+  const bak=t.backup||{};
+  const ver=v.tokyoCommit||"缺";
+  const match=v.label||"缺";
+  const svcs=Array.isArray(t.services)&&t.services.length?t.services:[{label:"盤中交易",running:null,startedAt:null}];
+  const svcRows=svcs.map(s=>{
+    const run=s.running===true?"在跑":(s.running===false?"未在跑":"缺");
+    const since=s.startedAt?tokyoTimeText(s.startedAt,true,true):"缺";
+    return `<div><dt>${esc(s.label||"程式")}</dt><dd>${esc(run)} · 最近重啟 ${esc(since)}</dd></div>`;
+  }).join("");
+  const count=exp.count==null?"缺":(String(exp.count)+" 筆");
+  const usage="台股 "+tokyoPctText(exp.twUsagePct)+" · 幣圈 "+tokyoPctText(exp.cryptoUsagePct);
+  const fill=t.lastFillAt?tokyoTimeText(t.lastFillAt,true,true):"缺";
+  const sync=bak.syncLabel||"缺";
+  const backup=bak.backupLabel||"缺";
+  const backupCls=(bak.backupOk===false)?"is-bad":"";
+  const detail=bak.backupDetail?`<p class="tokyo-ops-note">${esc(bak.backupDetail)}</p>`:"";
+  const pending=[];
+  if(v.note) pending.push(v.note);
+  if(t.servicesNote) pending.push(t.servicesNote);
+  // 兩則都在等部署時合成一句，避免 375 首屏被說明擠掉入口
+  let pendingText="";
+  if(pending.length===2 && pending[0].includes("等部署後") && pending[1].includes("等部署後"))
+    pendingText="版本與各程式重啟時間待主機回報（等部署後）";
+  else pendingText=pending.join("；");
+  const pendingNote=pendingText?`<p class="tokyo-ops-note">${esc(pendingText)}</p>`:"";
+  return `<dl class="tokyo-dl tokyo-ops">
+      <div><dt>程式版本</dt><dd>${esc(ver)}</dd></div>
+      <div><dt>與本機</dt><dd>${esc(match)}</dd></div>
+      ${svcRows}
+      <div><dt>持倉／資金</dt><dd>${esc(count)} · ${esc(usage)}</dd></div>
+      <div><dt>最近成交</dt><dd>${esc(fill)}</dd></div>
+      <div><dt>同步</dt><dd>${esc(sync)}</dd></div>
+      <div><dt>備份</dt><dd class="${backupCls}">${esc(backup)}</dd></div>
+    </dl>${pendingNote}${detail}`;
+}
+function tokyoPrivateEntryHTML(){
+  const t=(D&&D.trade&&D.trade.tokyo)||{};
+  const p=t.privatePage||{};
+  const url=p.url||"";
+  const label=p.label||"打開私人頁（需 Tailscale）";
+  if(!url) return `<div class="tokyo-private" role="note"><span>${esc(label)}</span></div>`;
+  return `<a class="tokyo-private" href="${esc(url)}" rel="noopener noreferrer"><span>${esc(label)}</span></a>`;
+}
 function tokyoPanelHTML(){
   const t=(D&&D.trade&&D.trade.tokyo)||{};
   const host=t.host||{};
@@ -3306,6 +3360,8 @@ function tokyoPanelHTML(){
         <span>記憶體 ${esc(mem)}</span>
         <span>已開機 ${esc(up)}</span>
       </div>
+      ${tokyoOpsHTML()}
+      ${tokyoPrivateEntryHTML()}
     </div>
     <div class="tokyo-markets">${cards}</div>
     <p class="tokyo-note">模擬結果，非投資建議。尚未在主機上即時跑的市場顯示「尚未開始」；台股、台指期遇週末、國定假日或颱風停止交易顯示「休市」。績效看下方「交易室」。時間為台北時間。</p>`;
@@ -3845,6 +3901,13 @@ async function fetchTokyoLiveJson(path){
   }
   return null;
 }
+function pickTokyoOps(src){
+  const keys=["version","services","servicesNote","exposure","lastFillAt","backup","privatePage"];
+  const out={};
+  if(!src||typeof src!=="object") return out;
+  for(const k of keys) if(src[k]!=null) out[k]=src[k];
+  return out;
+}
 function mergeTokyoLive(status, positions){
   if(!D) return false;
   D.trade=D.trade||{};
@@ -3853,7 +3916,9 @@ function mergeTokyoLive(status, positions){
     const baked=((D.trade.tokyo)||{}).asOf;
     const liveTs=parseTPSec(status.asOf), bakedTs=parseTPSec(baked||"");
     if(isNaN(bakedTs)||(!isNaN(liveTs)&&liveTs>=bakedTs)){
-      D.trade.tokyo=Object.assign({}, D.trade.tokyo||{}, {
+      const prev=D.trade.tokyo||{};
+      const fromLive=pickTokyoOps(status);
+      D.trade.tokyo=Object.assign({}, prev, {
         available:true,
         asOf:status.asOf,
         host:status.host||{},
@@ -3861,7 +3926,7 @@ function mergeTokyoLive(status, positions){
         disclaimer:status.disclaimer||"模擬結果，非投資建議",
         timezone:status.timezone||"Asia/Taipei",
         source:"tokyo_direct"
-      });
+      }, fromLive);
       changed=true;
     }
   }
