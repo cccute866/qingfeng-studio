@@ -689,7 +689,12 @@ button.wl-row:active{background:#ffffff08}
 .tokyo-ops-item .k{display:flex;align-items:center;justify-content:space-between;gap:4px;flex-wrap:wrap}
 .tokyo-ops-item .tokyo-state{font-size:11px;gap:4px}
 .tokyo-ops-item .v{overflow-wrap:anywhere}
+.tokyo-ops-item .v{white-space:nowrap}
 .tokyo-ops-item .v.is-bad,.tokyo-ops-item.is-bad .v{color:var(--red)}
+.tokyo-ops-item .v.warn{color:var(--yel)}
+.tokyo-ops-sub{display:block;margin-top:2px;font-size:11px;color:var(--c-meta);font-weight:600;line-height:1.3}
+.tokyo-state.executed{color:var(--c-meta)}
+.tokyo-state.executed i{border-radius:2px;width:10px;height:6px;background:var(--c-meta);border:0}
 @keyframes tokyoValFlash{0%{opacity:0}100%{opacity:1}}
 .tokyo-ops-item.is-flash .v,.tokyo-perf-item.is-flash .v{animation:tokyoValFlash .45s ease}
 @media (min-width:520px){
