@@ -1,19 +1,19 @@
 {
   "schema": 1,
-  "asOf": "2026-11-22T11:22:01+08:00",
+  "asOf": "2026-11-22T11:23:01+08:00",
   "timezone": "Asia/Taipei",
   "host": {
     "name": "qingfeng-tokyo",
     "region": "東京",
     "mode": "live",
     "memory": {
-      "used_mib": 510,
+      "used_mib": 514,
       "total_mib": 955,
-      "available_mib": 445
+      "available_mib": 441
     },
-    "uptimeSec": 679895,
+    "uptimeSec": 679955,
     "serviceActive": true,
-    "heartbeatAt": "2026-11-22T11:22:00+08:00",
+    "heartbeatAt": "2026-11-22T11:23:00+08:00",
     "heartbeatAgeSec": 1,
     "runningCommit": "58a46f754e09",
     "deployedCommit": "58a46f754e09",
@@ -28,7 +28,7 @@
       "state": "running",
       "stateLabel": "運行中",
       "lastQuoteAt": null,
-      "lastHeartbeatAt": "2026-11-22T11:22:00+08:00",
+      "lastHeartbeatAt": "2026-11-22T11:23:00+08:00",
       "todayGaps": 1
     },
     "us": {
@@ -54,8 +54,8 @@
       "name": "幣圈",
       "state": "running",
       "stateLabel": "運行中",
-      "lastQuoteAt": "2026-11-22T11:21:59+08:00",
-      "lastHeartbeatAt": "2026-11-22T11:22:00+08:00",
+      "lastQuoteAt": "2026-11-22T11:22:59+08:00",
+      "lastHeartbeatAt": "2026-11-22T11:23:00+08:00",
       "todayGaps": 1
     }
   },
