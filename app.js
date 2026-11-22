@@ -3102,7 +3102,7 @@ function tradeAppHTML(){
 function renderRoomDash(){
   const el=$("#room-dash"); if(!el||!D) return;
   const id=activeFloor;
-  if(id==="trade"){ el.innerHTML=publicTradeHTML(); return; }
+  if(id==="trade"){ el.innerHTML=publicTradeHTML(); if(typeof animateTokyoValues==="function") animateTokyoValues(el); return; }
   if(id==="council"){
     const n=decisionsList().length;
     el.innerHTML=`<div class="card"><h2>今日決定</h2>${floorBriefHTML(n?("這層保存完整決定列表；桌上標示也看得到。共 "+n+" 項。"):"今天還沒有已裁決的決定。")}${n?decisionBoardHTML():emptySoon("今天還沒有已裁決的決定","會議結束後會出現在這裡")}</div>`; return;
@@ -3175,13 +3175,17 @@ function publicPerfGridHTML(p){
   const cr=p.cryptoEquityReturnPct;
   const bh=p.benchmark0050ReturnPct;
   const tone=v=>{const n=Number(v); if(!Number.isFinite(n)) return ""; return n<0?"dn":(n>0?"up":"");};
-  const cell=(k,v,digits)=>`<div class="tokyo-perf-item"><span class="k">${esc(k)}</span><span class="v ${tone(v)}">${esc(fmtSignedPct(v,digits))}</span></div>`;
+  const cell=(k,v,digits,key)=>{
+    const txt=fmtSignedPct(v,digits);
+    const kind=txt==="缺"?"text":"num";
+    return `<div class="tokyo-perf-item" data-key="${esc(key||("perf-"+k))}" data-kind="${kind}" data-target="${esc(txt)}"><span class="k">${esc(k)}</span><span class="v ${tone(v)}">${esc(txt)}</span></div>`;
+  };
   return `<div class="tokyo-perf">
     <div class="tokyo-perf-hd">整體報酬</div>
     <div class="tokyo-perf-grid">
-      ${cell(p.twEquityReturnLabel||"台股", tw, 2)}
-      ${cell(p.cryptoEquityReturnLabel||"幣圈", cr, 2)}
-      ${cell("0050 同期", bh, 1)}
+      ${cell(p.twEquityReturnLabel||"台股", tw, 2, "perf-tw")}
+      ${cell(p.cryptoEquityReturnLabel||"幣圈", cr, 2, "perf-crypto")}
+      ${cell("0050 同期", bh, 1, "perf-0050")}
     </div>
     <p class="tokyo-perf-period">${esc(benchPeriodText(p))}。公開頁不列逐檔價格、停損、目標或候選。模擬結果，非投資建議。</p>
     ${p.liveDataNote?`<p class="tokyo-perf-period">${esc(p.liveDataNote)}（台北時間）</p>`:""}
@@ -3290,25 +3294,137 @@ function tokyoPctText(v){
   if(!isFinite(n)) return "缺";
   return n+"%";
 }
+function tokyoAsOfStale(t){
+  const ts=typeof parseTPSec==="function"?parseTPSec(t&&t.asOf):parseTP(t&&t.asOf);
+  if(isNaN(ts)) return true;
+  return (Date.now()-ts)>7*60*1000;
+}
+function reduceMotion(){
+  return typeof matchMedia==="function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+function interpolateAnimText(fromText,toText,t){
+  const re=/-?\d+(?:\.\d+)?/g;
+  const toNums=[...String(toText).matchAll(re)];
+  const fromNums=[...String(fromText||"").matchAll(re)].map(m=>Number(m[0]));
+  let i=0,last=0,out="";
+  for(const m of toNums){
+    const dest=Number(m[0]);
+    const start=Number.isFinite(fromNums[i])?fromNums[i]:0;
+    const cur=start+(dest-start)*t;
+    const dec=(m[0].split(".")[1]||"").length;
+    const s=dec>0?cur.toFixed(dec):String(Math.round(cur));
+    out+=String(toText).slice(last,m.index)+s;
+    last=m.index+m[0].length;
+    i++;
+  }
+  return out+String(toText).slice(last);
+}
+const tokyoAnimPrev={};
+const tokyoAnimGen={};
+function animateTokyoValues(root){
+  if(!root) return;
+  const items=root.querySelectorAll("[data-key][data-target]");
+  const reduced=typeof reduceMotion==="function" && reduceMotion();
+  items.forEach(item=>{
+    const key=item.getAttribute("data-key");
+    const kind=item.getAttribute("data-kind")||"text";
+    const to=item.getAttribute("data-target")||"";
+    const val=item.querySelector(".v")||item;
+    const prev=Object.prototype.hasOwnProperty.call(tokyoAnimPrev,key)?tokyoAnimPrev[key]:null;
+    if(prev===to){
+      val.textContent=to;
+      return;
+    }
+    tokyoAnimPrev[key]=to;
+    const gen=(tokyoAnimGen[key]||0)+1;
+    tokyoAnimGen[key]=gen;
+    const first=prev==null;
+    if(reduced || kind!=="num" || to==="缺"){
+      val.textContent=to;
+      if(!reduced && kind!=="num"){
+        item.classList.remove("is-flash");
+        void item.offsetWidth;
+        item.classList.add("is-flash");
+      }
+      return;
+    }
+    const from=first?"0":prev;
+    const dur=700;
+    const t0=performance.now();
+    const step=now=>{
+      if(tokyoAnimGen[key]!==gen) return;
+      const p=Math.min(1,(now-t0)/dur);
+      const e=1-Math.pow(1-p,3);
+      val.textContent=interpolateAnimText(from,to,e);
+      if(p<1) requestAnimationFrame(step);
+      else val.textContent=to;
+    };
+    val.textContent=interpolateAnimText(from,to,0);
+    requestAnimationFrame(step);
+  });
+}
+
+function tokyoServiceRunning(s){
+  if(!s) return null;
+  if(s.running===true||s.active===true) return true;
+  if(s.running===false||s.active===false) return false;
+  return null;
+}
+function tokyoPublicServices(list){
+  const hide={
+    "qingfeng-intraday-watchdog":1,"intraday-watchdog":1,"watchdog":1,
+    "qingfeng-p22-cleanup":1,"p22-cleanup":1,
+    "盤中看守":1,"定期清理":1
+  };
+  const svcs=(Array.isArray(list)?list:[]).filter(s=>{
+    const id=String((s&&s.id)||(s&&s.name)||"").toLowerCase();
+    const label=String((s&&s.label)||"");
+    return !hide[id] && !hide[label];
+  });
+  return svcs.length?svcs:[{label:"盤中交易",running:null,startedAt:null}];
+}
+function tokyoOpsCard(key,label,value,opts){
+
+  opts=opts||{};
+  const kind=opts.kind||"text";
+  const tone=opts.tone||"";
+  const bad=!!opts.bad;
+  const khtml=opts.rawLabel?label:esc(label);
+  const vcls=["v"].concat(tone?[tone]:[]).concat(bad?["is-bad"]:[]);
+  return `<div class="tokyo-perf-item tokyo-ops-item${bad?" is-bad":""}" data-key="${esc(key)}" data-kind="${esc(kind)}" data-target="${esc(value)}"><span class="k">${khtml}</span><span class="${vcls.join(" ")}">${esc(value)}</span></div>`;
+}
 function tokyoOpsHTML(){
   const t=(D&&D.trade&&D.trade.tokyo)||{};
+  const host=t.host||{};
   const v=t.version||{};
   const exp=t.exposure||{};
   const bak=t.backup||{};
-  const ver=v.tokyoCommit||"缺";
+  const cards=[];
+  cards.push(tokyoOpsCard("memory","記憶體",tokyoMemoryText(host.memory),{kind:"num"}));
+  cards.push(tokyoOpsCard("uptime","已開機",tokyoUptimeText(host.uptimeSec),{kind:"num"}));
+  cards.push(tokyoOpsCard("version","程式版本",v.tokyoCommit||"缺",{kind:"text"}));
   const match=v.label||"缺";
-  const svcs=Array.isArray(t.services)&&t.services.length?t.services:[{label:"盤中交易",running:null,startedAt:null}];
-  const svcRows=svcs.map(s=>{
-    const run=s.running===true?"在跑":(s.running===false?"未在跑":"缺");
+  const matchTone=v.match===true?"up":(v.match===false?"dn":"");
+  cards.push(tokyoOpsCard("match","與本機",match,{kind:"text",tone:matchTone,bad:v.match===false}));
+  const svcs=tokyoPublicServices(t.services);
+  svcs.forEach((s,i)=>{
+    const running=tokyoServiceRunning(s);
+    const run=running===true?"在跑":(running===false?"未在跑":"缺");
+    const st=running===true?"running":(running===false?"stopped":"not-started");
+    const shape=running===true?"dot":(running===false?"square":"dash");
     const since=s.startedAt?tokyoTimeText(s.startedAt,true,true):"缺";
-    return `<div><dt>${esc(s.label||"程式")}</dt><dd>${esc(run)} · 最近重啟 ${esc(since)}</dd></div>`;
-  }).join("");
+    const label=`${esc(s.label||"程式")}<span class="tokyo-state ${st}"><i data-shape="${shape}" aria-hidden="true"></i>${esc(run)}</span>`;
+    cards.push(tokyoOpsCard("svc-"+i+"-"+(s.label||i),label,since,{kind:"time",rawLabel:true}));
+  });
   const count=exp.count==null?"缺":(String(exp.count)+" 筆");
+  cards.push(tokyoOpsCard("positions","持倉",count,{kind:exp.count==null?"text":"num"}));
   const usage="台股 "+tokyoPctText(exp.twUsagePct)+" · 幣圈 "+tokyoPctText(exp.cryptoUsagePct);
+  const usageKind=(exp.twUsagePct==null&&exp.cryptoUsagePct==null)?"text":"num";
+  cards.push(tokyoOpsCard("capital","資金",usage,{kind:usageKind}));
   const fill=t.lastFillAt?tokyoTimeText(t.lastFillAt,true,true):"缺";
-  const sync=bak.syncLabel||"缺";
-  const backup=bak.backupLabel||"缺";
-  const backupCls=(bak.backupOk===false)?"is-bad":"";
+  cards.push(tokyoOpsCard("fill","最近成交",fill,{kind:"time"}));
+  cards.push(tokyoOpsCard("sync","同步",bak.syncLabel||"缺",{kind:"text"}));
+  cards.push(tokyoOpsCard("backup","備份",bak.backupLabel||"缺",{kind:"text",bad:bak.backupOk===false}));
   const detail=bak.backupDetail?`<p class="tokyo-ops-note">${esc(bak.backupDetail)}</p>`:"";
   const pending=[];
   if(v.note) pending.push(v.note);
@@ -3319,15 +3435,9 @@ function tokyoOpsHTML(){
     pendingText="版本與各程式重啟時間待主機回報（等部署後）";
   else pendingText=pending.join("；");
   const pendingNote=pendingText?`<p class="tokyo-ops-note">${esc(pendingText)}</p>`:"";
-  return `<dl class="tokyo-dl tokyo-ops">
-      <div><dt>程式版本</dt><dd>${esc(ver)}</dd></div>
-      <div><dt>與本機</dt><dd>${esc(match)}</dd></div>
-      ${svcRows}
-      <div><dt>持倉／資金</dt><dd>${esc(count)} · ${esc(usage)}</dd></div>
-      <div><dt>最近成交</dt><dd>${esc(fill)}</dd></div>
-      <div><dt>同步</dt><dd>${esc(sync)}</dd></div>
-      <div><dt>備份</dt><dd class="${backupCls}">${esc(backup)}</dd></div>
-    </dl>${pendingNote}${detail}`;
+  const staleNow=typeof tokyoAsOfStale==="function"?tokyoAsOfStale(t):false;
+  const fallback=(staleNow&&t.fallbackNote)?`<p class="tokyo-ops-note">${esc(t.fallbackNote)}</p>`:"";
+  return `<div class="tokyo-ops"><div class="tokyo-ops-grid">${cards.join("")}</div></div>${pendingNote}${fallback}${detail}`;
 }
 function tokyoPrivateEntryHTML(){
   const t=(D&&D.trade&&D.trade.tokyo)||{};
@@ -3343,22 +3453,18 @@ function tokyoPanelHTML(){
   const markets=t.markets||{};
   const order=["tw","us","mtx","crypto"];
   const cards=order.map(id=>tokyoMarketCard(markets[id]||{id,name:({tw:"台股",us:"美股",mtx:"台指期",crypto:"幣圈"})[id],state:"not_started",stateLabel:"尚未開始"})).join("");
-  const stale=(()=>{const ts=typeof parseTPSec==="function"?parseTPSec(t.asOf):parseTP(t.asOf);if(isNaN(ts))return true;return (Date.now()-ts)>7*60*1000;})();
+  const stale=typeof tokyoAsOfStale==="function"?tokyoAsOfStale(t):(()=>{const ts=typeof parseTPSec==="function"?parseTPSec(t.asOf):parseTP(t.asOf);if(isNaN(ts))return true;return (Date.now()-ts)>7*60*1000;})();
   // #333 V8：過期時一律帶日期（備援檔曾停在 11/12 卻只顯示時間）
   const asOf=tokyoTimeText(t.asOf||host.heartbeatAt, true, stale);
   const mode=host.mode==="live"?"正式運行":"影子模擬中，尚未切換發訊";
-  const mem=tokyoMemoryText(host.memory);
-  const up=tokyoUptimeText(host.uptimeSec);
   const avail=t.available!==false && (t.asOf||host.heartbeatAt);
-  const dataLine=avail?(stale?("資料過期 · 資料時間 "+asOf):("更新時間 "+asOf)):("主機資料缺");
+  const built=(typeof D!=="undefined"&&D&&(D.updatedAt||D.builtAt))||"";
+  const builtTxt=(stale&&built)?(" · 頁面建置 "+String(built)):"";
+  const dataLine=avail?(stale?("資料過期 · 資料時間 "+asOf+builtTxt):("更新時間 "+asOf)):("主機資料缺");
   return `<div class="tokyo-host">
       <div class="tokyo-host-top">
         <div class="tokyo-host-title"><b>東京主機</b><span class="tokyo-mode">${esc(mode)}</span></div>
         <div class="tokyo-host-meta">${esc(dataLine)}</div>
-      </div>
-      <div class="tokyo-host-stats">
-        <span>記憶體 ${esc(mem)}</span>
-        <span>已開機 ${esc(up)}</span>
       </div>
       ${tokyoOpsHTML()}
       ${tokyoPrivateEntryHTML()}
@@ -3370,6 +3476,7 @@ function renderTokyoPanel(){
   const el=document.getElementById("tokyo-panel");
   if(!el) return;
   el.innerHTML=tokyoPanelHTML();
+  if(typeof animateTokyoValues==="function") animateTokyoValues(el);
 }
 
 function renderFloors(){for(const f of FLOORS){const F=floorsEl[f.id],s=floorState(f);
@@ -3950,6 +4057,7 @@ async function loadTokyoLiveAndPatch(){
   const dash=document.getElementById("room-dash");
   if(dash && typeof activeFloor==="string" && activeFloor==="trade" && typeof publicTradeHTML==="function"){
     dash.innerHTML=publicTradeHTML();
+    if(typeof animateTokyoValues==="function") animateTokyoValues(dash);
   }
 }
 async function load(){try{const r=await fetch("data.json?t="+Date.now(),{cache:"no-store"});if(!r.ok)return;D=await r.json();await loadTokyoLive();renderAll();if(histTab)loadHist();if((location.hash||"")==="#skills")openSkillsCatalog();}catch(e){console.warn("資料暫時讀不到，稍後重試");}}
