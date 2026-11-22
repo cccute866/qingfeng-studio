@@ -714,6 +714,50 @@ button.wl-row:active{background:#ffffff08}
 .tokyo-perf-item .v{display:block;margin-top:2px;font-size:18px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--text);line-height:1.15}
 .tokyo-perf-item .v.up{color:var(--work)}
 .tokyo-perf-item .v.dn{color:var(--red)}
+/* #365：東京主機格子的字級、行高、內距對齊下方市場卡（.tokyo-dl dt／dd、.tokyo-mkt），不改整體報酬 */
+.tokyo-ops-grid{grid-auto-rows:1fr}
+.tokyo-perf-item.tokyo-ops-item{
+  padding:10px 10px 8px;
+  border-radius:12px;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  height:100%;
+  box-sizing:border-box;
+}
+.tokyo-perf-item.tokyo-ops-item .k{
+  display:flex;
+  font-size:12px;
+  font-weight:500;
+  color:var(--c-meta);
+  flex-wrap:nowrap;
+  line-height:inherit;
+}
+.tokyo-perf-item.tokyo-ops-item .v{
+  display:block;
+  margin-top:0;
+  overflow-wrap:normal;
+  white-space:nowrap;
+  font-size:12.5px;
+  font-weight:600;
+  line-height:inherit;
+  font-variant-numeric:tabular-nums;
+  color:var(--text);
+}
+.tokyo-perf-item.tokyo-ops-item .v.up{color:var(--work)}
+.tokyo-perf-item.tokyo-ops-item .v.dn{color:var(--red)}
+.tokyo-perf-item.tokyo-ops-item .v.is-bad,.tokyo-perf-item.tokyo-ops-item.is-bad .v{color:var(--red)}
+.tokyo-perf-item.tokyo-ops-item .v.warn{color:var(--yel)}
+.tokyo-ops-item .tokyo-ops-sub,.tokyo-perf-item.tokyo-ops-item .tokyo-ops-sub{
+  display:block;
+  margin-top:0;
+  font-size:12px;
+  font-weight:500;
+  color:var(--c-meta);
+  line-height:inherit;
+  white-space:nowrap;
+}
+.tokyo-ops-item .tokyo-state{font-size:12.5px;gap:6px}
 .tokyo-perf-period{margin:6px 0 0;font-size:11.5px;color:var(--c-meta);line-height:1.4}
 .public-trade{background:linear-gradient(180deg,#141c28f2,#0e1520f2);border:1px solid var(--line2);border-radius:14px;padding:14px 14px 12px;color:var(--text)}
 .public-trade h2{margin:0 0 8px;font-size:var(--fs-title);font-weight:800}
