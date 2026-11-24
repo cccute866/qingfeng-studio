@@ -1,20 +1,20 @@
 {
   "schema": 1,
-  "asOf": "2026-11-24T08:59:01+08:00",
+  "asOf": "2026-11-24T09:00:01+08:00",
   "timezone": "Asia/Taipei",
   "host": {
     "name": "qingfeng-tokyo",
     "region": "東京",
     "mode": "live",
     "memory": {
-      "used_mib": 525,
+      "used_mib": 528,
       "total_mib": 955,
-      "available_mib": 430
+      "available_mib": 427
     },
-    "uptimeSec": 844114,
+    "uptimeSec": 844175,
     "serviceActive": true,
     "heartbeatAt": "2026-11-24T08:59:01+08:00",
-    "heartbeatAgeSec": 0,
+    "heartbeatAgeSec": 60,
     "runningCommit": "2d9c8291da87",
     "deployedCommit": "2d9c8291da87",
     "runningSince": "2026-11-22T12:26:59+08:00",
@@ -121,7 +121,7 @@
       "name": "qingfeng-tokyo-status",
       "id": "qingfeng-tokyo-status",
       "active": false,
-      "startedAt": "2026-11-24T08:58:15+08:00",
+      "startedAt": "2026-11-24T08:59:20+08:00",
       "nRestarts": 0,
       "label": "主機狀態"
     },
@@ -129,7 +129,7 @@
       "name": "qingfeng-tokyo-site-push",
       "id": "qingfeng-tokyo-site-push",
       "active": false,
-      "startedAt": "2026-11-24T08:59:01+08:00",
+      "startedAt": "2026-11-24T09:00:01+08:00",
       "nRestarts": 0,
       "label": "網站更新"
     },
