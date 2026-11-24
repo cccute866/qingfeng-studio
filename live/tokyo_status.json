@@ -1,20 +1,20 @@
 {
   "schema": 1,
-  "asOf": "2026-11-24T14:43:01+08:00",
+  "asOf": "2026-11-24T14:44:00+08:00",
   "timezone": "Asia/Taipei",
   "host": {
     "name": "qingfeng-tokyo",
     "region": "東京",
     "mode": "live",
     "memory": {
-      "used_mib": 598,
+      "used_mib": 560,
       "total_mib": 955,
-      "available_mib": 357
+      "available_mib": 395
     },
-    "uptimeSec": 864754,
+    "uptimeSec": 864814,
     "serviceActive": true,
-    "heartbeatAt": "2026-11-24T14:42:32+08:00",
-    "heartbeatAgeSec": 29,
+    "heartbeatAt": "2026-11-24T14:43:32+08:00",
+    "heartbeatAgeSec": 28,
     "runningCommit": "2d9c8291da87",
     "deployedCommit": "2d9c8291da87",
     "runningSince": "2026-11-22T12:26:59+08:00",
@@ -28,7 +28,7 @@
       "state": "running",
       "stateLabel": "運行中",
       "lastQuoteAt": "2026-11-24T13:29:31+08:00",
-      "lastHeartbeatAt": "2026-11-24T14:42:32+08:00",
+      "lastHeartbeatAt": "2026-11-24T14:43:32+08:00",
       "todayGaps": 0
     },
     "us": {
@@ -54,8 +54,8 @@
       "name": "幣圈",
       "state": "running",
       "stateLabel": "運行中",
-      "lastQuoteAt": "2026-11-24T14:42:31+08:00",
-      "lastHeartbeatAt": "2026-11-24T14:42:32+08:00",
+      "lastQuoteAt": "2026-11-24T14:43:31+08:00",
+      "lastHeartbeatAt": "2026-11-24T14:43:32+08:00",
       "todayGaps": 0
     }
   },
@@ -121,7 +121,7 @@
       "name": "qingfeng-tokyo-status",
       "id": "qingfeng-tokyo-status",
       "active": false,
-      "startedAt": "2026-11-24T14:42:19+08:00",
+      "startedAt": "2026-11-24T14:43:24+08:00",
       "nRestarts": 0,
       "label": "主機狀態"
     },
@@ -129,7 +129,7 @@
       "name": "qingfeng-tokyo-site-push",
       "id": "qingfeng-tokyo-site-push",
       "active": false,
-      "startedAt": "2026-11-24T14:43:01+08:00",
+      "startedAt": "2026-11-24T14:44:00+08:00",
       "nRestarts": 0,
       "label": "網站更新"
     },
