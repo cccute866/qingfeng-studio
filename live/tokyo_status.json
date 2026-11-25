@@ -1,34 +1,34 @@
 {
   "schema": 1,
-  "asOf": "2026-11-25T14:17:01+08:00",
+  "asOf": "2026-11-25T14:18:01+08:00",
   "timezone": "Asia/Taipei",
   "host": {
     "name": "qingfeng-tokyo",
     "region": "東京",
     "mode": "live",
     "memory": {
-      "used_mib": 566,
+      "used_mib": 551,
       "total_mib": 955,
-      "available_mib": 389
+      "available_mib": 404
     },
-    "uptimeSec": 949594,
-    "serviceActive": false,
-    "heartbeatAt": "2026-11-25T14:16:32+08:00",
-    "heartbeatAgeSec": 29,
-    "runningCommit": "2d9c8291da87",
+    "uptimeSec": 949654,
+    "serviceActive": true,
+    "heartbeatAt": "2026-11-25T14:17:34+08:00",
+    "heartbeatAgeSec": 27,
+    "runningCommit": "ec62623f4a95",
     "deployedCommit": "ec62623f4a95",
-    "runningSince": "2026-11-22T12:26:59+08:00",
-    "versionMatch": false,
-    "versionLabel": "未生效／新舊混跑"
+    "runningSince": "2026-11-25T14:17:32+08:00",
+    "versionMatch": true,
+    "versionLabel": "一致"
   },
   "markets": {
     "tw": {
       "id": "tw",
       "name": "台股",
-      "state": "stopped",
-      "stateLabel": "已停止",
+      "state": "running",
+      "stateLabel": "運行中",
       "lastQuoteAt": "2026-11-25T13:29:31+08:00",
-      "lastHeartbeatAt": "2026-11-25T14:16:32+08:00",
+      "lastHeartbeatAt": "2026-11-25T14:17:34+08:00",
       "todayGaps": 0
     },
     "us": {
@@ -52,10 +52,10 @@
     "crypto": {
       "id": "crypto",
       "name": "幣圈",
-      "state": "stopped",
-      "stateLabel": "已停止",
-      "lastQuoteAt": "2026-11-25T14:16:31+08:00",
-      "lastHeartbeatAt": "2026-11-25T14:16:32+08:00",
+      "state": "running",
+      "stateLabel": "運行中",
+      "lastQuoteAt": "2026-11-25T14:17:32+08:00",
+      "lastHeartbeatAt": "2026-11-25T14:17:34+08:00",
       "todayGaps": 0
     }
   },
@@ -64,8 +64,8 @@
     {
       "name": "qingfeng-intraday",
       "id": "qingfeng-intraday",
-      "active": false,
-      "startedAt": "2026-11-22T12:26:59+08:00",
+      "active": true,
+      "startedAt": "2026-11-25T14:17:31+08:00",
       "nRestarts": 0,
       "label": "盤中交易"
     },
@@ -121,7 +121,7 @@
       "name": "qingfeng-tokyo-status",
       "id": "qingfeng-tokyo-status",
       "active": false,
-      "startedAt": "2026-11-25T14:16:51+08:00",
+      "startedAt": "2026-11-25T14:17:55+08:00",
       "nRestarts": 0,
       "label": "主機狀態"
     },
@@ -129,7 +129,7 @@
       "name": "qingfeng-tokyo-site-push",
       "id": "qingfeng-tokyo-site-push",
       "active": false,
-      "startedAt": "2026-11-25T14:17:01+08:00",
+      "startedAt": "2026-11-25T14:18:01+08:00",
       "nRestarts": 0,
       "label": "網站更新"
     },
