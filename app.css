@@ -1325,3 +1325,29 @@ button.meter-skills:focus-visible{outline:2px solid var(--jade);outline-offset:2
 .tokyo-mkt.closed{opacity:.92}
 /* #279：工作室動態「完成」標籤（布告欄結案） */
 .k.完成{background:rgba(46,160,110,.18);color:#7fe0b0}
+
+/* #435 這週新本事：辦公室便條，不是數字牆 */
+.skill-memo{margin-top:14px;padding:12px 12px 10px;border:1px solid var(--line2);border-left:3px solid var(--gold);border-radius:10px;background:#121a26;color:var(--text)}
+.skill-memo h2{margin:0 0 4px;font-size:var(--fs-title);font-weight:var(--fw-title);letter-spacing:.2px}
+.skill-memo-sub{margin:0 0 12px;color:var(--c-meta);font-size:12px;line-height:1.4}
+.skill-dept{margin:0 0 14px}
+.skill-dept:last-of-type{margin-bottom:8px}
+.skill-dept h3{margin:0 0 6px;font-size:15px;font-weight:650;color:var(--text)}
+.skill-item{display:flex;flex-direction:column;align-items:flex-start;gap:4px;margin:0 0 10px}
+.skill-item p{margin:0;font-size:14px;line-height:1.5;max-width:36em;overflow-wrap:anywhere}
+.skill-status{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:650;line-height:1.2}
+.skill-status .skill-mark{display:inline-block;flex:none;box-sizing:border-box}
+.skill-status.live{color:var(--work)}
+.skill-status.live .skill-mark{width:7px;height:7px;border-radius:50%;background:currentColor}
+.skill-status.wait{color:var(--gold)}
+.skill-status.wait .skill-mark{width:7px;height:7px;border:1.5px solid currentColor;background:transparent;transform:rotate(45deg);border-radius:1px}
+.skill-item .detail-fold{margin:0;padding:0;background:transparent;border:0;box-shadow:none;font-size:13px}
+.skill-item .detail-fold>summary{display:inline-flex;align-items:center;min-height:44px;margin:0;padding:0 2px;background:none;border:0;box-shadow:none;color:var(--c-meta);font-size:13px;font-weight:500;cursor:pointer;list-style:none}
+.skill-item .detail-fold>summary::-webkit-details-marker{display:none}
+.skill-item .detail-fold[open]>summary{color:var(--text)}
+.skill-detail{color:var(--c-meta);font-size:13px;line-height:1.45}
+.skill-ops,.skill-empty{margin:0;color:var(--c-meta);font-size:13px;line-height:1.45}
+@media(max-width:400px){
+  .skill-memo{padding:10px 10px 8px}
+  .skill-item p{font-size:14px;max-width:none}
+}
