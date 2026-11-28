@@ -1,19 +1,19 @@
 {
   "schema": 1,
-  "asOf": "2026-11-28T09:36:01+08:00",
+  "asOf": "2026-11-28T09:37:01+08:00",
   "timezone": "Asia/Taipei",
   "host": {
     "name": "qingfeng-tokyo",
     "region": "東京",
     "mode": "live",
     "memory": {
-      "used_mib": 550,
+      "used_mib": 563,
       "total_mib": 955,
-      "available_mib": 405
+      "available_mib": 392
     },
-    "uptimeSec": 1191934,
-    "serviceActive": true,
-    "heartbeatAt": "2026-11-28T09:35:34+08:00",
+    "uptimeSec": 1191994,
+    "serviceActive": false,
+    "heartbeatAt": "2026-11-28T09:36:34+08:00",
     "heartbeatAgeSec": 27,
     "runningCommit": "ec62623f4a95",
     "deployedCommit": "7a4fa08dfb24",
@@ -25,10 +25,10 @@
     "tw": {
       "id": "tw",
       "name": "台股",
-      "state": "running",
-      "stateLabel": "運行中",
+      "state": "stopped",
+      "stateLabel": "已停止",
       "lastQuoteAt": null,
-      "lastHeartbeatAt": "2026-11-28T09:35:34+08:00",
+      "lastHeartbeatAt": "2026-11-28T09:36:34+08:00",
       "todayGaps": 0
     },
     "us": {
@@ -52,10 +52,10 @@
     "crypto": {
       "id": "crypto",
       "name": "幣圈",
-      "state": "running",
-      "stateLabel": "運行中",
-      "lastQuoteAt": "2026-11-28T09:35:33+08:00",
-      "lastHeartbeatAt": "2026-11-28T09:35:34+08:00",
+      "state": "stopped",
+      "stateLabel": "已停止",
+      "lastQuoteAt": "2026-11-28T09:36:33+08:00",
+      "lastHeartbeatAt": "2026-11-28T09:36:34+08:00",
       "todayGaps": 0
     }
   },
@@ -64,7 +64,7 @@
     {
       "name": "qingfeng-intraday",
       "id": "qingfeng-intraday",
-      "active": true,
+      "active": false,
       "startedAt": "2026-11-25T14:17:31+08:00",
       "nRestarts": 0,
       "label": "盤中交易"
@@ -121,7 +121,7 @@
       "name": "qingfeng-tokyo-status",
       "id": "qingfeng-tokyo-status",
       "active": false,
-      "startedAt": "2026-11-28T09:35:25+08:00",
+      "startedAt": "2026-11-28T09:36:30+08:00",
       "nRestarts": 0,
       "label": "主機狀態"
     },
@@ -129,7 +129,7 @@
       "name": "qingfeng-tokyo-site-push",
       "id": "qingfeng-tokyo-site-push",
       "active": false,
-      "startedAt": "2026-11-28T09:36:01+08:00",
+      "startedAt": "2026-11-28T09:37:00+08:00",
       "nRestarts": 0,
       "label": "網站更新"
     },
