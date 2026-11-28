@@ -86,7 +86,7 @@ function staleText(st){return st?("停更 "+(st.days>=1?st.days+" 天":st.hours+
 function pausedOf(id){return (D&&D.pausedMembers&&D.pausedMembers[id])||null;}
 function memberState(id){
   /* #281：整個部門暫停（data/paused_routines.json members）→ 一律「暫停」，不顯示完成／待命 */
-  {const pz=pausedOf(id);if(pz)return{cat:"paused",text:"暫停 · "+(pz.why||"已暫停"),full:(pz.why||"已暫停")+(pz.since?"（"+String(pz.since).slice(5).replace("-","/")+" 起）":""),where:"desk",live:false,paused:true};}
+  {const pz=pausedOf(id);if(pz)return{cat:"paused",text:(pz.why||"已暫停"),full:(pz.why||"已暫停")+(pz.since?"（"+String(pz.since).slice(5).replace("-","/")+" 起）":""),where:"desk",live:false,paused:true};}
   if(RM[id]&&RM[id].routine){
     /* 有 routine 的部門（公關／財會／音樂）：即時狀態 → 今日排程 → routine＋STATE 一行；沒有就「無狀態」 */
     const role=(RM[id].role||"");
@@ -125,7 +125,16 @@ function memberState(id){
   let since=NaN; if(r.where==="meeting"){const d=tpNow();since=Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate(),0,0)-8*3600e3+mm(o.meeting.from)*60000;}
   return{cat,text,full,where:r.where,live:false,since};
 }
+function bubbleTextWithoutLabel(label, text){
+  text=String(text==null?"":text).trim();
+  label=String(label==null?"":label).trim();
+  if(!label) return text;
+  if(text.startsWith(label)) text=text.slice(label.length).replace(/^\s*[·•.\-—]\s*/,"").trim();
+  if(text.endsWith(label)) text=text.slice(0,-label.length).replace(/[·•.\-—\s]+$/,"").trim();
+  return text;
+}
 function floorState(f){
+  const s=(function(f){
   if(!D) return{cat:"wait",label:"載入中",text:"資料讀取中"};
   if(f.id==="trade"){
     const tr=D&&D.trade||{}; const perf=tr.perf||{};
@@ -156,6 +165,9 @@ function floorState(f){
     if(o&&min>=mm(o.meeting.to))return{cat:"done",label:"完成",text:D.council?("裁決 "+D.council.verdicts.length+" 項"):"今日會議結束"};
     return{cat:"wait",label:"待命",text:"約 09:47 全員開會"};}
   return{cat:"done",label:"營業中",text:D.game.version+" 可玩"};
+  })(f);
+  const label=s.label||CAT[s.cat]||"";
+  return Object.assign({},s,{label,text:bubbleTextWithoutLabel(label,s.text)});
 }
 function nextStep(id){
   if(!D) return "";
@@ -233,8 +245,8 @@ function buildTower(){
       continue;
     }
     el.innerHTML=`<div class="room${f.id==="mz"?" room-iso room-iso-mz":""}" data-floor="${f.id}" style="background-image:url(assets/${f.room}.webp)"><canvas></canvas><div class="hits"></div>
-      <div class="plate"><span class="no">${f.no}</span>${iconSVG(f.id)}<span><span class="nm">${f.name}</span><span class="who">${esc(f.who)}</span></span></div>
-      <div class="bubble"><span class="dot"></span><b></b><span class="t"></span></div>
+      <div class="floor-chrome"><div class="plate"><span class="no">${f.no}</span>${iconSVG(f.id)}<span class="plate-txt"><span class="nm">${f.name}</span><span class="who">${esc(f.who)}</span></span></div>
+      <div class="bubble"><span class="dot"></span><b></b><span class="t"></span></div></div>
       <div class="fviz" aria-hidden="true"></div>
       ${f.id==="lobby"?'<div class="lobby-sign"><a class="btn play-link" target="_blank" rel="noopener" href="#">進入遊戲</a></div>':""}
       </div>`;
